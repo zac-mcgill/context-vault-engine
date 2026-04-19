@@ -15,7 +15,8 @@ This is not Obsidian-specific tooling. It operates on plain markdown files with 
 - **Analysis** — Produces seven structured analyses from metadata: completeness by domain, subdomain weak points, difficulty vs completeness, critical gaps (advanced + partial), section deficiency heatmap, structural balance, and a scored action list.
 - **Improvement** — Scores all partial notes by difficulty weight, missing section penalties, and domain priority. Outputs ranked upgrade tasks with per-note writing instructions and quality constraints.
 - **Reporting** — Generates a markdown report with executive summary, domain analysis, key insights, critical gaps, section deficiencies, and priority actions. Written to the vault's `Vault Files/` directory.
-- **API (MCP-based)** — Exposes structured knowledge signals (validation status, prioritised tasks, note metadata) for programmatic access and agent workflows.
+- **Template generation** — Derives canonical note templates directly from the schema (no manual templates).
+- **API (decision layer)** — Exposes validation status, prioritised tasks, gaps, and structured note metadata for programmatic and agent use.
 
 The system is designed to integrate with external content generation workflows, including LLM-assisted pipelines, while remaining fully deterministic in evaluation.
 
@@ -38,7 +39,28 @@ validate → analyse → improve → report
 The schema (`vault_schema.py`) lives inside the vault itself at `Vault Files/Scripts/vault_schema.py` and defines all enums, field lists, section maps, and derivation logic. It is the single source of truth — no other file duplicates these definitions.
 
 
-## API (Brain Interface)
+## Template System
+
+Templates are not manually authored.
+
+They are generated directly from `vault_schema.py`, which is the single source of truth for:
+
+- note structure
+- required sections
+- validation rules
+
+Generate templates with:
+
+```bash
+python run.py templates
+```
+
+This ensures all templates remain consistent with the schema.
+
+Manual template editing is not supported.
+
+
+## API (Decision Layer)
 
 The system includes an HTTP API (MCP-based) that exposes structured, deterministic knowledge signals.
 
@@ -46,16 +68,19 @@ This is not raw note access — it provides:
 
 - validation status
 - prioritised improvement tasks
+- gaps and coverage signals
 - structured note metadata
 
 ### Endpoints
 
 | Endpoint | Description |
 |--------|--------|
-| `/health` | Server status |
+| `/summary` | Overall vault state |
 | `/validation` | Schema validation result |
-| `/tasks` | Ranked improvement tasks |
+| `/tasks` | Prioritised improvement tasks |
 | `/tasks?limit=5` | Top N tasks |
+| `/tasks?limit=5&min_priority=2` | Filtered tasks |
+| `/gaps` | High-impact incomplete notes |
 | `/notes` | Structured note metadata |
 
 ### Example
@@ -84,6 +109,9 @@ The system enforces structure; generation is external.
 ```bash
 # Initialise
 python run.py init my-vault
+
+# Generate templates (recommended)
+python run.py templates
 
 # CLI pipeline
 python run.py validate
@@ -124,7 +152,7 @@ knowledge-system/
 │       ├── Vault Report.md         # Generated report output
 │       └── Scripts/
 │           └── vault_schema.py     # Single source of truth for schema
-├── mcp/                            # MCP server integration (reads config/config.yaml)
+├── mcp/                            # API server (MCP-based), reads config/config.yaml
 │   ├── core/
 │   │   ├── adapters/
 │   │   │   ├── validation_adapter.py
@@ -141,14 +169,6 @@ knowledge-system/
 │   ├── contract_check.py
 │   ├── requirements.txt
 │   └── test_verify.py
-└── scripts/                        # Standalone script wrappers
-    ├── analyse_vault.py
-    ├── compare_reports.py
-    ├── drift_check.py
-    ├── generate_report.py
-    ├── inject_frontmatter.py
-    ├── upgrade_vault.py
-    └── validate_vault.py
 ```
 
 
@@ -233,7 +253,10 @@ The server runs on `http://127.0.0.1:8000`.
 | `/validation` | GET | Schema validation result |
 | `/tasks` | GET | Ranked improvement tasks |
 | `/tasks?limit=N` | GET | Top N tasks |
+| `/tasks?min_priority=N` | GET | Filter tasks by priority threshold |
 | `/notes` | GET | Structured note metadata |
+| `/summary` | GET | Coverage and completeness overview |
+| `/gaps` | GET | High-impact incomplete notes |
 | `/vaults` | GET | List the active vault |
 | `/query` | POST | Query notes with filters |
 | `/note` | GET | Retrieve a single note |
@@ -249,24 +272,24 @@ The server runs on `http://127.0.0.1:8000`.
 - **Schema-aware** — validates notes against `vault_schema.py` at startup and periodically.
 
 
+## Agent Workflow Example
+
+The API supports closed-loop automation with external agents:
+
+1. `GET /tasks` — fetch prioritised upgrade tasks
+2. Select the highest priority task
+3. Generate or update the note content (external)
+4. `GET /validation` — confirm schema compliance
+5. Repeat
+
+Use `GET /summary` for coverage tracking and `GET /gaps` to target high-impact incomplete notes.
+
+See [examples/agent_loop.md](examples/agent_loop.md) for full details.
+
+
 ## Limitations
 
 - **Single demo vault** — ships with one vault (`demo-vault/`) containing 19 notes in a single domain. The tooling supports multi-domain vaults but the demo does not exercise this.
-- **Content generation model** — the system does not generate content itself. It provides constraints and prioritised tasks. Generation can be manual or handled by external models.
-
-  Content generation is external and intentionally decoupled.
-
-  This supports two workflows:
-
-  - **Manual authoring** — users write and refine notes based on system feedback  
-  - **LLM-assisted authoring** — external models (e.g. Copilot, ChatGPT) generate or improve notes using system-generated constraints and upgrade tasks  
-
-  This enables fully automated pipelines:
-
-  1. The system identifies gaps and prioritised improvements  
-  2. An external model generates or updates content  
-  3. The system re-validates and re-scores the result  
-
-  The system remains deterministic, while generation is flexible and composable.
+- **Content generation model** — the system does not generate content itself. It produces constraints, validation, and prioritised tasks. Content can be authored manually or generated via external tools.
 - **No watch mode** — the pipeline runs on demand. There is no file-watching or automatic re-validation.
 - **Python dependency** — requires Python 3.10+ and PyYAML.

@@ -5,14 +5,14 @@ Templates are GENERATED, not authored.
 vault_schema.py is the ONLY source of truth.
 
 Usage:
-    python generate_templates.py             Generate all templates
-    python generate_templates.py --dry-run   Preview changes without writing
+    python run.py templates             Generate all templates
+    python run.py templates --dry-run   Preview changes without writing
 
 Exit codes:
     0  All templates generated and validated
     1  HARD FAIL — schema mismatch, missing mapping, or validation error
 
-Python: 3.10+ (stdlib only)
+Python: 3.10+ (stdlib + pyyaml)
 """
 
 from __future__ import annotations
@@ -24,11 +24,14 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+import yaml
+
 # ============================================================================
 # CONSTANTS
 # ============================================================================
 
-VAULT_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
+CONFIG_PATH = REPO_ROOT / "config" / "config.yaml"
 SCHEMA_REL = Path("Vault Files") / "Scripts" / "vault_schema.py"
 TEMPLATE_REL = Path("Vault Files") / "Templates"
 
@@ -52,13 +55,35 @@ TYPE_TO_CONSTANT: dict[str, str] = {
 # HELPERS
 # ============================================================================
 
-def discover_vaults() -> list[Path]:
-    """Return sorted list of vault directories containing a vault_schema.py."""
-    vaults: list[Path] = []
-    for child in sorted(VAULT_ROOT.iterdir()):
-        if child.is_dir() and (child / SCHEMA_REL).is_file():
-            vaults.append(child)
-    return vaults
+def resolve_vault() -> Path:
+    """Resolve the active vault from config/config.yaml. Fail-fast on any issue."""
+    if not CONFIG_PATH.is_file():
+        print("HARD FAIL: config/config.yaml not found", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        with open(CONFIG_PATH, encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+    except yaml.YAMLError as exc:
+        print(f"HARD FAIL: invalid config/config.yaml: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    vault_rel = config.get("vault_root") if config else None
+    if not vault_rel:
+        print("HARD FAIL: config/config.yaml missing 'vault_root' key", file=sys.stderr)
+        sys.exit(1)
+
+    vault_path = (REPO_ROOT / vault_rel).resolve()
+    if not vault_path.is_dir():
+        print(f"HARD FAIL: vault directory not found: {vault_path}", file=sys.stderr)
+        sys.exit(1)
+
+    schema_path = vault_path / SCHEMA_REL
+    if not schema_path.is_file():
+        print(f"HARD FAIL: schema not found: {schema_path}", file=sys.stderr)
+        sys.exit(1)
+
+    return vault_path
 
 
 def load_schema(vault: Path) -> ModuleType:
@@ -303,7 +328,7 @@ def print_report(reports: list[dict[str, object]], *, dry_run: bool) -> None:
 # ENTRY POINT
 # ============================================================================
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="Generate canonical templates from vault_schema.py",
     )
@@ -314,18 +339,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    vaults = discover_vaults()
-    if not vaults:
-        print("HARD FAIL: no vaults found under", VAULT_ROOT, file=sys.stderr)
-        sys.exit(1)
-
-    reports: list[dict[str, object]] = []
-    for vault in vaults:
-        report = process_vault(vault, dry_run=args.dry_run)
-        reports.append(report)
-
-    print_report(reports, dry_run=args.dry_run)
+    vault = resolve_vault()
+    report = process_vault(vault, dry_run=args.dry_run)
+    print_report([report], dry_run=args.dry_run)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

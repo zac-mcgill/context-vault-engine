@@ -119,6 +119,7 @@ _request_count: int = 0
 _endpoint_counts: dict[str, int] = {}
 _response_times: deque[float] = deque(maxlen=10000)
 _metrics_lock = threading.Lock()
+_adapter_lock = threading.Lock()
 _shutting_down: bool = False
 
 
@@ -501,24 +502,27 @@ def _adapter_call(fn, *args, **kwargs):
     to resolve to the repo root core/ for core.shared imports. This
     temporarily removes conflicting entries so the adapter's importlib
     loads resolve correctly, then restores them.
+
+    Thread-safe: serialised via _adapter_lock.
     """
-    saved = {}
-    keys_to_clear = [k for k in sys.modules if k == "core" or k.startswith("core.")]
-    for k in keys_to_clear:
-        saved[k] = sys.modules.pop(k)
+    with _adapter_lock:
+        saved = {}
+        keys_to_clear = [k for k in sys.modules if k == "core" or k.startswith("core.")]
+        for k in keys_to_clear:
+            saved[k] = sys.modules.pop(k)
 
-    saved_cwd = os.getcwd()
+        saved_cwd = os.getcwd()
 
-    try:
-        return fn(*args, **kwargs)
-    finally:
-        os.chdir(saved_cwd)
-        # Clear any repo-level core modules the adapter loaded
-        for k in [k for k in sys.modules if k == "core" or k.startswith("core.")]:
-            if k not in saved:
-                sys.modules.pop(k, None)
-        # Restore MCP core modules
-        sys.modules.update(saved)
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            os.chdir(saved_cwd)
+            # Clear any repo-level core modules the adapter loaded
+            for k in [k for k in sys.modules if k == "core" or k.startswith("core.")]:
+                if k not in saved:
+                    sys.modules.pop(k, None)
+            # Restore MCP core modules
+            sys.modules.update(saved)
 
 
 @app.get("/validation")
@@ -533,18 +537,109 @@ def endpoint_validation():
         return _error("VALIDATION_FAILED", f"Validation failed: {exc}", 500)
 
 
+@app.get("/summary")
+def endpoint_summary():
+    """Aggregate vault-level decision signals."""
+    try:
+        result = _adapter_call(get_all_notes)
+        if "error" in result:
+            return _error("SUMMARY_FAILED", result["error"], 500)
+
+        notes = result["notes"]
+        total = len(notes)
+        complete = sum(1 for n in notes if n["status"] == "complete")
+        partial = total - complete
+        coverage = int((complete / total) * 100) if total > 0 else 0
+
+        return {
+            "total_notes": total,
+            "complete": complete,
+            "partial": partial,
+            "coverage": coverage,
+        }
+    except Exception as exc:
+        return _error("SUMMARY_FAILED", f"Summary failed: {exc}", 500)
+
+
+def _normalise_task(task: dict) -> dict:
+    """Transform a raw adapter task into a normalised decision-ready structure."""
+    missing = task.get("missing", [])
+    target = missing[0] if missing else ""
+    return {
+        "note": task["note"],
+        "priority": task["priority"],
+        "type": "missing_section",
+        "target": target,
+        "missing": missing,
+        "instruction": f"Add missing section: {target}" if target else "Review note",
+    }
+
+
 @app.get("/tasks")
 def endpoint_tasks(
     limit: int = Query(10, ge=1, description="Maximum number of tasks to return"),
+    min_priority: float = Query(None, description="Minimum priority threshold"),
 ):
-    """Return prioritised upgrade tasks."""
+    """Return prioritised upgrade tasks, optionally filtered by min_priority."""
     try:
-        result = _adapter_call(get_tasks, limit=limit)
+        # Fetch all tasks (no limit at adapter level when filtering)
+        result = _adapter_call(get_tasks, limit=9999)
         if "error" in result:
             return _error("TASKS_FAILED", result["error"], 500)
-        return result
+
+        tasks = result["tasks"]
+
+        # Filter by min_priority if provided
+        if min_priority is not None:
+            tasks = [t for t in tasks if t["priority"] >= min_priority]
+
+        # Sort descending by priority
+        tasks.sort(key=lambda t: t["priority"], reverse=True)
+
+        # Apply limit after filtering
+        tasks = tasks[:limit]
+
+        # Normalise
+        normalised = [_normalise_task(t) for t in tasks]
+
+        return {
+            "total": len(result["tasks"]),
+            "tasks": normalised,
+        }
     except Exception as exc:
         return _error("TASKS_FAILED", f"Tasks retrieval failed: {exc}", 500)
+
+
+@app.get("/gaps")
+def endpoint_gaps():
+    """Return high-impact incomplete notes (priority >= 2)."""
+    try:
+        result = _adapter_call(get_tasks, limit=9999)
+        if "error" in result:
+            return _error("GAPS_FAILED", result["error"], 500)
+
+        notes_result = _adapter_call(get_all_notes)
+        if "error" in notes_result:
+            return _error("GAPS_FAILED", notes_result["error"], 500)
+
+        partial_names = {
+            n["name"] for n in notes_result["notes"] if n["status"] == "partial"
+        }
+
+        gaps = []
+        for task in result["tasks"]:
+            if task["note"] in partial_names and task["priority"] >= 2:
+                gaps.append({
+                    "note": task["note"],
+                    "priority": task["priority"],
+                    "missing": task["missing"],
+                })
+
+        gaps.sort(key=lambda g: g["priority"], reverse=True)
+
+        return {"gaps": gaps}
+    except Exception as exc:
+        return _error("GAPS_FAILED", f"Gaps retrieval failed: {exc}", 500)
 
 
 @app.get("/notes")

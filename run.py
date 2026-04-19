@@ -14,7 +14,17 @@ COMMANDS = {
     "improve": "core.shared.upgrade_vault",
 }
 
-USAGE = "Usage: python run.py [validate|analyse|improve|report|init <vault-name>]"
+USAGE = """\
+Usage: python run.py <command>
+
+Commands:
+  init <vault>   Create a new vault from the demo template
+  validate       Check all notes against the vault schema
+  analyse        Run seven structured analyses on vault metadata
+  improve        Generate prioritised upgrade tasks
+  report         Generate a markdown report
+  templates      Generate canonical templates from vault schema
+                 Use --dry-run to preview without writing"""
 
 
 def _init_vault(repo_root: Path) -> None:
@@ -88,19 +98,50 @@ def main():
 
     repo_root = Path(__file__).resolve().parent
 
+    if command == "help":
+        print(USAGE)
+        return
+
     if command == "init":
         _init_vault(repo_root)
         return
 
+    if command == "templates":
+        sys.argv = [sys.argv[0]] + sys.argv[2:]
+        from core.generate_templates import main as templates_main
+        raise SystemExit(templates_main())
+
     if command not in COMMANDS:
+        print(f"Error: unknown command '{command}'")
         print(USAGE)
         raise SystemExit(1)
 
-    with open(repo_root / "config" / "config.yaml") as f:
-        config = yaml.safe_load(f)
+    config_path = repo_root / "config" / "config.yaml"
+    if not config_path.is_file():
+        print("Error: config/config.yaml not found")
+        raise SystemExit(1)
 
-    vault_root = (repo_root / config["vault_root"]).resolve()
+    try:
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+    except yaml.YAMLError as exc:
+        print(f"Error: invalid config/config.yaml: {exc}")
+        raise SystemExit(1)
+
+    vault_rel = config.get("vault_root") if config else None
+    if not vault_rel:
+        print("Error: config/config.yaml missing 'vault_root' key")
+        raise SystemExit(1)
+
+    vault_root = (repo_root / vault_rel).resolve()
+    if not vault_root.is_dir():
+        print(f"Error: vault directory not found: {vault_root}")
+        raise SystemExit(1)
+
     scripts_dir = vault_root / "Vault Files" / "Scripts"
+    if not scripts_dir.is_dir():
+        print(f"Error: vault scripts directory not found: {scripts_dir}")
+        raise SystemExit(1)
 
     sys.path.insert(0, str(repo_root))
     os.chdir(scripts_dir)

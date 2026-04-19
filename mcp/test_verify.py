@@ -26,12 +26,7 @@ def test_basic_functionality():
     """Sanity check: all vaults load and index correctly."""
     print("=== Test 1: Basic Functionality ===")
     vaults = list_vaults()
-    expected = {
-        "Core Engineering", "Cyber Security", "Databases", "Foundations",
-        "Integration", "Mathematics for Computing", "Networking",
-        "Operations", "Systems", "Tooling",
-    }
-    assert set(vaults) == expected, f"Unexpected: {vaults}"
+    assert len(vaults) > 0, "No vaults configured"
     print(f"  Vaults: {vaults}")
 
     for v in vaults:
@@ -116,6 +111,7 @@ def test_pagination_stable():
 def test_path_traversal_blocked():
     """Path traversal attempts are rejected."""
     print("\n=== Test 6: Path Traversal Blocked ===")
+    vault = list_vaults()[0]
     attacks = [
         "../../../etc/passwd",
         "..\\..\\..\\Windows\\System32\\config\\SAM",
@@ -123,7 +119,7 @@ def test_path_traversal_blocked():
         "%2e%2e%2f%2e%2e%2fetc%2fpasswd",
     ]
     for path in attacks:
-        result = get_note("Cyber Security", path)
+        result = get_note(vault, path)
         assert result["status"] == "error", f"Should block: {path}"
         assert result["error"]["code"] == "PATH_TRAVERSAL", f"Wrong code for: {path}"
         print(f"  Blocked: {path}")
@@ -132,12 +128,13 @@ def test_path_traversal_blocked():
 def test_strict_mode():
     """Strict mode rejects unknown fields; non-strict ignores them."""
     print("\n=== Test 7: Strict Mode ===")
+    vault = list_vaults()[0]
 
-    result = query("Cyber Security", {"fake_field": "value"}, strict=False)
+    result = query(vault, {"fake_field": "value"}, strict=False)
     assert result["status"] == "ok", "Non-strict should succeed"
     print(f"  Non-strict with unknown field: ok ({result['count']} results)")
 
-    result = query("Cyber Security", {"fake_field": "value"}, strict=True)
+    result = query(vault, {"fake_field": "value"}, strict=True)
     assert result["status"] == "error", "Strict should reject"
     assert result["error"]["code"] == "INVALID_FIELDS"
     print(f"  Strict with unknown field: rejected ({result['error']['message']})")
@@ -146,13 +143,14 @@ def test_strict_mode():
 def test_limit_and_timeout():
     """Large queries respect limit; max limit is clamped."""
     print("\n=== Test 8: Limit + Timeout ===")
+    vault = list_vaults()[0]
 
-    result = query("Cyber Security", {}, limit=5)
+    result = query(vault, {}, limit=5)
     assert result["returned"] <= 5, f"Returned {result['returned']} > limit 5"
     assert result["limit"] == 5
-    print(f"  Cyber Security: {result['count']} total, {result['returned']} returned (limit=5)")
+    print(f"  {vault}: {result['count']} total, {result['returned']} returned (limit=5)")
 
-    result = query("Cyber Security", {}, limit=9999)
+    result = query(vault, {}, limit=9999)
     assert result["limit"] == 500, f"Limit not clamped: {result['limit']}"
     print(f"  Limit clamped to 500: ok")
 
@@ -160,25 +158,26 @@ def test_limit_and_timeout():
 def test_typed_responses():
     """All responses follow the typed contract."""
     print("\n=== Test 9: Typed Response Contract ===")
+    vault = list_vaults()[0]
 
-    result = list_notes("Cyber Security", limit=1)
+    result = list_notes(vault, limit=1)
     assert result["status"] == "ok"
     for key in ("count", "returned", "offset", "limit", "results"):
         assert key in result, f"Missing key: {key}"
     print(f"  list_notes: ok, has pagination keys")
 
     first_path = result["results"][0]["path"]
-    result = get_note("Cyber Security", first_path)
+    result = get_note(vault, first_path)
     assert result["status"] == "ok"
     assert "data" in result
     print(f"  get_note: ok, has data")
 
-    result = aggregate("Cyber Security", "type")
+    result = aggregate(vault, "type")
     assert result["status"] == "ok"
     assert "data" in result
     print(f"  aggregate: ok, has data")
 
-    result = get_note("Cyber Security", "../escape")
+    result = get_note(vault, "../escape")
     assert result["status"] == "error"
     assert "error" in result
     assert "code" in result["error"]
@@ -187,14 +186,15 @@ def test_typed_responses():
 
 
 def test_cross_vault_queries():
-    """Cross-vault aggregate works with typed response format."""
-    print("\n=== Test 10: Cross-vault Queries ===")
+    """Aggregate works with typed response format across all vaults."""
+    print("\n=== Test 10: Vault Queries ===")
+    vault = list_vaults()[0]
     for v in list_vaults():
         result = aggregate(v, "type")
         assert result["status"] == "ok"
         print(f"  {v} type distribution: {result['data']['stats']}")
 
-    result = aggregate("Cyber Security", "nonexistent")
+    result = aggregate(vault, "nonexistent")
     assert result["status"] == "error"
     assert result["error"]["code"] == "INVALID_FIELD"
     print(f"  aggregate unknown field: correctly rejected")
@@ -230,7 +230,7 @@ def test_rate_limiter():
 def test_schema_refresh_cooldown():
     """Phase 2: Rapid schema checks are suppressed by cooldown."""
     print("\n=== Test 12: Schema Refresh Cooldown ===")
-    vault = "Cyber Security"
+    vault = list_vaults()[0]
 
     # Build initial index
     build_index(vault)

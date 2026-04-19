@@ -52,3 +52,36 @@ python run.py report
 | `python run.py init <name>` | Creates a new vault by copying the demo vault, removes generated files, and updates configuration automatically. |
 
 `validate`, `analyse`, and `improve` are read-only — they never modify files. `report` writes one markdown file.
+
+---
+
+## 4. MCP Server (Optional)
+
+The MCP server exposes a read-only API over your active vault. It reads `config/config.yaml` automatically — no additional configuration is required.
+
+### Requirements
+
+```bash
+pip install fastapi uvicorn pyyaml
+```
+
+### Start
+
+```bash
+python mcp/server/mcp_server.py
+```
+
+The server starts on `http://127.0.0.1:8000` and automatically loads whichever vault is set in `config/config.yaml`.
+
+### Endpoints
+
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/vaults` | GET | List the active vault |
+| `/query` | POST | Query notes with filters |
+| `/note` | GET | Retrieve a single note |
+| `/stats` | GET | Aggregate a field across the vault |
+| `/health` | GET | Server health and metrics |
+| `/contract` | GET | Run system contract checks |
+
+No manual config edits are needed. After `python run.py init my-vault`, the MCP server will serve the new vault automatically.

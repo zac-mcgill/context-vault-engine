@@ -2,22 +2,24 @@
 Vault registry — loads config, resolves paths, caches schemas.
 
 Single source of truth for vault name → path → schema mappings.
+Reads the active vault from config/config.yaml (shared with run.py).
 """
 
-import json
+import yaml
 from pathlib import Path
 from types import ModuleType
 
 from core.schema_loader import load_schema
 
-_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "vaults.json"
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+_CONFIG_PATH = _REPO_ROOT / "config" / "config.yaml"
 
 _vaults: dict[str, Path] = {}
 _schemas: dict[str, ModuleType] = {}
 
 
 def _load_config() -> None:
-    """Parse vaults.json and validate that all paths exist."""
+    """Parse config.yaml and resolve the active vault."""
     global _vaults
 
     if _vaults:
@@ -27,15 +29,21 @@ def _load_config() -> None:
         raise FileNotFoundError(f"Config not found: {_CONFIG_PATH}")
 
     with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        data = yaml.safe_load(f)
 
-    for name, raw_path in data["vaults"].items():
-        p = Path(raw_path)
-        if not p.is_absolute():
-            p = (_CONFIG_PATH.parent.parent.parent / raw_path).resolve()
-        if not p.is_dir():
-            raise FileNotFoundError(f"Vault directory not found: {p} (vault={name!r})")
-        _vaults[name] = p
+    vault_root = data.get("vault_root")
+    if not vault_root:
+        raise ValueError(f"config.yaml missing 'vault_root': {_CONFIG_PATH}")
+
+    p = Path(vault_root)
+    if not p.is_absolute():
+        p = (_REPO_ROOT / vault_root).resolve()
+
+    if not p.is_dir():
+        raise FileNotFoundError(f"Vault directory not found: {p}")
+
+    vault_name = p.name
+    _vaults[vault_name] = p
 
 
 def list_vaults() -> list[str]:

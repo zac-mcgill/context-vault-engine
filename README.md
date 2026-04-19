@@ -85,7 +85,7 @@ knowledge-system/
 │       ├── Vault Report.md         # Generated report output
 │       └── Scripts/
 │           └── vault_schema.py     # Single source of truth for schema
-├── mcp/                            # MCP server integration
+├── mcp/                            # MCP server integration (reads config/config.yaml)
 │   ├── config/
 │   │   └── vaults.json
 │   ├── core/
@@ -159,6 +159,39 @@ All derivation and validation logic is pure. Given the same vault state, every c
 ### Improvement cycle
 
 The system implements a closed-loop improvement cycle: **validate** confirms structural integrity, **analyse** identifies where gaps exist, **improve** produces specific writing tasks ranked by impact, and **report** captures the current state. After manually addressing the highest-priority tasks, rerunning the pipeline surfaces the next set of targets.
+
+## MCP Integration
+
+The MCP server provides a read-only HTTP API over the active vault. It is optional and requires no configuration beyond what `run.py init` already sets up.
+
+### How It Works
+
+The MCP server reads `config/config.yaml` — the same file used by the CLI pipeline. Whichever vault is configured as `vault_root` is automatically loaded, indexed, and served. After running `python run.py init my-vault`, the MCP server will serve `my-vault` with no additional steps.
+
+### Usage
+
+Install the MCP dependencies (in addition to PyYAML):
+
+```bash
+pip install fastapi uvicorn
+```
+
+Start the server:
+
+```bash
+python mcp/server/mcp_server.py
+```
+
+The server runs on `http://127.0.0.1:8000` and exposes endpoints for listing vaults, querying notes, retrieving individual notes, aggregating fields, health checks, and contract verification.
+
+### Key Properties
+
+- **Zero config** — reads `config/config.yaml` automatically, no manual edits required.
+- **Single active vault** — serves whichever vault the CLI is configured to use.
+- **Read-only** — no vault data is modified through the API.
+- **Init compatible** — after `python run.py init <name>`, the server immediately serves the new vault.
+- **Schema-aware** — validates notes against `vault_schema.py` at startup and periodically.
+
 
 ## Limitations
 

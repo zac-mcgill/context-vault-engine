@@ -33,12 +33,14 @@ discover_files = None
 parse_yaml_frontmatter = None
 read_file_safe = None
 DOMAIN_PRIORITY_WEIGHT = None
+TRACKED_SECTIONS = None
 
 
 def _bind(vault_path: Path) -> None:
     """Load schema and bind all module-level globals."""
     global VALID_DIFFICULTIES, VAULT_ROOT, discover_files
     global parse_yaml_frontmatter, read_file_safe, DOMAIN_PRIORITY_WEIGHT
+    global TRACKED_SECTIONS
 
     _schema = _load_schema(vault_path)
     VALID_DIFFICULTIES = _schema.VALID_DIFFICULTIES
@@ -47,6 +49,7 @@ def _bind(vault_path: Path) -> None:
     parse_yaml_frontmatter = _schema.parse_yaml_frontmatter
     read_file_safe = _schema.read_file_safe
     DOMAIN_PRIORITY_WEIGHT = _schema.DOMAIN_PRIORITY_WEIGHT
+    TRACKED_SECTIONS = _schema.TRACKED_SECTIONS
 
 # ============================================================================
 # DATA LOADING
@@ -343,25 +346,26 @@ def analysis_4_critical_gaps(records: list[dict]) -> None:
 
 
 def analysis_5_section_deficiency_heatmap(records: list[dict]) -> None:
-    """Missing boolean sections by domain."""
+    """Missing tracked sections by domain — driven by TRACKED_SECTIONS from schema."""
     print("=" * 72)
     print("ANALYSIS 5 \u2014 SECTION DEFICIENCY HEATMAP")
     print("=" * 72)
     print()
 
-    fields = [
-        ("has_key_principles", "Key Principles"),
-        ("has_how_it_works", "How It Works"),
-        ("has_tradeoffs", "Trade-offs"),
-    ]
+    fields = list(TRACKED_SECTIONS)  # list of (yaml_key, label)
 
-    # Only core-concept notes have these fields
+    if not fields:
+        print("  No tracked sections defined in this vault schema.")
+        print("  (TRACKED_SECTIONS is empty \u2014 skipping heatmap.)")
+        print()
+        return
+
+    # Only core-concept notes carry these boolean fields
     core = [r for r in records if r.get("type") == "core-concept"]
+    total_core = len(core)
 
     # Global counts
     global_missing: dict[str, int] = {label: 0 for _, label in fields}
-    total_core = len(core)
-
     for r in core:
         for field, label in fields:
             if r.get(field) is not True:
@@ -385,54 +389,44 @@ def analysis_5_section_deficiency_heatmap(records: list[dict]) -> None:
     ))
     print()
 
-    # Per-domain breakdown
-    domain_stats: dict[str, dict[str, dict[str, int]]] = {}
+    if not core:
+        print("  No core-concept notes \u2014 per-domain breakdown not available.")
+        print()
+        return
+
+    # Per-domain breakdown \u2014 dynamic columns from TRACKED_SECTIONS
+    domain_missing: dict[str, dict[str, int]] = {}
+    domain_total: dict[str, int] = {}
     for r in core:
         dom = r.get("domain", "unknown")
-        if dom not in domain_stats:
-            domain_stats[dom] = {
-                "total": 0,
-                "missing_kp": 0,
-                "missing_hw": 0,
-                "missing_to": 0,
-            }
-        domain_stats[dom]["total"] += 1
-        if r.get("has_key_principles") is not True:
-            domain_stats[dom]["missing_kp"] += 1
-        if r.get("has_how_it_works") is not True:
-            domain_stats[dom]["missing_hw"] += 1
-        if r.get("has_tradeoffs") is not True:
-            domain_stats[dom]["missing_to"] += 1
+        if dom not in domain_missing:
+            domain_missing[dom] = {label: 0 for _, label in fields}
+            domain_total[dom] = 0
+        domain_total[dom] += 1
+        for field, label in fields:
+            if r.get(field) is not True:
+                domain_missing[dom][label] += 1
 
     print("  PER DOMAIN:")
     print()
 
+    short_labels = [label[:10] for _, label in fields]
+    headers_d = ["Domain", "Notes"] + [f"No {sl}" for sl in short_labels] + ["Total Gaps"]
     rows_d: list[list[str]] = []
-    for dom in sorted(domain_stats):
-        s = domain_stats[dom]
-        t = s["total"]
-        rows_d.append([
-            dom,
-            str(t),
-            f"{s['missing_kp']}",
-            f"{s['missing_hw']}",
-            f"{s['missing_to']}",
-            str(s["missing_kp"] + s["missing_hw"] + s["missing_to"]),
-        ])
+    for dom in sorted(domain_missing):
+        t = domain_total[dom]
+        per_section = [str(domain_missing[dom][label]) for _, label in fields]
+        total_gaps = sum(domain_missing[dom][label] for _, label in fields)
+        rows_d.append([dom, str(t)] + per_section + [str(total_gaps)])
 
-    print(table(
-        ["Domain", "Notes", "No KeyPrin", "No HowWork", "No Tradeoff", "Total Gaps"],
-        rows_d,
-        align=["l", "r", "r", "r", "r", "r"],
-    ))
+    print(table(headers_d, rows_d, align=["l", "r"] + ["r"] * (len(fields) + 1)))
     print()
 
-    # Insight: which domain \u00d7 section combos are worst
+    # Insight: worst domain \u00d7 section pairs
     worst_pairs: list[tuple[int, str, str]] = []
-    for dom, s in domain_stats.items():
-        worst_pairs.append((s["missing_kp"], dom, "Key Principles"))
-        worst_pairs.append((s["missing_hw"], dom, "How It Works"))
-        worst_pairs.append((s["missing_to"], dom, "Trade-offs"))
+    for dom, section_counts in domain_missing.items():
+        for label, count in section_counts.items():
+            worst_pairs.append((count, dom, label))
     worst_pairs.sort(reverse=True)
 
     print("  \u25b8 Worst domain\u00d7section gaps:")

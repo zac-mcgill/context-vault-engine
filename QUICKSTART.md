@@ -13,17 +13,44 @@ pip install -r requirements.txt
 
 ---
 
-## 2. Initialise a Vault
+## 2. Create a Custom Vault (Recommended)
+
+```bash
+py run.py bootstrap
+```
+
+You will be prompted for:
+
+- domain name (e.g. `Dogs`)
+- note type slug (e.g. `breed-profile`)
+- canonical sections (comma-separated, minimum 2)
+
+This generates:
+
+- a fully valid vault under `<domain-slug>-vault/`
+- a domain-specific `vault_schema.py`
+- matching canonical templates
+- updated `config/config.yaml`
+
+After this, the system is ready:
+
+```bash
+py run.py validate
+```
+
+---
+
+## 3. Initialise Demo Vault (Optional)
 
 ```bash
 py run.py init my-vault
 ```
 
-This creates a fully valid vault and updates configuration automatically.
+This copies the predefined demo schema (19 core-concept notes, `fundamentals` domain). Use this to explore the system with an existing dataset. For a clean start with your own domain, use `bootstrap` instead.
 
 ---
 
-## 3. Generate Templates (Optional but Recommended)
+## 4. Generate Templates (Optional but Recommended)
 
 ```bash
 py run.py templates
@@ -33,7 +60,7 @@ Templates are derived from the schema and ensure structural consistency.
 
 ---
 
-## 4. Run the Pipeline
+## 5. Run the Pipeline
 
 ```bash
 py run.py validate
@@ -44,7 +71,7 @@ py run.py report
 
 ---
 
-## 5. Start API Server (Optional)
+## 6. Start API Server (Optional)
 
 ```bash
 py mcp/server/mcp_server.py
@@ -52,7 +79,7 @@ py mcp/server/mcp_server.py
 
 ---
 
-## 6. Query the System
+## 7. Query the System
 
 * http://127.0.0.1:8000/summary
 * http://127.0.0.1:8000/validation

@@ -135,7 +135,11 @@ def load_all(root: Path) -> list[dict]:
     records: list[dict] = []
     for filepath in discover_files(root):
         content = read_file_safe(filepath)
-        fields, body = parse_yaml_frontmatter(content)
+        try:
+            fields, body = parse_yaml_frontmatter(content)
+        except ValueError as exc:
+            print(f"  WARN: {filepath.relative_to(root)} — {exc}")
+            continue
         if fields is None:
             continue
         fields["_path"] = str(filepath.relative_to(root))

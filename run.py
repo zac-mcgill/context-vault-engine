@@ -33,6 +33,7 @@ Usage: {_PYTHON_CMD} run.py <command>
 
 Commands:
   init <vault>   Create a new vault from the demo template
+  bootstrap      Create a blank vault with a custom schema interactively
   validate       Check all notes against the vault schema
   analyse        Run seven structured analyses on vault metadata
   improve        Generate prioritised upgrade tasks
@@ -124,6 +125,10 @@ def main():
         sys.argv = [sys.argv[0]] + sys.argv[2:]
         from core.generate_templates import main as templates_main
         raise SystemExit(templates_main())
+
+    if command == "bootstrap":
+        from core.bootstrap_vault import main as bootstrap_main
+        raise SystemExit(bootstrap_main(repo_root))
 
     if command not in COMMANDS:
         print(f"Error: unknown command '{command}'")

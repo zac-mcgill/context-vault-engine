@@ -5,7 +5,7 @@
 
 A schema-driven markdown knowledge base with deterministic validation, analysis, and improvement tooling. Every note in the vault carries structured YAML frontmatter governed by a single authoritative schema (`vault_schema.py`). Python scripts enforce that schema, analyse completeness, and generate prioritised upgrade tasks — all without manual judgement calls.
 
-Includes a built-in vault initialisation command for rapid setup.
+Supports user-defined domains via a `bootstrap` command that generates a complete schema and templates for any domain. The system is domain-agnostic — all validation, analysis, and reporting behaviour is derived from the active `vault_schema.py`, not hardcoded assumptions.
 
 This is not Obsidian-specific tooling. It operates on plain markdown files with YAML frontmatter. Any editor or vault structure that follows the schema conventions will work.
 
@@ -19,14 +19,15 @@ These properties are enforced at runtime and have been verified through fault in
 - **Invalid files are always surfaced.** Files that fail validation are excluded from analysis and reporting, but are always identified with explicit warnings. The system never silently drops invalid data.
 - **Report insights are derived strictly from computed data.** No narrative is hardcoded. Every statement in the generated report is produced from the actual metadata of the vault being analysed.
 - **CLI adapts to the environment.** The `run.py` entry point automatically detects the correct Python executable (`py` on Windows, `python3` elsewhere). All printed instructions reflect the actual runtime command.
+- **No hardcoded domain or section assumptions.** All behaviour is schema-driven. Canonical sections, required fields, and tracked section names are read from the active `vault_schema.py` at runtime.
 
 ## What It Does
 
-- **Validation** — Checks every note against the schema using strict YAML parsing. Fails on: missing YAML frontmatter, malformed YAML, missing required fields, enum violations, and structural section gaps. Reports pass/fail per file with the specific error. Invalid files are never silently ignored — they either fail validation or are surfaced with explicit warnings in downstream commands.
-- **Analysis** — Produces seven structured analyses from metadata: completeness by domain, subdomain weak points, difficulty vs completeness, critical gaps (advanced + partial), section deficiency heatmap, structural balance, and a scored action list. Files that fail validation are excluded but always reported with explicit warnings.
+- **Validation** — Checks every note against the schema using strict YAML parsing. Fails on: missing YAML frontmatter, malformed YAML, missing required fields, enum violations, and structural section gaps. Reports pass/fail per file with the specific error. Invalid files are never silently ignored — they either fail validation or are surfaced with explicit warnings in downstream commands. Validation is schema-driven and domain-agnostic — all rules are derived from the active `vault_schema.py`, including canonical sections and required fields.
+- **Analysis** — Produces seven structured analyses from metadata: completeness by domain, subdomain weak points, difficulty vs completeness, critical gaps (advanced + partial), section deficiency heatmap, structural balance, and a scored action list. Files that fail validation are excluded but always reported with explicit warnings. All analyses dynamically adapt to the schema — section deficiency heatmaps and task scoring operate on the schema's defined sections, not fixed assumptions.
 - **Improvement** — Scores all partial notes by difficulty weight, missing section penalties, and domain priority. Outputs ranked upgrade tasks with per-note writing instructions and quality constraints.
 - **Reporting** — Generates a markdown report with executive summary, domain analysis, key insights, critical gaps, section deficiencies, and priority actions. Written to the vault's `Vault Files/` directory. All insights are derived from computed data — no hardcoded narrative.
-- **Template generation** — Derives canonical note templates directly from the schema (no manual templates).
+- **Template generation** — Derives canonical note templates directly from the schema (no manual templates). Templates are generated from the active schema, including schemas created via bootstrap. No assumptions about section names are hardcoded.
 - **API (decision layer)** — Exposes validation status, prioritised tasks, gaps, and structured note metadata for programmatic and agent use.
 
 The system is designed to integrate with external content generation workflows, including LLM-assisted pipelines, while remaining fully deterministic in evaluation.
@@ -48,6 +49,32 @@ validate → analyse → improve → report
 4. **report** assembles the analysis into a single markdown file (`Vault Report.md`) written to the vault's `Vault Files/` directory. The report includes all major metrics and is suitable for portfolio presentation.
 
 The schema (`vault_schema.py`) lives inside the vault itself at `Vault Files/Scripts/vault_schema.py` and defines all enums, field lists, section maps, and derivation logic. It is the single source of truth — no other file duplicates these definitions.
+
+
+## Bootstrap (Custom Domains)
+
+The system supports user-defined domains via:
+
+```bash
+py run.py bootstrap
+```
+
+This interactive command:
+
+- creates a new vault
+- generates a complete `vault_schema.py` for the specified domain and note type
+- generates matching canonical templates
+- configures the system automatically
+
+After bootstrap, the system behaves identically to the demo vault:
+
+```text
+validate → analyse → improve → report
+```
+
+All validation remains strict. Bootstrap only defines the schema — it does not relax enforcement.
+
+**Current limitation:** the bootstrap command supports one note type per vault. Multi-type schemas may be added in future iterations.
 
 
 ## Template System

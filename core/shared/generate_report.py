@@ -282,12 +282,18 @@ def section_domain_analysis(records: list[dict]) -> str:
             pct(s["complete"], s["total"]),
         ])
 
-    weakest_name, weakest_s = ranked[0]
-    strongest_name, strongest_s = ranked[-1]
-
     lines: list[str] = []
     lines.append("## Domain Analysis")
     lines.append("")
+
+    if not ranked:
+        lines.append("*No domain data available.*")
+        lines.append("")
+        return "\n".join(lines)
+
+    weakest_name, weakest_s = ranked[0]
+    strongest_name, strongest_s = ranked[-1]
+
     lines.append(md_table(
         ["Domain", "Total", "Complete", "Partial", "Completion"],
         rows,
@@ -437,20 +443,29 @@ def section_critical_gaps(records: list[dict]) -> str:
 
 def section_deficiencies(records: list[dict]) -> str:
     """Section 5: Section Deficiencies."""
-    gaps = section_gaps(records)
+    gaps = section_gaps(records)  # keys are labels from TRACKED_SECTIONS
     core_count = sum(1 for r in records if r.get("type") == "core-concept")
 
+    lines: list[str] = []
+    lines.append("## Section Deficiencies")
+    lines.append("")
+
+    if not gaps:
+        lines.append(
+            "*No tracked sections defined for this vault type. "
+            "Section deficiency analysis is only available for vaults that "
+            "define `TRACKED_SECTIONS` in their schema.*"
+        )
+        lines.append("")
+        return "\n".join(lines)
+
     rows: list[list[str]] = []
-    for label in ["Key Principles", "How It Works", "Trade-offs"]:
-        miss = gaps.get(label, 0)
+    for label, miss in gaps.items():
         present = core_count - miss
         rows.append([label, str(miss), pct(present, core_count)])
 
     total_missing = sum(gaps.values())
 
-    lines: list[str] = []
-    lines.append("## Section Deficiencies")
-    lines.append("")
     lines.append(md_table(
         ["Section", "Missing", "Coverage"],
         rows,
@@ -608,7 +623,10 @@ def main(vault_path: Path | None = None) -> None:
     total = len(records)
     complete = sum(1 for r in records if r.get("status") == "complete")
     print(f"Report generated: {out_path.name}")
-    print(f"  {total} notes analysed, {complete} complete ({100 * complete // total}%)")
+    if total > 0:
+        print(f"  {total} notes analysed, {complete} complete ({100 * complete // total}%)")
+    else:
+        print(f"  0 notes analysed")
     print(f"  {len(report)} characters, {report.count(chr(10))} lines")
 
 

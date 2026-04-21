@@ -61,12 +61,22 @@ DEFAULT_OUTPUT = "Vault Report.md"
 
 
 def load_all(root: Path) -> list[dict]:
-    """Load metadata + relative path for every content file."""
+    """Load metadata + relative path for every content file.
+
+    Files with missing or malformed YAML frontmatter are skipped with an
+    explicit warning printed to stdout so the operator is never silently
+    misled by a reduced file count.
+    """
     records: list[dict] = []
     for filepath in discover_files(root):
         content = read_file_safe(filepath)
-        fields, _ = parse_yaml_frontmatter(content)
+        try:
+            fields, _ = parse_yaml_frontmatter(content)
+        except ValueError as exc:
+            print(f"  WARN: {filepath.relative_to(root)} — {exc}")
+            continue
         if fields is None:
+            print(f"  WARN: {filepath.relative_to(root)} — Missing or invalid YAML frontmatter (file skipped)")
             continue
         fields["_path"] = str(filepath.relative_to(root))
         records.append(fields)
@@ -344,14 +354,22 @@ def section_key_insights(records: list[dict]) -> str:
             f"making them the primary improvement targets."
         )
 
-    # Insight 3: Trade-offs dominance
-    to_missing = gaps.get("Trade-offs", 0)
-    hw_missing = gaps.get("How It Works", 0)
-    insights.append(
-        f"Trade-offs is the most commonly missing section ({to_missing} notes), "
-        f"followed by How It Works ({hw_missing}). "
-        f"This suggests a pattern of capturing definitions without analysing practical implications."
-    )
+    # Insight 3: Most-missing section (computed dynamically)
+    sorted_gaps = sorted(gaps.items(), key=lambda kv: -kv[1])
+    if sorted_gaps:
+        top_label, top_count = sorted_gaps[0]
+        if len(sorted_gaps) >= 2:
+            second_label, second_count = sorted_gaps[1]
+            insights.append(
+                f"**{top_label}** is the most commonly missing section "
+                f"({top_count} notes), followed by **{second_label}** "
+                f"({second_count} notes)."
+            )
+        else:
+            insights.append(
+                f"**{top_label}** is the most commonly missing section "
+                f"({top_count} notes)."
+            )
 
     # Insight 4: Critical concentration
     crit_domains: dict[str, int] = {}
@@ -439,13 +457,18 @@ def section_deficiencies(records: list[dict]) -> str:
         align=["l", "r", "r"],
     ))
     lines.append("")
-    lines.append(
-        f"**{total_missing} total section gaps** across {core_count} core-concept notes. "
-        f"Trade-offs sections are the most frequently absent, indicating that notes "
-        f"capture *what* a concept is but often omit *when and why* to apply it. "
-        f"How It Works gaps suggest missing mechanistic depth \u2014 definitions are present "
-        f"but operational understanding is incomplete."
-    )
+    if total_missing == 0:
+        lines.append(
+            f"**No section gaps** detected across {core_count} core-concept notes."
+        )
+    else:
+        most_absent_label = max(gaps, key=lambda k: gaps[k])
+        most_absent_count = gaps[most_absent_label]
+        lines.append(
+            f"**{total_missing} total section gap(s)** across {core_count} core-concept notes. "
+            f"**{most_absent_label}** is the most frequently absent "
+            f"({most_absent_count} of {core_count} notes)."
+        )
     lines.append("")
     return "\n".join(lines)
 
@@ -504,7 +527,7 @@ def section_system_description(records: list[dict]) -> str:
     lines.append(
         "**Validation layer** \u2014 `validate_vault.py` checks every note against "
         "the schema: field presence, enum membership, derivation correctness, "
-        f"and section-boolean consistency. All {len(records)} notes pass validation."
+        f"and section-boolean consistency across all {len(records)} loaded notes."
     )
     lines.append("")
     lines.append(

@@ -23,6 +23,7 @@ from core.shared import load_schema as _load_schema, _resolve_vault_path
 ALL_KNOWN_FIELDS = None
 CORE_CONCEPT_FIELDS = None
 CORE_CONCEPT_FIELDS_WITH_TOPIC = None
+MIN_SECTION_CONTENT_CHARS = None
 OPTIONAL_SECTION_MAP = None
 PATTERN_TECHNIQUE_FIELDS = None
 SECTION_MAP = None
@@ -49,7 +50,7 @@ read_file_safe = None
 def _bind(vault_path: Path) -> None:
     """Load schema and bind all module-level globals. Must be called before use."""
     global ALL_KNOWN_FIELDS, CORE_CONCEPT_FIELDS, CORE_CONCEPT_FIELDS_WITH_TOPIC
-    global OPTIONAL_SECTION_MAP, PATTERN_TECHNIQUE_FIELDS, SECTION_MAP
+    global MIN_SECTION_CONTENT_CHARS, OPTIONAL_SECTION_MAP, PATTERN_TECHNIQUE_FIELDS, SECTION_MAP
     global VALID_DIFFICULTIES, VALID_DOMAINS, VALID_STATUSES, VALID_SUBDOMAINS
     global VALID_TOPICS, VALID_TYPES, VAULT_ROOT
     global derive_difficulty, derive_domain, derive_subdomain, derive_topic, derive_type
@@ -61,6 +62,7 @@ def _bind(vault_path: Path) -> None:
     ALL_KNOWN_FIELDS = _schema.ALL_KNOWN_FIELDS
     CORE_CONCEPT_FIELDS = _schema.CORE_CONCEPT_FIELDS
     CORE_CONCEPT_FIELDS_WITH_TOPIC = _schema.CORE_CONCEPT_FIELDS_WITH_TOPIC
+    MIN_SECTION_CONTENT_CHARS = _schema.MIN_SECTION_CONTENT_CHARS
     OPTIONAL_SECTION_MAP = _schema.OPTIONAL_SECTION_MAP
     PATTERN_TECHNIQUE_FIELDS = _schema.PATTERN_TECHNIQUE_FIELDS
     SECTION_MAP = _schema.SECTION_MAP
@@ -148,10 +150,13 @@ def validate_file(filepath: Path, root: Path) -> list[str]:
     except Exception as e:
         return [f"Read error: {e}"]
 
-    # ── YAML existence ──
-    fields, body = parse_yaml_frontmatter(content)
+    # ── YAML existence and integrity ──
+    try:
+        fields, body = parse_yaml_frontmatter(content)
+    except ValueError as exc:
+        return [str(exc)]  # "Malformed YAML: <reason>"
     if fields is None:
-        return ["No YAML frontmatter found"]
+        return ["Missing or invalid YAML frontmatter"]
 
     # ── Unknown fields ──
     unknown = set(fields.keys()) - ALL_KNOWN_FIELDS
@@ -312,6 +317,16 @@ def validate_file(filepath: Path, root: Path) -> list[str]:
         to_err = validate_tradeoffs(body)
         if to_err:
             errors.append(to_err)
+
+    # ── Configurable minimum section content ──
+    if MIN_SECTION_CONTENT_CHARS > 0:
+        for section_heading in SECTION_MAP.get(note_type, ()):
+            section_body = extract_section_body(body, section_heading)
+            if section_body is not None and len(section_body.strip()) < MIN_SECTION_CONTENT_CHARS:
+                errors.append(
+                    f"Section '{section_heading}' has fewer than "
+                    f"{MIN_SECTION_CONTENT_CHARS} character(s) of content"
+                )
 
     return errors
 

@@ -7,6 +7,20 @@ from pathlib import Path
 
 import yaml
 
+# Detect the Python command users should type to invoke this script.
+# On Windows, prefer the 'py' launcher when available (works in clean
+# environments that expose only 'py', not 'python').  On other platforms
+# fall back to the stem of sys.executable (e.g. 'python3').
+def _detect_python_cmd() -> str:
+    import shutil
+    if sys.platform == "win32" and shutil.which("py"):
+        return "py"
+    stem = Path(sys.executable).stem
+    return stem if stem else "python"
+
+
+_PYTHON_CMD = _detect_python_cmd()
+
 COMMANDS = {
     "validate": "core.shared.validate_vault",
     "report": "core.shared.generate_report",
@@ -14,8 +28,8 @@ COMMANDS = {
     "improve": "core.shared.upgrade_vault",
 }
 
-USAGE = """\
-Usage: python run.py <command>
+USAGE = f"""\
+Usage: {_PYTHON_CMD} run.py <command>
 
 Commands:
   init <vault>   Create a new vault from the demo template
@@ -86,7 +100,7 @@ def _init_vault(repo_root: Path) -> None:
 
     print(f"Vault created: {vault_name}")
     print(f"Config updated: config/config.yaml")
-    print(f"Ready to run: python run.py validate")
+    print(f"Ready to run: {_PYTHON_CMD} run.py validate")
 
 
 def main():

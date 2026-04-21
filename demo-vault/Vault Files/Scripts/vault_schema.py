@@ -3,7 +3,7 @@ vault_schema.py — Single Source of Truth
 Demo Vault
 
 Schema: v3.0.0 (Unified)
-Python: 3.10+ (stdlib only)
+Python: 3.10+ (requires PyYAML)
 
 This file is the ONLY authoritative definition of:
   - all enums
@@ -21,6 +21,8 @@ import os
 import re
 from pathlib import Path
 
+import yaml
+
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
@@ -32,6 +34,11 @@ OUTPUT_DIR = _VAULT_FILES_DIR                         # Vault Files/
 
 EXCLUDE_DIRS = frozenset({"Vault Files"})
 EXCLUDE_FILENAMES = frozenset({"Index.md", "Demo Vault Report.md"})
+
+# Minimum non-whitespace characters required in each canonical section body.
+# Set to 0 to disable (header presence is still enforced).
+# Set to a positive integer to require substantive content per section.
+MIN_SECTION_CONTENT_CHARS: int = 0
 
 # ============================================================================
 # TYPE REGISTRY — maps filename → note type for non-default types
@@ -179,7 +186,12 @@ def read_file_safe(filepath: Path) -> str:
 
 
 def parse_yaml_frontmatter(content: str) -> tuple[dict[str, str | bool] | None, str]:
-    """Parse YAML frontmatter from file content."""
+    """Parse YAML frontmatter from file content.
+
+    Returns (None, content) if no YAML frontmatter block is detected.
+    Raises ValueError("Malformed YAML: <reason>") if the block exists but
+    cannot be parsed or is not a YAML mapping.
+    """
     if not content.startswith("---\n"):
         return None, content
 
@@ -198,20 +210,27 @@ def parse_yaml_frontmatter(content: str) -> tuple[dict[str, str | bool] | None, 
     if body.startswith("\n"):
         body = body[1:]
 
+    try:
+        parsed = yaml.safe_load(yaml_text)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"Malformed YAML: {exc}") from exc
+
+    if parsed is None:
+        parsed = {}
+
+    if not isinstance(parsed, dict):
+        raise ValueError(
+            f"Malformed YAML: frontmatter must be a YAML mapping, got {type(parsed).__name__}"
+        )
+
     fields: dict[str, str | bool] = {}
-    for line in yaml_text.split("\n"):
-        line = line.rstrip()
-        if not line or ":" not in line:
-            continue
-        key, _, value = line.partition(":")
-        key = key.strip()
-        value = value.strip()
-        if value == "true":
-            fields[key] = True
-        elif value == "false":
-            fields[key] = False
+    for key, value in parsed.items():
+        if isinstance(value, bool):
+            fields[str(key)] = value
+        elif value is None:
+            fields[str(key)] = ""
         else:
-            fields[key] = value
+            fields[str(key)] = str(value)
 
     return fields, body
 

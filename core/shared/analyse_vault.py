@@ -54,12 +54,22 @@ def _bind(vault_path: Path) -> None:
 
 
 def load_all(root: Path) -> list[dict]:
-    """Load metadata + relative path for every content file."""
+    """Load metadata + relative path for every content file.
+
+    Files with missing or malformed YAML frontmatter are skipped with an
+    explicit warning printed to stdout so the operator is never silently
+    misled by a reduced file count.
+    """
     records: list[dict] = []
     for filepath in discover_files(root):
         content = read_file_safe(filepath)
-        fields, _ = parse_yaml_frontmatter(content)
+        try:
+            fields, _ = parse_yaml_frontmatter(content)
+        except ValueError as exc:
+            print(f"  WARN: {filepath.relative_to(root)} — {exc}")
+            continue
         if fields is None:
+            print(f"  WARN: {filepath.relative_to(root)} — Missing or invalid YAML frontmatter (file skipped)")
             continue
         fields["_path"] = str(filepath.relative_to(root))
         records.append(fields)
@@ -189,7 +199,7 @@ def analysis_2_subdomain_weak_points(records: list[dict]) -> None:
     stats: dict[str, dict[str, int]] = {}
     sub_to_domain: dict[str, str] = {}
     for r in records:
-        sub = r.get("subdomain", "unknown")
+        sub = r.get("subdomain") or "N/A"
         dom = r.get("domain", "unknown")
         sub_to_domain[sub] = dom
         if sub not in stats:

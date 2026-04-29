@@ -114,11 +114,25 @@ def _validate_sections(raw: str) -> list[str] | str:
 # Interactive collection
 # ---------------------------------------------------------------------------
 
-def collect_input() -> tuple[str, str, list[str], str, str]:
+def collect_input() -> tuple[
+    list[tuple[str, str]],
+    str,
+    list[str],
+    list[tuple[str, str, str]],
+    list[tuple[str, str, str]],
+    str,
+]:
     """Prompt for and validate all bootstrap parameters.
 
     Returns:
-        ``(domain_folder, domain_slug, sections, note_type, vault_name)``
+        ``(all_domains, note_type, sections, subdomains, topics, vault_name)``
+
+        - all_domains: list of ``(folder, slug)`` pairs
+        - note_type:   slug string
+        - sections:    list of section display names
+        - subdomains:  list of ``(folder, slug, parent_domain_slug)``
+        - topics:      list of ``(folder, slug, parent_subdomain_slug)``
+        - vault_name:  derived from first domain slug
 
     Raises:
         KeyboardInterrupt: if the user presses Ctrl-C.
@@ -130,17 +144,29 @@ def collect_input() -> tuple[str, str, list[str], str, str]:
     print("Press Ctrl+C to cancel.")
     print()
 
-    # --- Domain ----------------------------------------------------------
-    domain_folder: str
-    domain_slug: str
+    # --- Primary domain --------------------------------------------------
+    all_domains: list[tuple[str, str]] = []
     while True:
         raw = _prompt("Domain name (e.g. Dogs): ")
         result = _validate_domain(raw)
         if isinstance(result, str):
             print(f"  Error: {result}")
         else:
-            domain_folder, domain_slug = result
+            all_domains.append(result)
             break
+
+    # --- Additional domains ----------------------------------------------
+    raw = _prompt("Add more domains? (y/n): ").lower()
+    if raw == "y":
+        while True:
+            raw = _prompt("  Domain name (or Enter to stop): ")
+            if not raw:
+                break
+            result = _validate_domain(raw)
+            if isinstance(result, str):
+                print(f"  Error: {result}")
+            else:
+                all_domains.append(result)
 
     # --- Note type -------------------------------------------------------
     note_type: str
@@ -169,8 +195,43 @@ def collect_input() -> tuple[str, str, list[str], str, str]:
             sections = result
             break
 
-    vault_name = f"{domain_slug}-vault"
-    return domain_folder, domain_slug, sections, note_type, vault_name
+    # --- Subdomains (optional) -------------------------------------------
+    subdomains: list[tuple[str, str, str]] = []
+    raw = _prompt("Add subdomains? (y/n): ").lower()
+    if raw == "y":
+        for d_folder, d_slug in all_domains:
+            raw = _prompt(f"  Subdomains for {d_folder} (comma-separated, or Enter to skip): ")
+            if not raw.strip():
+                continue
+            parts = [p.strip() for p in raw.split(",") if p.strip()]
+            for p in parts:
+                result = _validate_domain(p)
+                if isinstance(result, str):
+                    print(f"    Skipping '{p}': {result}")
+                else:
+                    sub_folder, sub_slug = result
+                    subdomains.append((sub_folder, sub_slug, d_slug))
+
+    # --- Topics (optional, only if subdomains exist) ---------------------
+    topics: list[tuple[str, str, str]] = []
+    if subdomains:
+        raw = _prompt("Add topics? (y/n): ").lower()
+        if raw == "y":
+            for sub_folder, sub_slug, _parent in subdomains:
+                raw = _prompt(f"  Topics for {sub_folder} (comma-separated, or Enter to skip): ")
+                if not raw.strip():
+                    continue
+                parts = [p.strip() for p in raw.split(",") if p.strip()]
+                for p in parts:
+                    result = _validate_domain(p)
+                    if isinstance(result, str):
+                        print(f"    Skipping '{p}': {result}")
+                    else:
+                        t_folder, t_slug = result
+                        topics.append((t_folder, t_slug, sub_slug))
+
+    vault_name = f"{all_domains[0][1]}-vault"
+    return all_domains, note_type, sections, subdomains, topics, vault_name
 
 
 # ---------------------------------------------------------------------------
@@ -178,12 +239,23 @@ def collect_input() -> tuple[str, str, list[str], str, str]:
 # ---------------------------------------------------------------------------
 
 def _create_vault_structure(
-    repo_root: Path, vault_name: str, domain_folder: str
+    repo_root: Path,
+    vault_name: str,
+    all_domains: list[tuple[str, str]],
+    subdomains: list[tuple[str, str, str]],
 ) -> Path:
     """Create the skeleton directory layout for a new vault."""
     vault_path = repo_root / vault_name
-    # Raises FileExistsError if vault_path already exists
-    (vault_path / domain_folder).mkdir(parents=True)
+    # Create domain directories
+    for domain_folder, _slug in all_domains:
+        (vault_path / domain_folder).mkdir(parents=True)
+    # Create subdomain subdirectories under their parent domain folder
+    # Build folder lookup: domain_slug -> domain_folder
+    slug_to_folder = {slug: folder for folder, slug in all_domains}
+    for sub_folder, _sub_slug, parent_domain_slug in subdomains:
+        parent_folder = slug_to_folder.get(parent_domain_slug)
+        if parent_folder:
+            (vault_path / parent_folder / sub_folder).mkdir(parents=True, exist_ok=True)
     (vault_path / "Vault Files" / "Scripts").mkdir(parents=True, exist_ok=True)
     (vault_path / "Vault Files" / "Templates").mkdir(parents=True, exist_ok=True)
     return vault_path
@@ -222,17 +294,25 @@ def _update_config(repo_root: Path, vault_name: str) -> None:
 def main(repo_root: Path) -> int:
     """Bootstrap a new vault interactively."""
     try:
-        domain_folder, domain_slug, sections, note_type, vault_name = (
+        all_domains, note_type, sections, subdomains, topics, vault_name = (
             collect_input()
         )
     except KeyboardInterrupt:
         print("\nBootstrap cancelled.")
         return 1
 
+    domain_folder = all_domains[0][0]
+    domain_slug = all_domains[0][1]
+
     # ── Summary preview ──────────────────────────────────────────────────
     print()
     print(f"Creating vault   : {vault_name}/")
-    print(f"  Domain folder  : {domain_folder}/")
+    for d_folder, d_slug in all_domains:
+        print(f"  Domain         : {d_folder}/ ({d_slug})")
+    for sub_folder, sub_slug, parent in subdomains:
+        print(f"  Subdomain      : {sub_folder}/ ({sub_slug}) -> {parent}")
+    for t_folder, t_slug, parent in topics:
+        print(f"  Topic          : {t_folder} ({t_slug}) -> {parent}")
     print(f"  Note type      : {note_type}")
     print(f"  Sections       : {', '.join(sections)}")
     print()
@@ -244,7 +324,7 @@ def main(repo_root: Path) -> int:
 
     # ── 1. Directory structure ────────────────────────────────────────────
     try:
-        _create_vault_structure(repo_root, vault_name, domain_folder)
+        _create_vault_structure(repo_root, vault_name, all_domains, subdomains)
     except OSError as exc:
         print(f"Error: could not create vault structure: {exc}")
         return 1
@@ -253,7 +333,13 @@ def main(repo_root: Path) -> int:
     from core.generate_schema import generate_schema_content, write_schema
 
     schema_content = generate_schema_content(
-        domain_folder, domain_slug, note_type, sections
+        domain_folder,
+        domain_slug,
+        note_type,
+        sections,
+        extra_domains=all_domains[1:] if len(all_domains) > 1 else None,
+        subdomains=subdomains if subdomains else None,
+        topics=topics if topics else None,
     )
     schema_path = write_schema(vault_path, schema_content)
     print(f"Schema written   : {schema_path.relative_to(repo_root)}")

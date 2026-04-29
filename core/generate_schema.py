@@ -29,6 +29,17 @@ def _to_constant_name(note_type: str) -> str:
     return note_type.upper().replace("-", "_")
 
 
+def _render_dict(entries: list[str]) -> str:
+    """Render a Python dict literal from a list of pre-formatted entry lines.
+
+    Returns ``{}`` when *entries* is empty, otherwise a multi-line dict.
+    """
+    if not entries:
+        return "{}"
+    inner = "\n".join(f"    {e}" for e in entries)
+    return "{\n" + inner + "\n}"
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -38,26 +49,54 @@ def generate_schema_content(
     domain_slug: str,
     note_type: str,
     sections: list[str],
+    *,
+    extra_domains: list[tuple[str, str]] | None = None,
+    subdomains: list[tuple[str, str, str]] | None = None,
+    topics: list[tuple[str, str, str]] | None = None,
 ) -> str:
     """Return the full text of a vault_schema.py for the given parameters.
 
     Args:
-        domain_folder: Display name of the domain folder, e.g. ``"Dogs"``
-        domain_slug:   Lowercase slug for the domain,   e.g. ``"dogs"``
-        note_type:     Note-type slug,                  e.g. ``"breed-profile"``
-        sections:      Section display names,           e.g. ``["Characteristics", "Trade-offs"]``
+        domain_folder: Display name of the primary domain folder, e.g. ``"Dogs"``
+        domain_slug:   Lowercase slug for the primary domain, e.g. ``"dogs"``
+        note_type:     Note-type slug, e.g. ``"breed-profile"``
+        sections:      Section display names, e.g. ``["Characteristics", "Trade-offs"]``
+        extra_domains: Additional ``(folder, slug)`` domain pairs beyond the primary.
+        subdomains:    ``(folder, slug, parent_domain_slug)`` entries.
+        topics:        ``(folder, slug, parent_subdomain_slug)`` entries.
 
     Returns:
         String contents of a valid ``vault_schema.py``.
     """
+    extra_domains = extra_domains or []
+    subdomains = subdomains or []
+    topics = topics or []
+
+    # --- DOMAIN_MAP ---
+    all_domains = [(domain_folder, domain_slug)] + extra_domains
+    domain_entries = [f'"{folder}": "{slug}",' for folder, slug in all_domains]
+
+    # --- SUBDOMAIN_MAP ---
+    subdomain_entries = [
+        f'"{folder}": ("{slug}", "{parent}"),'
+        for folder, slug, parent in subdomains
+    ]
+
+    # --- TOPIC_MAP ---
+    topic_entries = [
+        f'"{folder}": ("{slug}", "{parent}"),'
+        for folder, slug, parent in topics
+    ]
+
     sections_const = _to_constant_name(note_type) + "_SECTIONS"
     section_lines = "\n".join(f'    "## {s}",' for s in sections)
 
     return (
         _SCHEMA_TEMPLATE
         .replace("%VAULT_TITLE%", domain_folder)
-        .replace("%DOMAIN_FOLDER%", domain_folder)
-        .replace("%DOMAIN_SLUG%", domain_slug)
+        .replace("%DOMAIN_MAP%", _render_dict(domain_entries))
+        .replace("%SUBDOMAIN_MAP%", _render_dict(subdomain_entries))
+        .replace("%TOPIC_MAP%", _render_dict(topic_entries))
         .replace("%NOTE_TYPE%", note_type)
         .replace("%SECTIONS_CONST%", sections_const)
         .replace("%SECTION_LINES%", section_lines)
@@ -135,12 +174,10 @@ TYPE_REGISTRY: dict[str, str] = {}
 # FROZEN LOOKUP TABLES — domain / subdomain / topic
 # ============================================================================
 
-DOMAIN_MAP: dict[str, str] = {
-    "%DOMAIN_FOLDER%": "%DOMAIN_SLUG%",
-}
+DOMAIN_MAP: dict[str, str] = %DOMAIN_MAP%
 
-SUBDOMAIN_MAP: dict[str, tuple[str, str]] = {}
-TOPIC_MAP: dict[str, tuple[str, str]] = {}
+SUBDOMAIN_MAP: dict[str, tuple[str, str]] = %SUBDOMAIN_MAP%
+TOPIC_MAP: dict[str, tuple[str, str]] = %TOPIC_MAP%
 
 # ============================================================================
 # DERIVED ENUM SETS
@@ -399,7 +436,16 @@ def derive_difficulty(subdomain: str | None, topic: str | None) -> str:
 # ============================================================================
 
 DOMAIN_TO_SUBDOMAINS: dict[str, list[str]] = {}
+for _folder, (_slug, _parent) in SUBDOMAIN_MAP.items():
+    DOMAIN_TO_SUBDOMAINS.setdefault(_parent, []).append(_slug)
+for _k in DOMAIN_TO_SUBDOMAINS:
+    DOMAIN_TO_SUBDOMAINS[_k].sort()
+
 SUBDOMAIN_TO_TOPICS: dict[str, list[str]] = {}
+for _folder, (_slug, _parent) in TOPIC_MAP.items():
+    SUBDOMAIN_TO_TOPICS.setdefault(_parent, []).append(_slug)
+for _k in SUBDOMAIN_TO_TOPICS:
+    SUBDOMAIN_TO_TOPICS[_k].sort()
 
 
 # ============================================================================

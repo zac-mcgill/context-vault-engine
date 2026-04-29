@@ -958,30 +958,44 @@ def endpoint_graph_neighbors(
 def endpoint_graph_related(
     node: str = Query(..., description="Node id to query"),
     vault: str = Query(None, description="Vault name (defaults to first registered vault)"),
+    min_strength: str = Query("domain", description="Minimum relationship strength: topic | subdomain | domain"),
 ):
     """Return notes that share a group hub (domain/subdomain/topic) with the given node.
 
     Traversal: note → group node → all other notes in that group.
-    No pairwise edges. Relationships are implicit through shared hub membership.
+    Strength is derived from the type of the strongest shared hub:
+      topic (strongest) > subdomain > domain (weakest).
 
     Response data:
         node_id (str): The queried node id.
         found (bool): Whether the node exists in the graph.
-        related (list): Related notes, sorted ascending by id.
+        related (list): Related notes, sorted by strength desc then id asc.
 
     Each related entry:
         id (str): Note id (vault-relative path).
         type (str): Node type.
         label (str): Human-readable name.
-        via (str): The group node id through which the relationship was found.
+        via (str): The strongest group node id through which the relationship was found.
+        strength (str): "topic" | "subdomain" | "domain".
+
+    Query parameters:
+        min_strength: Exclude relationships weaker than this level.
+                      Accepts "topic", "subdomain", or "domain" (default).
     """
+    from mcp.core.graph_query import VALID_STRENGTHS
+    if min_strength not in VALID_STRENGTHS:
+        return _error(
+            "INVALID_PARAM",
+            f"min_strength must be one of: {sorted(VALID_STRENGTHS)}",
+            400,
+        )
     if vault is not None:
         err = _validate_vault(vault)
         if err:
             return err
     try:
         graph = build_graph(vault_name=vault)
-        result = get_related_nodes(graph, node)
+        result = get_related_nodes(graph, node, min_strength=min_strength)
         return {"status": "ok", "data": result}
     except Exception as exc:
         return _error("GRAPH_QUERY_FAILED", f"Related query failed: {exc}", 500)

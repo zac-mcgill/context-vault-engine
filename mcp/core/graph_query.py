@@ -26,6 +26,15 @@ from __future__ import annotations
 
 
 # ---------------------------------------------------------------------------
+# Strength model
+# ---------------------------------------------------------------------------
+
+_STRENGTH_RANK: dict[str, int] = {"domain": 0, "subdomain": 1, "topic": 2}
+_RANK_TO_STRENGTH: dict[int, str] = {v: k for k, v in _STRENGTH_RANK.items()}
+VALID_STRENGTHS: frozenset[str] = frozenset(_STRENGTH_RANK)
+
+
+# ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
@@ -49,13 +58,50 @@ def _node_map(graph: dict) -> dict[str, dict]:
 
 
 def _edges_from(graph: dict, node_id: str) -> list[dict]:
-    """Return all edges where node_id is the source."""
-    return [e for e in graph["edges"] if e["from"] == node_id]
+    """Return edges where node_id is the source, sorted by (to, type)."""
+    return sorted(
+        (e for e in graph["edges"] if e["from"] == node_id),
+        key=lambda e: (e["to"], e["type"]),
+    )
 
 
 def _edges_to(graph: dict, node_id: str) -> list[dict]:
-    """Return all edges where node_id is the target."""
-    return [e for e in graph["edges"] if e["to"] == node_id]
+    """Return edges where node_id is the target, sorted by (from, type)."""
+    return sorted(
+        (e for e in graph["edges"] if e["to"] == node_id),
+        key=lambda e: (e["from"], e["type"]),
+    )
+
+
+def _check_integrity(graph: dict) -> None:
+    """Assert structural integrity of a graph dict.
+
+    Checks:
+    - No duplicate node ids.
+    - Every edge endpoint references a node that exists in the graph.
+
+    Raises:
+        ValueError: On the first integrity violation found.
+    """
+    node_ids: list[str] = [n["id"] for n in graph["nodes"]]
+    seen_ids: set[str] = set()
+    for nid in node_ids:
+        if nid in seen_ids:
+            raise ValueError(f"Duplicate node id in graph: {nid!r}")
+        seen_ids.add(nid)
+
+    for edge in graph["edges"]:
+        src, dst = edge["from"], edge["to"]
+        if src not in seen_ids:
+            raise ValueError(
+                f"Edge references unknown source node {src!r} "
+                f"(type={edge['type']!r}, to={dst!r})"
+            )
+        if dst not in seen_ids:
+            raise ValueError(
+                f"Edge references unknown target node {dst!r} "
+                f"(type={edge['type']!r}, from={src!r})"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -78,10 +124,13 @@ def get_neighbors(graph: dict, node_id: str) -> dict:
 
     Each neighbor: {"id": str, "type": str, "label": str, "edge_type": str}
     """
+    _check_integrity(graph)
     nmap = _node_map(graph)
     if node_id not in nmap:
         return {"node_id": node_id, "found": False, "neighbors": []}
 
+    # Process outbound then inbound; both lists are sorted by _edges_from/_edges_to
+    # so the first-seen edge_type is deterministic.
     seen: dict[str, str] = {}  # neighbour_id → edge_type (first encountered)
 
     for edge in _edges_from(graph, node_id):
@@ -109,36 +158,47 @@ def get_neighbors(graph: dict, node_id: str) -> dict:
     return {"node_id": node_id, "found": True, "neighbors": neighbours}
 
 
-def get_related_nodes(graph: dict, node_id: str) -> dict:
+def get_related_nodes(
+    graph: dict,
+    node_id: str,
+    min_strength: str = "domain",
+) -> dict:
     """Return notes that share a group hub with the given node.
 
     Traversal (two hops):
-        1. Follow all edges from node_id to group nodes
-           (member_of edges outbound, or inbound parent edges for group nodes).
+        1. Follow member_of edges from node_id to group nodes.
         2. From each group node, collect all notes connected via member_of.
         3. Exclude node_id itself.
+        4. Assign strength by the strongest shared hub type:
+             topic (strongest) > subdomain > domain (weakest).
 
     Args:
-        graph: Output of build_graph().
-        node_id: The id of the node to query.
+        graph:        Output of build_graph().
+        node_id:      The id of the node to query.
+        min_strength: Minimum strength to include ("topic", "subdomain", or
+                      "domain").  Defaults to "domain" (no filtering).
 
     Returns:
         {
             "node_id": str,
             "found": bool,
-            "related": list[dict],  # sorted by id
+            "related": list[dict],  # sorted by strength desc, then id asc
         }
 
-    Each related entry: {"id": str, "type": str, "label": str, "via": str}
-    where "via" is the group node id through which the relationship was found.
+    Each related entry:
+        {"id": str, "type": str, "label": str, "via": str, "strength": str}
+    where "via" is the strongest group node id through which the relationship
+    was found, and "strength" is one of "topic", "subdomain", "domain".
     """
+    _check_integrity(graph)
     nmap = _node_map(graph)
     if node_id not in nmap:
         return {"node_id": node_id, "found": False, "related": []}
 
     _GROUP_TYPES = frozenset({"domain", "subdomain", "topic"})
+    min_rank = _STRENGTH_RANK.get(min_strength, 0)
 
-    # Step 1: find group nodes this node connects to via member_of (outbound)
+    # Step 1: find group nodes this note belongs to via member_of (outbound)
     group_node_ids: list[str] = []
     for edge in _edges_from(graph, node_id):
         if edge["type"] == "member_of":
@@ -146,18 +206,27 @@ def get_related_nodes(graph: dict, node_id: str) -> dict:
             if nmap.get(target, {}).get("type") in _GROUP_TYPES:
                 group_node_ids.append(target)
 
-    # Step 2: for each group node, collect all member notes (inbound member_of)
-    # id → via group id (keep earliest-sorted group if multiple paths)
-    related: dict[str, str] = {}
+    # Step 2: for each group node, collect member notes
+    # Track the strongest connection per peer: peer_id → (rank, via_group_id)
+    # Iterate groups in sorted order so tie-breaking on via is deterministic.
+    best: dict[str, tuple[int, str]] = {}
     for group_id in sorted(group_node_ids):
+        group_type = nmap[group_id]["type"]  # "domain" | "subdomain" | "topic"
+        rank = _STRENGTH_RANK.get(group_type, 0)
         for edge in _edges_to(graph, group_id):
             if edge["type"] == "member_of":
                 peer_id = edge["from"]
-                if peer_id != node_id and peer_id not in related:
-                    related[peer_id] = group_id
+                if peer_id == node_id:
+                    continue
+                prev = best.get(peer_id)
+                # Keep highest rank; break ties by choosing earlier-sorted group
+                if prev is None or rank > prev[0]:
+                    best[peer_id] = (rank, group_id)
 
     result = []
-    for peer_id, via in related.items():
+    for peer_id, (rank, via) in best.items():
+        if rank < min_rank:
+            continue
         peer_node = nmap.get(peer_id)
         if peer_node:
             result.append({
@@ -165,9 +234,11 @@ def get_related_nodes(graph: dict, node_id: str) -> dict:
                 "type": peer_node["type"],
                 "label": peer_node["label"],
                 "via": via,
+                "strength": _RANK_TO_STRENGTH[rank],
             })
 
-    result.sort(key=lambda n: n["id"])
+    # Primary sort: strength descending (topic=2 first); secondary: id ascending
+    result.sort(key=lambda n: (-_STRENGTH_RANK[n["strength"]], n["id"]))
     return {"node_id": node_id, "found": True, "related": result}
 
 
@@ -197,6 +268,7 @@ def get_missing_neighbors(graph: dict, node_id: str) -> dict:
         {"id": str, "label": str, "via": str}
     where "via" is the group node that declared the expected concept.
     """
+    _check_integrity(graph)
     nmap = _node_map(graph)
     if node_id not in nmap:
         return {"node_id": node_id, "found": False, "missing": []}

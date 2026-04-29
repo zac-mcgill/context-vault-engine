@@ -11,7 +11,7 @@ from pathlib import Path
 
 from mcp.core.vault_registry import get_vault_path, list_vaults
 from core.shared.upgrade_vault import load_all, generate_tasks
-from core.shared import load_schema as _load_schema
+from mcp.core.schema_loader import load_schema as _load_schema
 from mcp.core.result_cache import get_cached, set_cached
 
 _ENDPOINT = "tasks"

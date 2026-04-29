@@ -6,7 +6,8 @@ import argparse
 import re
 from pathlib import Path
 
-from core.shared import load_schema, _resolve_vault_path
+from mcp.core.schema_loader import load_schema
+from core.shared import _resolve_vault_path
 
 DIFFICULTY_SCORE: dict[str, float] = {
     "advanced": 3.0,

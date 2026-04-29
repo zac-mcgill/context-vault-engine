@@ -8,7 +8,7 @@ manipulation, no os.chdir, no importlib workarounds.
 from __future__ import annotations
 
 import core.shared.validate_vault as _validate_mod
-from core.shared import load_schema as _load_schema
+from mcp.core.schema_loader import load_schema as _load_schema
 from mcp.core.vault_registry import get_vault_path, list_vaults
 from mcp.core.result_cache import get_cached, set_cached
 

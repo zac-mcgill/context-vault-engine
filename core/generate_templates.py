@@ -18,13 +18,14 @@ Python: 3.10+ (stdlib + pyyaml)
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import re
 import sys
 from pathlib import Path
 from types import ModuleType
 
 import yaml
+
+from mcp.core.schema_loader import load_schema
 
 # ============================================================================
 # CONSTANTS
@@ -69,21 +70,6 @@ def resolve_vault() -> Path:
         sys.exit(1)
 
     return vault_path
-
-
-def load_schema(vault: Path) -> ModuleType:
-    """Dynamically import a vault's vault_schema.py without side-effects."""
-    schema_path = vault / SCHEMA_REL
-    spec = importlib.util.spec_from_file_location(
-        f"vault_schema_{vault.name.replace(' ', '_')}",
-        schema_path,
-    )
-    if spec is None or spec.loader is None:
-        print(f"HARD FAIL: cannot load spec from {schema_path}", file=sys.stderr)
-        sys.exit(1)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 def _derive_constant_name(note_type: str) -> str:

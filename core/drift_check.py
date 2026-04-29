@@ -19,9 +19,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib.util
 import sys
 from pathlib import Path
+
+from mcp.core.schema_loader import load_schema as _load_schema
 
 # ============================================================================
 # BASELINE — updated after SE decomposition (10-vault system)
@@ -337,24 +338,13 @@ def check_shared_drift(verbose: bool = False) -> int:
 # ============================================================================
 
 
-def _load_schema(vault_name: str):
-    """Import a vault's vault_schema.py and return the module."""
-    sp = VAULT_ROOT / vault_name / "Vault Files" / "Scripts" / "vault_schema.py"
-    spec = importlib.util.spec_from_file_location(
-        "vs_" + vault_name.replace(" ", "_"), str(sp)
-    )
-    m = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(m)
-    return m
-
-
 def check_type_registry(verbose: bool = False) -> int:
     """Verify every file's YAML type matches derive_type() for all vaults."""
     total_files = 0
     mismatches: list[str] = []
 
     for vault_name in VAULT_NAMES:
-        m = _load_schema(vault_name)
+        m = _load_schema(VAULT_ROOT / vault_name, vault_name=vault_name.replace(" ", "_"))
         root = VAULT_ROOT / vault_name
         files = m.discover_files(root)
         vault_mismatches = 0
@@ -410,7 +400,7 @@ def check_sections(verbose: bool = False) -> int:
     violations: list[str] = []
 
     for vault_name in VAULT_NAMES:
-        m = _load_schema(vault_name)
+        m = _load_schema(VAULT_ROOT / vault_name, vault_name=vault_name.replace(" ", "_"))
         root = VAULT_ROOT / vault_name
         section_map = m.SECTION_MAP
         optional_map = m.OPTIONAL_SECTION_MAP

@@ -34,6 +34,7 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from fastapi import FastAPI, Query
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 from pydantic import BaseModel, Field
@@ -45,6 +46,9 @@ from mcp.core.contract_runner import run_all_checks, run_lightweight_checks
 from mcp.core.adapters.validation_adapter import get_validation
 from mcp.core.adapters.tasks_adapter import get_tasks
 from mcp.core.adapters.notes_adapter import get_notes as get_all_notes
+from mcp.core.adapters.quality_adapter import get_quality
+from mcp.core.adapters.missing_adapter import get_missing
+from mcp.core.adapters.compare_adapter import get_compare
 
 
 # ---------- Structured Logging (Phase 7) ----------
@@ -288,6 +292,45 @@ app = FastAPI(
 )
 
 
+# ---------- Exception Handlers ----------
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Convert Pydantic request-validation errors to the standard error envelope.
+
+    Prevents FastAPI's default ``{"detail": [...]}`` shape from leaking out.
+    """
+    errors = exc.errors()
+    msg = "; ".join(
+        f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in errors
+    )
+    logger.warning("validation_error path=%s msg=%s", request.url.path, msg)
+    return JSONResponse(
+        status_code=422,
+        content={
+            "status": "error",
+            "error": {"code": "VALIDATION_ERROR", "message": msg},
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(
+    request: Request, exc: Exception
+) -> JSONResponse:
+    """Catch-all safety net: prevent raw tracebacks reaching the client."""
+    logger.exception("unhandled_exception path=%s", request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "status": "error",
+            "error": {"code": "INTERNAL", "message": "An unexpected error occurred"},
+        },
+    )
+
+
 # ---------- Middleware (Rate Limiting + Metrics) ----------
 
 @app.middleware("http")
@@ -325,16 +368,28 @@ async def request_middleware(request: Request, call_next):
 # ---------- Request / Response models ----------
 
 class QueryRequest(BaseModel):
-    vault: str
-    filters: dict = {}
-    limit: int = Field(default=50, ge=1, le=500)
-    offset: int = Field(default=0, ge=0)
-    strict: bool = False
+    """Request body for POST /query."""
+
+    vault: str = Field(..., description="Vault name to query")
+    filters: dict = Field(default_factory=dict, description="Key/value filters; supports __in and __contains suffixes")
+    limit: int = Field(default=50, ge=1, le=500, description="Page size (1–500)")
+    offset: int = Field(default=0, ge=0, description="Page offset")
+    strict: bool = Field(default=False, description="Reject unknown filter fields when True")
 
 
-# ---------- Error helpers (Phase 10) ----------
+class CompareRequest(BaseModel):
+    before: str = Field(..., min_length=1, description="Path to BEFORE report (relative to vault root or absolute)")
+    after: str | None = Field(None, description="Path to AFTER report (omit for live vault analysis)")
+    vault: str | None = Field(None, description="Vault name (defaults to first registered vault)")
+
+
+# ---------- Error helpers ----------
 
 def _error(code: str, message: str, status_code: int = 400) -> JSONResponse:
+    """Return a standard error envelope as a JSONResponse.
+
+    Shape: ``{"status": "error", "error": {"code": ..., "message": ...}}``
+    """
     logger.error("error_response code=%s message=%s status=%d", code, message, status_code)
     return JSONResponse(
         status_code=status_code,
@@ -346,7 +401,7 @@ def _error(code: str, message: str, status_code: int = 400) -> JSONResponse:
 
 
 def _validate_vault(vault_name: str) -> JSONResponse | None:
-    """Return an error response if the vault is invalid, else None."""
+    """Return a 404 error response if the vault is not registered, else None."""
     try:
         get_vault_path(vault_name)
     except KeyError as exc:
@@ -358,16 +413,29 @@ def _validate_vault(vault_name: str) -> JSONResponse | None:
 
 @app.get("/vaults")
 def endpoint_vaults():
-    """List all registered vault names."""
+    """List all registered vault names.
+
+    Response data:
+        vaults (list[str]): Sorted list of registered vault names.
+    """
     try:
-        return {"status": "ok", "data": {"vaults": list_vaults()}}
+        return {"status": "ok", "data": {"vaults": sorted(list_vaults())}}
     except Exception as exc:
         return _error("INTERNAL", f"Failed to list vaults: {exc}", 500)
 
 
 @app.post("/query")
 def endpoint_query(req: QueryRequest):
-    """Query a vault with optional filters."""
+    """Query a vault with optional filters.
+
+    Response data:
+        status (str): ``"ok"`` or ``"partial"`` (partial = query timed out).
+        count (int): Total matching notes before pagination.
+        returned (int): Notes in this page.
+        offset (int): Page offset applied.
+        limit (int): Page size applied.
+        results (list): Matching note objects with ``path`` and ``fields``.
+    """
     err = _validate_vault(req.vault)
     if err:
         return err
@@ -379,10 +447,10 @@ def endpoint_query(req: QueryRequest):
         else:
             result = list_notes(req.vault, limit=req.limit, offset=req.offset)
 
-        # Forward error responses from query engine
+        # Forward engine-level error responses
         if result["status"] == "error":
             return JSONResponse(status_code=400, content=result)
-        return result
+        return {"status": "ok", "data": result}
     except Exception as exc:
         return _error("QUERY_FAILED", f"Query failed: {exc}", 500)
 
@@ -392,7 +460,16 @@ def endpoint_note(
     vault: str = Query(..., description="Vault name"),
     path: str = Query(..., description="Relative note path"),
 ):
-    """Retrieve a single note by vault and path."""
+    """Retrieve a single note by vault and path.
+
+    Response data:
+        path (str): Vault-relative path to the note.
+        fields (dict): All parsed frontmatter fields.
+
+    Error codes:
+        NOT_FOUND: No note exists at the given path.
+        PATH_TRAVERSAL: Path attempts to escape the vault root.
+    """
     err = _validate_vault(vault)
     if err:
         return err
@@ -413,7 +490,15 @@ def endpoint_stats(
     vault: str = Query(..., description="Vault name"),
     field: str = Query(..., description="Field to aggregate"),
 ):
-    """Aggregate distinct values for a field across a vault."""
+    """Aggregate distinct values for a field across a vault.
+
+    Response data:
+        field (str): The aggregated field name.
+        stats (dict): Mapping of field value → note count, ordered by frequency.
+
+    Error codes:
+        INVALID_FIELD: The requested field is not known to the vault schema.
+    """
     err = _validate_vault(vault)
     if err:
         return err
@@ -429,7 +514,17 @@ def endpoint_stats(
 
 @app.get("/health")
 def endpoint_health():
-    """Health endpoint with real metrics (Phase 11 + Phase 6 expansion)."""
+    """Server health, vault metrics, and request statistics.
+
+    Always returns HTTP 200 if the endpoint itself is reachable.
+
+    Response data:
+        vaults (dict): Per-vault index stats (notes, schema_hash, last_index_time).
+        uptime_seconds (int): Seconds since server started.
+        requests_served (int): Total requests handled.
+        rate_limit_status (dict): Current rate-limiter counters.
+        metrics (dict): Per-endpoint request counts and average response time.
+    """
     try:
         vaults_info = {}
         for vault_name in list_vaults():
@@ -454,8 +549,7 @@ def endpoint_health():
                 sum(_response_times) / len(_response_times)
                 if _response_times else 0.0
             )
-            health = {
-                "status": "ok",
+            health_data = {
                 "vaults": vaults_info,
                 "uptime_seconds": int(time.monotonic() - _start_time),
                 "requests_served": _request_count,
@@ -465,12 +559,12 @@ def endpoint_health():
                     "total_rejected": _rate_limiter.rejected_count,
                 },
                 "metrics": {
-                    "per_endpoint": dict(_endpoint_counts),
+                    "per_endpoint": dict(sorted(_endpoint_counts.items())),
                     "avg_response_time_ms": round(avg_response * 1000, 2),
                 },
             }
 
-        return health
+        return {"status": "ok", "data": health_data}
     except Exception as exc:
         return _error("HEALTH_FAILED", f"Health check failed: {exc}", 500)
 
@@ -479,14 +573,25 @@ def endpoint_health():
 def endpoint_contract(
     full: bool = Query(False, description="Run full checks including vault scripts"),
 ):
-    """Run system contract checks and return results."""
+    """Run system contract checks and return results.
+
+    Response data:
+        status (str): ``"pass"`` or ``"fail"`` — the contract result.
+        duration_ms (float): Time taken to run all checks.
+        vaults (dict): Per-vault check results with per-check breakdown.
+        total_violations (int): Total number of violations found.
+        violations (list[str]): Flat list of all violation descriptions.
+
+    Note:
+        A ``data.status`` of ``"fail"`` means contract violations were found.
+        The HTTP status is always 200 when the check completes successfully.
+    """
     try:
         if full:
             result = run_all_checks(include_vault_scripts=True)
         else:
             result = run_all_checks(include_vault_scripts=False)
-        status_code = 200 if result["status"] == "pass" else 500
-        return JSONResponse(status_code=status_code, content=result)
+        return {"status": "ok", "data": result}
     except Exception as exc:
         return _error("CONTRACT_FAILED", f"Contract check failed: {exc}", 500)
 
@@ -496,19 +601,33 @@ def endpoint_contract(
 
 @app.get("/validation")
 def endpoint_validation():
-    """Run vault validation and return structured results."""
+    """Run vault validation and return structured results.
+
+    Response data:
+        status (str): ``"pass"`` or ``"fail"``.
+        invalid_count (int): Number of notes that failed validation.
+        invalid_notes (list[str]): Sorted vault-relative paths of invalid notes.
+    """
     try:
         result = get_validation()
         if "error" in result:
             return _error("VALIDATION_FAILED", result["error"], 500)
-        return result
+        result["invalid_notes"] = sorted(result.get("invalid_notes", []))
+        return {"status": "ok", "data": result}
     except Exception as exc:
         return _error("VALIDATION_FAILED", f"Validation failed: {exc}", 500)
 
 
 @app.get("/summary")
 def endpoint_summary():
-    """Aggregate vault-level decision signals."""
+    """Aggregate vault-level decision signals.
+
+    Response data:
+        total_notes (int): Total notes in the vault.
+        complete (int): Notes with status ``"complete"``.
+        partial (int): Notes not yet complete.
+        coverage (int): Completion percentage (0–100).
+    """
     try:
         result = get_all_notes()
         if "error" in result:
@@ -521,10 +640,13 @@ def endpoint_summary():
         coverage = int((complete / total) * 100) if total > 0 else 0
 
         return {
-            "total_notes": total,
-            "complete": complete,
-            "partial": partial,
-            "coverage": coverage,
+            "status": "ok",
+            "data": {
+                "total_notes": total,
+                "complete": complete,
+                "partial": partial,
+                "coverage": coverage,
+            },
         }
     except Exception as exc:
         return _error("SUMMARY_FAILED", f"Summary failed: {exc}", 500)
@@ -549,7 +671,20 @@ def endpoint_tasks(
     limit: int = Query(10, ge=1, description="Maximum number of tasks to return"),
     min_priority: float = Query(None, description="Minimum priority threshold"),
 ):
-    """Return prioritised upgrade tasks, optionally filtered by min_priority."""
+    """Return prioritised upgrade tasks, optionally filtered by min_priority.
+
+    Response data:
+        total (int): Total tasks available before filtering.
+        tasks (list): Normalised task objects, sorted descending by priority.
+
+    Each task object:
+        note (str): Note stem name.
+        priority (float): Computed priority score.
+        type (str): Always ``"missing_section"``.
+        target (str): Primary missing section.
+        missing (list[str]): All missing sections.
+        instruction (str): Human-readable action.
+    """
     try:
         # Fetch all tasks (no limit at adapter level when filtering)
         result = get_tasks(limit=9999)
@@ -562,8 +697,8 @@ def endpoint_tasks(
         if min_priority is not None:
             tasks = [t for t in tasks if t["priority"] >= min_priority]
 
-        # Sort descending by priority
-        tasks.sort(key=lambda t: t["priority"], reverse=True)
+        # Sort descending by priority, then ascending by note name for stability
+        tasks.sort(key=lambda t: (-t["priority"], t["note"].lower()))
 
         # Apply limit after filtering
         tasks = tasks[:limit]
@@ -572,8 +707,11 @@ def endpoint_tasks(
         normalised = [_normalise_task(t) for t in tasks]
 
         return {
-            "total": len(result["tasks"]),
-            "tasks": normalised,
+            "status": "ok",
+            "data": {
+                "total": len(result["tasks"]),
+                "tasks": normalised,
+            },
         }
     except Exception as exc:
         return _error("TASKS_FAILED", f"Tasks retrieval failed: {exc}", 500)
@@ -581,7 +719,16 @@ def endpoint_tasks(
 
 @app.get("/gaps")
 def endpoint_gaps():
-    """Return high-impact incomplete notes (priority >= 2)."""
+    """Return high-impact incomplete notes (priority >= 2).
+
+    Response data:
+        gaps (list): Incomplete notes sorted descending by priority.
+
+    Each gap object:
+        note (str): Note stem name.
+        priority (float): Task priority score.
+        missing (list[str]): Missing section slugs.
+    """
     try:
         result = get_tasks(limit=9999)
         if "error" in result:
@@ -604,23 +751,129 @@ def endpoint_gaps():
                     "missing": task["missing"],
                 })
 
-        gaps.sort(key=lambda g: g["priority"], reverse=True)
+        # Sort descending by priority, then ascending by note name for stability
+        gaps.sort(key=lambda g: (-g["priority"], g["note"].lower()))
 
-        return {"gaps": gaps}
+        return {"status": "ok", "data": {"gaps": gaps}}
     except Exception as exc:
         return _error("GAPS_FAILED", f"Gaps retrieval failed: {exc}", 500)
 
 
 @app.get("/notes")
 def endpoint_notes():
-    """List all notes with metadata."""
+    """List all notes with metadata, sorted alphabetically by name.
+
+    Response data:
+        notes (list): All vault notes, sorted ascending by name (case-insensitive).
+
+    Each note object:
+        name (str): Note stem (filename without extension).
+        status (str): Frontmatter status field (e.g. ``"complete"``, ``"partial"``).
+        difficulty (str): Frontmatter difficulty field.
+        missing (list[str]): Missing required section slugs.
+        path (str): Vault-relative path.
+    """
     try:
         result = get_all_notes()
         if "error" in result:
             return _error("NOTES_FAILED", result["error"], 500)
-        return result
+        result["notes"].sort(key=lambda n: n["name"].lower())
+        return {"status": "ok", "data": result}
     except Exception as exc:
         return _error("NOTES_FAILED", f"Notes retrieval failed: {exc}", 500)
+
+
+# ---------- Phase 4A: Completion endpoints ----------
+
+
+@app.get("/quality")
+def endpoint_quality():
+    """Run content quality audit and return structured results.
+
+    Response data:
+        total (int): Total notes audited.
+        flagged (int): Notes with at least one quality issue.
+        highest_score (int): Highest quality penalty score found.
+        average_score (float): Mean penalty score across all notes.
+        notes (list): Per-note audit results, sorted descending by score.
+
+    Each note entry:
+        file (str): Vault-relative file path.
+        score (int): Total penalty score (higher = more issues).
+        severity (str): Severity band (e.g. ``"low"``, ``"high"``).
+        issues (list): Per-rule violations with ``rule``, ``weight``, ``explanation``.
+    """
+    try:
+        result = get_quality()
+        if "error" in result:
+            return _error("QUALITY_FAILED", result["error"], 500)
+        return {"status": "ok", "data": result}
+    except Exception as exc:
+        return _error("QUALITY_FAILED", f"Quality audit failed: {exc}", 500)
+
+
+@app.get("/missing")
+def endpoint_missing():
+    """Detect missing concepts across all expected subdomains.
+
+    Response data:
+        total_expected (int): Total concepts expected across all subdomains.
+        total_actual (int): Concepts currently present in the vault.
+        total_missing (int): Concepts not yet present.
+        domains_assessed (int): Number of top-level domains covered.
+        subdomains (int): Number of subdomains assessed.
+        gaps (dict): Mapping of subdomain → list of missing concept objects.
+        ranked (list): All missing concepts ranked by score, highest first.
+
+    Each ranked entry:
+        rank (int): 1-based rank.
+        score (float): Importance score.
+        subdomain (str): Subdomain name.
+        concept (str): Missing concept name.
+    """
+    try:
+        result = get_missing()
+        if "error" in result:
+            return _error("MISSING_FAILED", result["error"], 500)
+        return {"status": "ok", "data": result}
+    except Exception as exc:
+        return _error("MISSING_FAILED", f"Missing concepts detection failed: {exc}", 500)
+
+
+@app.post("/compare")
+def endpoint_compare(req: CompareRequest):
+    """Compare two vault states and return a structured delta report.
+
+    Request body:
+        before (str, required): Path to the BEFORE report (relative to vault root
+            or absolute). Must be non-empty.
+        after (str, optional): Path to the AFTER report. Omit to use the live
+            vault state as the AFTER snapshot.
+        vault (str, optional): Vault name; defaults to the first registered vault.
+
+    Response data:
+        before (dict): Snapshot metrics from the BEFORE report.
+        after (dict): Snapshot metrics from the AFTER (report or live vault).
+        delta (dict): Differences between before and after snapshots.
+        report (str): Full markdown delta report.
+
+    Error codes:
+        INVALID_INPUT: ``before`` is blank or whitespace-only.
+        COMPARE_FAILED: Report file not found or comparison error.
+    """
+    if not req.before.strip():
+        return _error("INVALID_INPUT", "'before' must not be blank or whitespace-only")
+    try:
+        result = get_compare(
+            before=req.before,
+            after=req.after,
+            vault_name=req.vault,
+        )
+        if "error" in result:
+            return _error("COMPARE_FAILED", result["error"], 500)
+        return {"status": "ok", "data": result}
+    except Exception as exc:
+        return _error("COMPARE_FAILED", f"Compare failed: {exc}", 500)
 
 
 # ---------- Run ----------

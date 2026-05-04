@@ -141,24 +141,41 @@ This document describes the phased development plan for Context Vault Engine. Ph
 
 > The following phases are **not yet implemented**. Do not claim these features are available.
 
-### Phase 7 — Optional Semantic Retrieval
+### Phase 7 — Retrieval Enhancements
 
-**Status: Future — not implemented**
+**Status: Phase 7a (Deterministic Lexical Search) — Complete. Phase 7b (Semantic Retrieval) — Future, not implemented.**
 
-**Purpose:** Add semantic retrieval only after deterministic context bundles work.
+#### Phase 7a — Deterministic Lexical Query Search (Complete)
+
+Closes the retrieval gap before semantic search. Added deterministic keyword search over note body text with explainable scoring and no new dependencies.
+
+**Delivered:**
+- `q` parameter on `POST /query` for free-text lexical search (max 1000 chars).
+- `q_fields` parameter: search `body`, `path`, or `frontmatter` values (default: `body`).
+- Deterministic TF-based scoring: score = mean term-frequency across unique query terms (0.0–1.0).
+- Results ranked by score descending, then path ascending.
+- Lexical search intersects with existing filters.
+- `q` omitted or blank preserves existing filter-only behaviour exactly.
+- `INVALID_QUERY` error for overlong `q` or unsupported `q_fields` values.
+- No embeddings, no vector search, no persistent index, no new Python dependencies.
+
+#### Phase 7b — Optional Semantic Retrieval (Future — not implemented)
+
+**Purpose:** Add semantic retrieval only after deterministic retrieval works end-to-end.
 
 **Potential additions:**
 - Embedding index
 - Semantic search endpoint
-- Hybrid search (filter + embedding)
+- Hybrid search (filter + lexical + embedding)
 - Local embedding model support
 
 **Rules:**
 - Semantic retrieval must not bypass schema validation.
 - Semantic results must include source paths.
-- Deterministic filters should run before semantic ranking.
+- Deterministic filters must run before semantic ranking.
 - Invalid notes must be excluded unless explicitly allowed.
 - The system must work without embeddings.
+- Do not add embeddings, ML dependencies, or model files until this phase is explicitly started.
 
 ---
 

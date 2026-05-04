@@ -14,6 +14,7 @@ Hardening:
 """
 
 import os
+import re
 import time
 import urllib.parse
 from collections import Counter
@@ -24,6 +25,11 @@ from mcp.core.note_index import get_index
 _QUERY_TIMEOUT_MS = 200
 _DEFAULT_LIMIT = 50
 _MAX_LIMIT = 500
+
+# Lexical search constants
+_MAX_Q_LENGTH: int = 1000
+_ALLOWED_Q_FIELDS: frozenset[str] = frozenset(("body", "path", "frontmatter"))
+_DEFAULT_Q_FIELDS: list[str] = ["body"]
 
 
 def _valid_fields(vault_name: str) -> frozenset[str]:
@@ -97,13 +103,169 @@ def _match(note: dict, filters: dict, known: frozenset[str]) -> bool:
     return True
 
 
+# ── Lexical search helpers ──────────────────────────────────────────────────
+
+def _tokenise_query(text: str) -> list[str]:
+    """Return ordered, deduplicated lowercase alphanumeric tokens from *text*.
+
+    Used for the query string so each unique term is scored once.
+    """
+    tokens = re.findall(r"[a-z0-9]+", text.lower())
+    seen: set[str] = set()
+    result: list[str] = []
+    for t in tokens:
+        if t not in seen:
+            seen.add(t)
+            result.append(t)
+    return result
+
+
+def _tokenise_text(text: str) -> list[str]:
+    """Return all lowercase alphanumeric tokens from *text* (with repetitions).
+
+    Used for the corpus so term frequency is counted correctly.
+    """
+    return re.findall(r"[a-z0-9]+", text.lower())
+
+
+def _score_note(note: dict, query_terms: list[str], q_fields: list[str]) -> float:
+    """Score *note* against *query_terms* over the requested *q_fields*.
+
+    Scoring model (deterministic, pure-Python, 0.0–1.0):
+    - Build a corpus from the requested fields (body, path, frontmatter values).
+    - Tokenise corpus → all tokens (with repetitions).
+    - For each unique query term compute TF = count / corpus_length.
+    - score = sum(TF per unique query term) / len(unique query terms).
+    Missing terms contribute zero to the total; result is in [0.0, 1.0].
+    """
+    if not query_terms:
+        return 0.0
+
+    parts: list[str] = []
+    if "body" in q_fields:
+        parts.append(note.get("body") or "")
+    if "path" in q_fields:
+        parts.append(note.get("path") or "")
+    if "frontmatter" in q_fields:
+        for v in (note.get("fields") or {}).values():
+            if v is not None:
+                parts.append(str(v))
+
+    corpus_tokens = _tokenise_text(" ".join(parts))
+    n = len(corpus_tokens)
+    if n == 0:
+        return 0.0
+
+    counts: dict[str, int] = {}
+    for t in corpus_tokens:
+        counts[t] = counts.get(t, 0) + 1
+
+    total_tf = sum(counts.get(term, 0) / n for term in query_terms)
+    return total_tf / len(query_terms)
+
+
+def _validate_lexical_query(
+    q: "str | None",
+    q_fields: "list[str] | None",
+) -> "tuple[dict | None, list[str]]":
+    """Validate *q* and *q_fields*.
+
+    Returns ``(error_dict_or_None, resolved_q_fields)``.
+    On error the dict is a structured INVALID_QUERY response ready to return;
+    *resolved_q_fields* will be empty.  On success error_dict is None and
+    resolved_q_fields is the validated (or defaulted) field list.
+    """
+    if q is not None and len(q) > _MAX_Q_LENGTH:
+        return (
+            {
+                "status": "error",
+                "error": "INVALID_QUERY",
+                "details": [
+                    {
+                        "param": "q",
+                        "reason": (
+                            f"q exceeds maximum length of {_MAX_Q_LENGTH} characters "
+                            f"(got {len(q)})"
+                        ),
+                    }
+                ],
+                "results": [],
+            },
+            [],
+        )
+
+    if q_fields is not None:
+        if len(q_fields) == 0:
+            return (
+                {
+                    "status": "error",
+                    "error": "INVALID_QUERY",
+                    "details": [
+                        {
+                            "param": "q_fields",
+                            "value": [],
+                            "reason": (
+                                "q_fields must not be empty; "
+                                "allowed values: body, path, frontmatter"
+                            ),
+                        }
+                    ],
+                    "results": [],
+                },
+                [],
+            )
+        invalid_fields = [f for f in q_fields if f not in _ALLOWED_Q_FIELDS]
+        if invalid_fields:
+            return (
+                {
+                    "status": "error",
+                    "error": "INVALID_QUERY",
+                    "details": [
+                        {
+                            "param": "q_fields",
+                            "value": f,
+                            "reason": (
+                                f"not an allowed q_field; allowed: "
+                                f"{sorted(_ALLOWED_Q_FIELDS)}"
+                            ),
+                        }
+                        for f in invalid_fields
+                    ],
+                    "results": [],
+                },
+                [],
+            )
+
+    resolved = list(q_fields) if q_fields is not None else _DEFAULT_Q_FIELDS
+    return (None, resolved)
+
+
+# ── Main query function ──────────────────────────────────────────────────────
+
 def query(vault_name: str, filters: dict, *, limit: int = _DEFAULT_LIMIT,
-          offset: int = 0, strict: bool = False) -> dict:
+          offset: int = 0, strict: bool = False,
+          q: "str | None" = None, q_fields: "list[str] | None" = None) -> dict:
     """Query a vault's index with the given filters.
 
     Returns a structured response dict with pagination metadata.
+
+    Optional lexical search:
+        q          — free-text search string (max 1000 chars).
+        q_fields   — list of fields to search; allowed: body, path, frontmatter.
+                     Defaults to ["body"] when *q* is supplied.
+    When *q* is present (non-blank), results are scored, filtered to score > 0,
+    and ranked by (-score, path).  Each result includes a ``score`` key.
     """
     known = _valid_fields(vault_name)
+
+    # Validate lexical params before doing any scanning.
+    q_active = bool(q and q.strip())
+    if q_active or q_fields is not None:
+        lex_error, resolved_q_fields = _validate_lexical_query(q, q_fields)
+        if lex_error is not None:
+            return lex_error
+    else:
+        resolved_q_fields = _DEFAULT_Q_FIELDS
 
     # Unified filter validation — applied in all modes (strict or not).
     # Unknown fields, unsupported operators, and malformed __in values
@@ -150,23 +312,44 @@ def query(vault_name: str, filters: dict, *, limit: int = _DEFAULT_LIMIT,
     deadline = start + (_QUERY_TIMEOUT_MS / 1000.0)
     timed_out = False
 
-    results = []
+    # Step 1: apply structural filters (same as before).
+    filtered_notes = []
     for note in index:
         if time.monotonic() > deadline:
             timed_out = True
             break
         if _match(note, filters, known):
-            results.append({
-                "path": note["path"],
-                "fields": note["fields"],
-            })
+            filtered_notes.append(note)
 
-    # Phase 7: stable sort by path (case-insensitive)
-    results.sort(key=lambda n: n["path"].lower())
+    # Step 2: apply lexical scoring (only when q is active).
+    if q_active:
+        query_terms = _tokenise_query(q)  # type: ignore[arg-type]
+        scored: list[dict] = []
+        for note in filtered_notes:
+            score = _score_note(note, query_terms, resolved_q_fields)
+            if score > 0.0:
+                scored.append({
+                    "path": note["path"],
+                    "fields": note["fields"],
+                    "score": round(score, 6),
+                })
+            if time.monotonic() > deadline:
+                timed_out = True
+                break
+        # Sort by score descending then path ascending (deterministic).
+        scored.sort(key=lambda n: (-n["score"], n["path"].lower()))
+        results = scored
+    else:
+        results = [
+            {"path": note["path"], "fields": note["fields"]}
+            for note in filtered_notes
+        ]
+        # Stable sort by path (case-insensitive)
+        results.sort(key=lambda n: n["path"].lower())
 
     total = len(results)
 
-    # Phase 6: pagination applied after filtering + sorting
+    # Pagination applied after filtering + sorting
     paginated = results[offset: offset + limit]
 
     response = {

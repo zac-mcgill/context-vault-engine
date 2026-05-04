@@ -160,7 +160,7 @@ Context packages exported by `run.py export` or `POST /context/export` are writt
       ↓
 2. note_index.py: parse YAML frontmatter → validate structure
       ↓
-3. query_engine.py: apply filters → return matching note objects
+3. query_engine.py: apply filters → apply deterministic lexical scoring (if q present) → return ranked note objects
       ↓
 4. context_bundle.py: select notes by filter + budget → assemble bundle
       ↓
@@ -200,7 +200,8 @@ The index rebuilds lazily on the next API call after a 2-second cooldown (to avo
 - **Single vault per config.** The CLI (`run.py`) reads one vault from `config/config.yaml`. The API server can serve multiple vaults registered in `vault_registry.py`.
 - **Markdown source of truth.** Notes must be edited as Markdown files. The system does not provide a write API for note content.
 - **Generated artefacts are not source.** Context packages, validation reports, and generated templates are derived outputs. Do not treat them as authoritative.
-- **No semantic retrieval.** The current implementation does not use embeddings or vector search. All queries are filter-based (equality, substring, list membership). Semantic retrieval is a future phase.
+- **Deterministic lexical search in query layer.** `POST /query` supports an optional `q` parameter for free-text lexical search over note body, path, or frontmatter values. Scoring is deterministic and pure-Python: for each unique query term, TF = occurrences / corpus length; score = mean TF across unique terms. Results are ranked by score descending then path ascending. No embeddings, no persistent index, no new dependencies.
+- **No semantic retrieval.** The current implementation does not use embeddings or vector search. All structured queries are filter-based (equality, substring, list membership). The lexical `q` parameter is deterministic keyword scoring only. Semantic retrieval (embeddings, vector search) remains a future phase and is not implemented.
 - **No registry.** Context packages are written to `dist/` but there is no registry, versioning, or deduplication layer. This is a future phase.
 
 ---

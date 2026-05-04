@@ -1,6 +1,6 @@
 # Context Vault Engine — Testing
 
-All tests live in `mcp/test_verify.py`. There are 153 test functions covering all implemented phases.
+All tests live in `mcp/test_verify.py`. There are 172 test functions covering all implemented phases.
 
 ---
 
@@ -234,6 +234,34 @@ Regression tests for correctness fixes:
 - `require_security_pass=false` → export unchanged.
 - `require_security_pass=true` + clean bundle → export succeeds.
 - `require_security_pass=true` + fail bundle → export blocked with 400.
+
+### Phase 6 — Documentation Consistency Test
+
+- `test_p6_docs_consistency` — all 7 required docs files exist; README mentions correct project name; QUICKSTART has no stale naming; API.md covers all registered routes.
+
+### Phase 7 — Deterministic Lexical Query Search Tests
+
+19 tests covering lexical search on `POST /query`:
+
+- `test_p7_q_omitted_preserves_behaviour` — `q` omitted produces identical results to plain query.
+- `test_p7_q_blank_preserves_behaviour` — `q=""` and `q="   "` behave the same as `q` omitted; no `score` key in results.
+- `test_p7_q_returns_positive_score_results` — `q="recursion"` returns only notes with `score > 0`.
+- `test_p7_q_no_match_returns_empty` — `q` with no matches returns `count=0` and empty results.
+- `test_p7_q_combined_with_filters` — `q` combined with filters applies both constraints; all results satisfy both.
+- `test_p7_q_deterministic_repeated` — three identical calls return identical results.
+- `test_p7_q_ranking_deterministic` — results are in non-increasing score order.
+- `test_p7_q_score_range` — all scores in `(0.0, 1.0]`.
+- `test_p7_q_overlong_rejected` — `q` > 1000 chars returns `INVALID_QUERY`.
+- `test_p7_q_fields_invalid_rejected` — unsupported `q_fields` value returns `INVALID_QUERY` with offending field listed.
+- `test_p7_q_fields_body` — `q_fields=["body"]` searches note body text.
+- `test_p7_q_fields_path` — `q_fields=["path"]` searches note path.
+- `test_p7_q_fields_frontmatter` — `q_fields=["frontmatter"]` searches frontmatter field values.
+- `test_p7_q_http_api` — `POST /query` with `q` works over HTTP TestClient; results include `score`.
+- `test_p7_q_http_no_match` — HTTP `POST /query` no-match returns `count=0`.
+- `test_p7_q_http_invalid_q_fields` — HTTP invalid `q_fields` returns HTTP 400 `INVALID_QUERY`.
+- `test_p7_q_http_overlong_q` — HTTP overlong `q` returns HTTP 400 `INVALID_QUERY`.
+- `test_p7_q_no_score_when_q_absent` — no `score` key in results when `q` is absent.
+- `test_p7_tiebreak_by_path` — equal-score notes are sorted by path ascending.
 
 ---
 

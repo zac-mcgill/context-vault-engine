@@ -4454,6 +4454,460 @@ def test_p6_docs_consistency():
 
 
 # ============================================================
+# Phase 7 — Deterministic Lexical Query Search
+# ============================================================
+
+def _lex_vault():
+    """Return the first registered vault name (used by all P7 tests)."""
+    vaults = list_vaults()
+    assert vaults, "No vaults registered"
+    return vaults[0]
+
+
+def test_p7_q_omitted_preserves_behaviour():
+    """P7-LEX-01: q omitted produces same result as plain query (no q)."""
+    print("\n=== Test P7-LEX-01: q omitted preserves existing behaviour ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    result_plain = query(vault, {})
+    result_no_q = query(vault, {}, q=None)
+
+    assert result_plain["status"] == result_no_q["status"]
+    assert result_plain["count"] == result_no_q["count"]
+    assert result_plain["results"] == result_no_q["results"]
+    print("  q omitted and q=None return identical results \u2713")
+
+
+def test_p7_q_blank_preserves_behaviour():
+    """P7-LEX-02: q='' and q='   ' behave the same as q omitted."""
+    print("\n=== Test P7-LEX-02: q blank preserves existing behaviour ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    result_ref = query(vault, {})
+    result_empty = query(vault, {}, q="")
+    result_whitespace = query(vault, {}, q="   ")
+
+    assert result_empty["count"] == result_ref["count"]
+    assert result_empty["results"] == result_ref["results"]
+    assert result_whitespace["count"] == result_ref["count"]
+    assert result_whitespace["results"] == result_ref["results"]
+    # No score key in results when q is blank
+    for r in result_empty["results"]:
+        assert "score" not in r
+    print("  q='' and q='   ' return identical results to q omitted \u2713")
+    print("  No score key when q is blank \u2713")
+
+
+def test_p7_q_returns_positive_score_results():
+    """P7-LEX-03: q='recursion' returns only notes with positive score."""
+    print("\n=== Test P7-LEX-03: q returns only positive-score notes ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    result = query(vault, {}, q="recursion")
+
+    assert result["status"] == "ok"
+    assert isinstance(result["results"], list)
+    for r in result["results"]:
+        assert "score" in r
+        assert r["score"] > 0.0
+    print(f"  {result['count']} notes with score > 0 returned \u2713")
+    print("  All result scores > 0 \u2713")
+
+
+def test_p7_q_no_match_returns_empty():
+    """P7-LEX-04: q with no matches returns ok with count 0 and empty results."""
+    print("\n=== Test P7-LEX-04: q no matches returns empty ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    # Use a single token that cannot appear in any real note body
+    result = query(vault, {}, q="zqxwvzqxwvzqxwv")
+
+    assert result["status"] == "ok"
+    assert result["count"] == 0
+    assert result["results"] == []
+    print("  No-match query returns count=0 and empty results \u2713")
+
+
+def test_p7_q_combined_with_filters():
+    """P7-LEX-05: q combined with filters applies both constraints."""
+    print("\n=== Test P7-LEX-05: q combined with filters ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    # Get all notes with q only
+    result_q_only = query(vault, {}, q="data")
+    # Get all notes without q
+    result_plain = query(vault, {})
+
+    # Now combine with a filter that is likely to reduce results
+    # Use a filter that some notes will pass
+    index = get_index(vault)
+    # Find a valid field+value that exists in at least one note
+    sample_field = None
+    sample_value = None
+    for note in index:
+        for k, v in note["fields"].items():
+            if isinstance(v, str) and v:
+                sample_field = k
+                sample_value = v
+                break
+        if sample_field:
+            break
+
+    if sample_field and sample_value:
+        result_combined = query(vault, {sample_field: sample_value}, q="data")
+        # Combined result can only have at most as many notes as q_only
+        assert result_combined["count"] <= result_q_only["count"]
+        # All results must have that field value
+        for r in result_combined["results"]:
+            assert r["fields"].get(sample_field) == sample_value
+        # All combined results must have score > 0
+        for r in result_combined["results"]:
+            assert r["score"] > 0.0
+        print(f"  Filter {sample_field}={sample_value!r} combined with q='data': "
+              f"{result_combined['count']} results \u2713")
+    else:
+        print("  No suitable filter field found; skipping filter intersection check")
+    print("  Combined constraints correctly applied \u2713")
+
+
+def test_p7_q_deterministic_repeated():
+    """P7-LEX-06: repeated identical q returns identical order and identical scores."""
+    print("\n=== Test P7-LEX-06: q is deterministic across repeated calls ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    r1 = query(vault, {}, q="algorithm")
+    r2 = query(vault, {}, q="algorithm")
+    r3 = query(vault, {}, q="algorithm")
+
+    assert r1["results"] == r2["results"], "Second run differs"
+    assert r1["results"] == r3["results"], "Third run differs"
+    print("  Three identical calls return identical results \u2713")
+
+
+def test_p7_q_ranking_deterministic():
+    """P7-LEX-07: higher coverage / frequency sorts higher."""
+    print("\n=== Test P7-LEX-07: ranking is deterministic and ordered ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    result = query(vault, {}, q="data structure algorithm")
+
+    if result["count"] >= 2:
+        scores = [r["score"] for r in result["results"]]
+        # Scores must be non-increasing (sorted by -score then path)
+        for i in range(len(scores) - 1):
+            assert scores[i] >= scores[i + 1], (
+                f"Score at position {i} ({scores[i]}) < position {i+1} ({scores[i+1]})"
+            )
+        print(f"  {result['count']} results verified in descending score order \u2713")
+    else:
+        print("  Fewer than 2 results; ordering trivially correct \u2713")
+
+
+def test_p7_q_score_range():
+    """P7-LEX-08: all scores are in [0.0, 1.0]."""
+    print("\n=== Test P7-LEX-08: scores are in [0.0, 1.0] ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    result = query(vault, {}, q="memory pointer data structure")
+
+    for r in result["results"]:
+        assert 0.0 < r["score"] <= 1.0, (
+            f"Score {r['score']} out of range for {r['path']}"
+        )
+    print(f"  All {result['count']} scores in (0.0, 1.0] \u2713")
+
+
+def test_p7_q_overlong_rejected():
+    """P7-LEX-09: q exceeding 1000 chars returns structured INVALID_QUERY error."""
+    print("\n=== Test P7-LEX-09: overlong q returns INVALID_QUERY ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    long_q = "a" * 1001
+    result = query(vault, {}, q=long_q)
+
+    assert result["status"] == "error"
+    assert result["error"] == "INVALID_QUERY"
+    assert "details" in result
+    assert result["results"] == []
+    print("  Overlong q returns INVALID_QUERY with details \u2713")
+
+
+def test_p7_q_fields_invalid_rejected():
+    """P7-LEX-10: q_fields with invalid value returns structured INVALID_QUERY error."""
+    print("\n=== Test P7-LEX-10: invalid q_fields returns INVALID_QUERY ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    result = query(vault, {}, q="data", q_fields=["body", "nosuchfield"])
+
+    assert result["status"] == "error"
+    assert result["error"] == "INVALID_QUERY"
+    assert "details" in result
+    # Details must mention the invalid field
+    detail_values = [d.get("value") for d in result["details"]]
+    assert "nosuchfield" in detail_values
+    print("  Invalid q_fields returns INVALID_QUERY with offending field listed \u2713")
+
+
+def test_p7_q_fields_body():
+    """P7-LEX-11: q_fields=['body'] searches note body."""
+    print("\n=== Test P7-LEX-11: q_fields=['body'] searches body ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    result = query(vault, {}, q="algorithm", q_fields=["body"])
+
+    assert result["status"] == "ok"
+    # All results must have score > 0 (body contains the term)
+    for r in result["results"]:
+        assert r["score"] > 0.0
+    print(f"  q_fields=['body']: {result['count']} notes matched \u2713")
+
+
+def test_p7_q_fields_path():
+    """P7-LEX-12: q_fields=['path'] searches note path."""
+    print("\n=== Test P7-LEX-12: q_fields=['path'] searches path ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    # Use a token that appears in a known path in the demo vault
+    # "fundamentals" appears in e.g. "Fundamentals/Algorithms.md"
+    result = query(vault, {}, q="fundamentals", q_fields=["path"])
+
+    assert result["status"] == "ok"
+    # All results should have 'fundamentals' somewhere in their path (case-insensitive)
+    for r in result["results"]:
+        assert "fundamentals" in r["path"].lower(), (
+            f"Path {r['path']!r} does not contain 'fundamentals'"
+        )
+        assert r["score"] > 0.0
+    print(f"  q_fields=['path']: {result['count']} notes matched by path token \u2713")
+
+
+def test_p7_q_fields_frontmatter():
+    """P7-LEX-13: q_fields=['frontmatter'] searches frontmatter field values."""
+    print("\n=== Test P7-LEX-13: q_fields=['frontmatter'] searches frontmatter ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    # Find a frontmatter value token that exists
+    index = get_index(vault)
+    search_token = None
+    for note in index:
+        for v in note["fields"].values():
+            if isinstance(v, str) and len(v) > 3:
+                # pick a token from this value
+                import re as _re
+                tokens = _re.findall(r"[a-z0-9]+", v.lower())
+                if tokens:
+                    search_token = tokens[0]
+                    break
+        if search_token:
+            break
+
+    if search_token:
+        result = query(vault, {}, q=search_token, q_fields=["frontmatter"])
+        assert result["status"] == "ok"
+        for r in result["results"]:
+            assert r["score"] > 0.0
+        print(f"  q_fields=['frontmatter'] q={search_token!r}: "
+              f"{result['count']} notes matched \u2713")
+    else:
+        print("  No suitable frontmatter token found; test skipped")
+
+
+def test_p7_q_http_api():
+    """P7-LEX-14: POST /query with q works via HTTP TestClient."""
+    print("\n=== Test P7-LEX-14: HTTP API supports q ===")
+    from fastapi.testclient import TestClient
+    from mcp.server.mcp_server import app
+    client = TestClient(app, raise_server_exceptions=False)
+
+    vault = _lex_vault()
+
+    resp = client.post("/query", json={"vault": vault, "q": "algorithm"})
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+    body = resp.json()
+    assert body["status"] == "ok"
+    data = body["data"]
+    assert "count" in data
+    assert "results" in data
+    for r in data["results"]:
+        assert "score" in r
+        assert r["score"] > 0.0
+    print(f"  HTTP /query?q=algorithm: {data['count']} results, all scored \u2713")
+
+
+def test_p7_q_http_no_match():
+    """P7-LEX-15: POST /query with q that matches nothing returns count=0."""
+    print("\n=== Test P7-LEX-15: HTTP API q no match ===")
+    from fastapi.testclient import TestClient
+    from mcp.server.mcp_server import app
+    client = TestClient(app, raise_server_exceptions=False)
+
+    vault = _lex_vault()
+
+    resp = client.post("/query", json={"vault": vault, "q": "zqxwvzqxwvzqxwv"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["data"]["count"] == 0
+    assert body["data"]["results"] == []
+    print("  HTTP /query no-match returns count=0 \u2713")
+
+
+def test_p7_q_http_invalid_q_fields():
+    """P7-LEX-16: HTTP POST /query with invalid q_fields returns 400."""
+    print("\n=== Test P7-LEX-16: HTTP API invalid q_fields returns 400 ===")
+    from fastapi.testclient import TestClient
+    from mcp.server.mcp_server import app
+    client = TestClient(app, raise_server_exceptions=False)
+
+    vault = _lex_vault()
+
+    resp = client.post("/query", json={"vault": vault, "q": "data", "q_fields": ["body", "notafield"]})
+    assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["error"] == "INVALID_QUERY"
+    print("  Invalid q_fields returns HTTP 400 INVALID_QUERY \u2713")
+
+
+def test_p7_q_http_overlong_q():
+    """P7-LEX-17: HTTP POST /query with q > 1000 chars returns 400."""
+    print("\n=== Test P7-LEX-17: HTTP API overlong q returns 400 ===")
+    from fastapi.testclient import TestClient
+    from mcp.server.mcp_server import app
+    client = TestClient(app, raise_server_exceptions=False)
+
+    vault = _lex_vault()
+
+    resp = client.post("/query", json={"vault": vault, "q": "z" * 1001})
+    assert resp.status_code == 400, f"Expected 400, got {resp.status_code}: {resp.text}"
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["error"] == "INVALID_QUERY"
+    print("  Overlong q returns HTTP 400 INVALID_QUERY \u2713")
+
+
+def test_p7_q_no_score_when_q_absent():
+    """P7-LEX-18: Results have no score key when q is absent."""
+    print("\n=== Test P7-LEX-18: No score key when q absent ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    result = query(vault, {})
+    for r in result["results"]:
+        assert "score" not in r, f"Unexpected score key in result: {r}"
+    print("  No score key in results when q is absent \u2713")
+
+
+def test_p7_tiebreak_by_path():
+    """P7-LEX-19: Notes with equal score are sorted by path ascending."""
+    print("\n=== Test P7-LEX-19: Equal-score notes sorted by path ===")
+    vault = _lex_vault()
+    build_index(vault)
+
+    # Use a very common single-character term that will likely score many notes
+    # We just verify the invariant holds on the actual result set.
+    result = query(vault, {}, q="the")
+
+    results = result["results"]
+    for i in range(len(results) - 1):
+        s1, p1 = results[i]["score"], results[i]["path"].lower()
+        s2, p2 = results[i + 1]["score"], results[i + 1]["path"].lower()
+        if s1 == s2:
+            assert p1 <= p2, (
+                f"Tie at score={s1} not broken by path: {p1!r} > {p2!r}"
+            )
+    print("  Equal-score notes correctly ordered by path \u2713")
+
+
+def test_p7_lexical_timeout_returns_partial():
+    """P7-LEX-20: Lexical scoring loop timeout returns status='partial'."""
+    print("\n=== Test P7-LEX-20: Lexical timeout returns partial ===")
+    import mcp.core.query_engine as _qe
+    vault = _lex_vault()
+    build_index(vault)
+    original = _qe._QUERY_TIMEOUT_MS
+    try:
+        _qe._QUERY_TIMEOUT_MS = 0.001  # near-zero timeout
+        result = query(vault, {}, q="algorithm")
+        assert result["status"] == "partial"
+        assert result.get("warning") == "query timeout"
+    finally:
+        _qe._QUERY_TIMEOUT_MS = original
+    print("  Lexical timeout returns partial \u2713")
+
+
+def test_p7_partial_lexical_results_sorted_deterministically():
+    """P7-LEX-21: Partial lexical results are still sorted deterministically."""
+    print("\n=== Test P7-LEX-21: Partial lexical results sorted deterministically ===")
+    import mcp.core.query_engine as _qe
+    vault = _lex_vault()
+    build_index(vault)
+    original = _qe._QUERY_TIMEOUT_MS
+    try:
+        _qe._QUERY_TIMEOUT_MS = 0.001
+        result = query(vault, {}, q="data structure memory")
+        assert result["status"] == "partial"
+        if result["count"] >= 2:
+            scores = [r["score"] for r in result["results"]]
+            for i in range(len(scores) - 1):
+                assert scores[i] >= scores[i + 1], "Not sorted by score desc"
+            equal_score_groups: dict = {}
+            for r in result["results"]:
+                equal_score_groups.setdefault(r["score"], []).append(r["path"].lower())
+            for paths in equal_score_groups.values():
+                assert paths == sorted(paths), "Equal-score paths not sorted ascending"
+    finally:
+        _qe._QUERY_TIMEOUT_MS = original
+    print("  Partial lexical results are sorted deterministically \u2713")
+
+
+def test_p7_q_omitted_timeout_unchanged():
+    """P7-LEX-22: q-omitted queries still honour timeout (partial/ok, no score keys)."""
+    print("\n=== Test P7-LEX-22: q-omitted timeout behaviour unchanged ===")
+    import mcp.core.query_engine as _qe
+    vault = _lex_vault()
+    build_index(vault)
+    original = _qe._QUERY_TIMEOUT_MS
+    try:
+        _qe._QUERY_TIMEOUT_MS = 0.001
+        result = query(vault, {})  # no q
+        assert result["status"] in ("ok", "partial")
+        if result["status"] == "partial":
+            assert result.get("warning") == "query timeout"
+        for r in result["results"]:
+            assert "score" not in r, f"Unexpected score key in q-omitted result: {r}"
+    finally:
+        _qe._QUERY_TIMEOUT_MS = original
+    print("  q-omitted timeout behaviour unchanged \u2713")
+
+
+def test_p7_q_fields_empty_returns_invalid_query():
+    """P7-LEX-23: q_fields=[] returns INVALID_QUERY error."""
+    print("\n=== Test P7-LEX-23: q_fields=[] returns INVALID_QUERY ===")
+    vault = _lex_vault()
+    build_index(vault)
+    result = query(vault, {}, q="test", q_fields=[])
+    assert result["status"] == "error"
+    assert result["error"] == "INVALID_QUERY"
+    assert "details" in result
+    assert result["results"] == []
+    print("  q_fields=[] returns INVALID_QUERY \u2713")
+
+
+# ============================================================
 # Main
 # ============================================================
 
@@ -4654,6 +5108,34 @@ def main():
     print("Phase 6 — Documentation Consistency")
     print("=" * 60)
     test_p6_docs_consistency()
+
+    # ---- Phase 7: Deterministic Lexical Query Search ----
+    print("\n" + "=" * 60)
+    print("Phase 7 — Deterministic Lexical Query Search")
+    print("=" * 60)
+    test_p7_q_omitted_preserves_behaviour()
+    test_p7_q_blank_preserves_behaviour()
+    test_p7_q_returns_positive_score_results()
+    test_p7_q_no_match_returns_empty()
+    test_p7_q_combined_with_filters()
+    test_p7_q_deterministic_repeated()
+    test_p7_q_ranking_deterministic()
+    test_p7_q_score_range()
+    test_p7_q_overlong_rejected()
+    test_p7_q_fields_invalid_rejected()
+    test_p7_q_fields_body()
+    test_p7_q_fields_path()
+    test_p7_q_fields_frontmatter()
+    test_p7_q_http_api()
+    test_p7_q_http_no_match()
+    test_p7_q_http_invalid_q_fields()
+    test_p7_q_http_overlong_q()
+    test_p7_q_no_score_when_q_absent()
+    test_p7_tiebreak_by_path()
+    test_p7_lexical_timeout_returns_partial()
+    test_p7_partial_lexical_results_sorted_deterministically()
+    test_p7_q_omitted_timeout_unchanged()
+    test_p7_q_fields_empty_returns_invalid_query()
 
     print()
     print("=" * 60)

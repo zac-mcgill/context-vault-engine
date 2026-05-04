@@ -121,7 +121,7 @@ Aggregate vault-level completion summary.
 
 ### POST /query
 
-Query vault notes with optional filters.
+Query vault notes with optional filters and optional free-text lexical search.
 
 **Request body:**
 ```json
@@ -130,7 +130,9 @@ Query vault notes with optional filters.
   "filters": {"domain": "fundamentals", "status": "complete"},
   "limit": 50,
   "offset": 0,
-  "strict": false
+  "strict": false,
+  "q": "recursion algorithm",
+  "q_fields": ["body"]
 }
 ```
 
@@ -141,13 +143,26 @@ Query vault notes with optional filters.
 | `limit` | int | `50` | Page size (1–500) |
 | `offset` | int | `0` | Page offset |
 | `strict` | bool | `false` | Reject unknown filter fields when `true` (both modes reject unknown fields now) |
+| `q` | string | `null` | Free-text lexical search (max 1000 chars). Omit or leave blank to preserve filter-only behaviour. |
+| `q_fields` | list[string] | `["body"]` | Fields to search when `q` is supplied. Allowed values: `body`, `path`, `frontmatter`. |
+
+**Lexical search behaviour:**
+- When `q` is omitted or blank, the endpoint behaves exactly as before (filter-only).
+- When `q` is present, notes are scored by deterministic term-frequency coverage and ranked by score descending, then path ascending.
+- Only notes with score > 0 are returned.
+- Each result includes a `score` key (float, range 0.0–1.0) when `q` is supplied.
+- Lexical search **intersects** with `filters`; both constraints must be satisfied.
+- No embeddings, no persistent index, no new dependencies.
+
+**Scoring model:** For each unique query term, TF = (occurrences in corpus) / (corpus length). Score = mean TF across all unique query terms. Missing terms contribute zero; the score is deterministic (no synonyms, stemming, or semantic relevance).
 
 **Filter validation:** Unknown fields, unsupported operators, and `__in` with a non-list value return `INVALID_FILTER` with zero results.
 
-**Response data:** `count`, `returned`, `offset`, `limit`, `results` (list of `{path, fields}`).
+**Response data:** `count`, `returned`, `offset`, `limit`, `results` (list of `{path, fields}`, or `{path, fields, score}` when `q` is present).
 
 **Error codes:**
 - `INVALID_FILTER` — unknown field or invalid operator (HTTP 400).
+- `INVALID_QUERY` — `q` exceeds 1000 characters, `q_fields` contains an unsupported field name, or `q_fields` is an empty list (HTTP 400).
 
 ---
 

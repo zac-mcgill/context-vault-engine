@@ -382,6 +382,8 @@ class QueryRequest(BaseModel):
     limit: int = Field(default=50, ge=1, le=500, description="Page size (1–500)")
     offset: int = Field(default=0, ge=0, description="Page offset")
     strict: bool = Field(default=False, description="Reject unknown filter fields when True")
+    q: str | None = Field(default=None, description="Free-text lexical search string (max 1000 chars)")
+    q_fields: list[str] | None = Field(default=None, description="Fields to search: body, path, frontmatter (default: [body])")
 
 
 class CompareRequest(BaseModel):
@@ -551,7 +553,7 @@ def endpoint_vaults():
 
 @app.post("/query")
 def endpoint_query(req: QueryRequest):
-    """Query a vault with optional filters.
+    """Query a vault with optional filters and optional lexical search.
 
     Response data:
         status (str): ``"ok"`` or ``"partial"`` (partial = query timed out).
@@ -559,16 +561,25 @@ def endpoint_query(req: QueryRequest):
         returned (int): Notes in this page.
         offset (int): Page offset applied.
         limit (int): Page size applied.
-        results (list): Matching note objects with ``path`` and ``fields``.
+        results (list): Matching note objects with ``path``, ``fields``,
+            and (when ``q`` is supplied) ``score``.
     """
     err = _validate_vault(req.vault)
     if err:
         return err
 
     try:
-        if req.filters:
-            result = query(req.vault, req.filters, limit=req.limit,
-                           offset=req.offset, strict=req.strict)
+        q_active = bool(req.q and req.q.strip())
+        if req.filters or q_active:
+            result = query(
+                req.vault,
+                req.filters,
+                limit=req.limit,
+                offset=req.offset,
+                strict=req.strict,
+                q=req.q,
+                q_fields=req.q_fields,
+            )
         else:
             result = list_notes(req.vault, limit=req.limit, offset=req.offset)
 

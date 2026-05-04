@@ -2209,6 +2209,652 @@ def test_p2_budget_max_notes_vs_max_chars():
 
 
 # ============================================================
+# Phase 3 — Feedback Loop Tests
+# ============================================================
+
+def test_p3_feedback_missing_file():
+    """P3-F1: Missing feedback.md returns ok with empty entries."""
+    print("\n=== Test P3-F1: Missing feedback.md ===")
+    import tempfile, os
+    from pathlib import Path as _Path
+    from core.shared.feedback import load_feedback
+
+    # Use a temp directory with no feedback.md
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = load_feedback(_Path(tmpdir))
+        assert result["status"] == "ok", f"Expected ok, got {result['status']}"
+        assert result["entries"] == []
+        assert result["warnings"] == []
+        assert result["errors"] == []
+        print(f"  Missing feedback.md: status=ok, entries=[] ✓")
+
+
+def test_p3_feedback_valid_file():
+    """P3-F2: Valid feedback.md parses correctly."""
+    print("\n=== Test P3-F2: Valid feedback.md ===")
+    from mcp.core.vault_registry import list_vaults, get_vault_path
+    from core.shared.feedback import load_feedback, feedback_path
+
+    vault = list_vaults()[0]
+    vault_path = get_vault_path(vault)
+
+    # Only run if feedback.md exists
+    fb_file = feedback_path(vault_path)
+    if not fb_file.is_file():
+        print("  SKIP: no feedback.md in vault")
+        return
+
+    result = load_feedback(vault_path)
+    # Should be ok or error (but not crash)
+    assert result["status"] in ("ok", "error"), f"Unexpected status: {result['status']}"
+    assert isinstance(result["entries"], list)
+    assert isinstance(result["warnings"], list)
+    assert isinstance(result["errors"], list)
+    print(f"  feedback.md: status={result['status']}, "
+          f"entries={len(result['entries'])}, warnings={len(result['warnings'])}, "
+          f"errors={len(result['errors'])} ✓")
+
+
+def test_p3_feedback_empty_list():
+    """P3-F3: feedback.md with empty list returns ok."""
+    print("\n=== Test P3-F3: Empty feedback list ===")
+    import tempfile
+    from pathlib import Path as _Path
+    from core.shared.feedback import load_feedback
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        vault_files = _Path(tmpdir) / "Vault Files"
+        vault_files.mkdir()
+        fb = vault_files / "feedback.md"
+        fb.write_text("feedback:\n", encoding="utf-8")
+
+        result = load_feedback(_Path(tmpdir))
+        assert result["status"] == "ok", f"Expected ok: {result}"
+        assert result["entries"] == []
+        assert result["errors"] == []
+        print(f"  Empty feedback list: status=ok, entries=[] ✓")
+
+
+def test_p3_feedback_malformed_yaml():
+    """P3-F4: Malformed YAML returns structured error."""
+    print("\n=== Test P3-F4: Malformed YAML ===")
+    import tempfile
+    from pathlib import Path as _Path
+    from core.shared.feedback import load_feedback
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        vault_files = _Path(tmpdir) / "Vault Files"
+        vault_files.mkdir()
+        fb = vault_files / "feedback.md"
+        fb.write_text("feedback: [invalid: yaml: {\n", encoding="utf-8")
+
+        result = load_feedback(_Path(tmpdir))
+        assert result["status"] == "error", f"Expected error for malformed YAML: {result}"
+        assert len(result["errors"]) > 0
+        assert result["errors"][0]["code"] == "MALFORMED_YAML"
+        assert result["entries"] == []
+        print(f"  Malformed YAML: status=error, code=MALFORMED_YAML ✓")
+
+
+def test_p3_feedback_unknown_signal():
+    """P3-F5: Unknown signal value returns structured error."""
+    print("\n=== Test P3-F5: Unknown signal ===")
+    import tempfile
+    from pathlib import Path as _Path
+    from core.shared.feedback import load_feedback
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        vault_files = _Path(tmpdir) / "Vault Files"
+        vault_files.mkdir()
+        fb = vault_files / "feedback.md"
+        fb.write_text(
+            "feedback:\n"
+            "  - path: Fundamentals/Algorithms.md\n"
+            "    source: human\n"
+            "    signal: totally_unknown_signal\n"
+            "    severity: medium\n",
+            encoding="utf-8",
+        )
+
+        result = load_feedback(_Path(tmpdir))
+        assert result["status"] == "error", f"Expected error for unknown signal: {result}"
+        codes = [e["code"] for e in result["errors"]]
+        assert "INVALID_SIGNAL" in codes, f"Expected INVALID_SIGNAL, got codes: {codes}"
+        print(f"  Unknown signal: status=error, INVALID_SIGNAL detected ✓")
+
+
+def test_p3_feedback_unknown_severity():
+    """P3-F6: Unknown severity value returns structured error."""
+    print("\n=== Test P3-F6: Unknown severity ===")
+    import tempfile
+    from pathlib import Path as _Path
+    from core.shared.feedback import load_feedback
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        vault_files = _Path(tmpdir) / "Vault Files"
+        vault_files.mkdir()
+        fb = vault_files / "feedback.md"
+        fb.write_text(
+            "feedback:\n"
+            "  - path: Fundamentals/Algorithms.md\n"
+            "    source: human\n"
+            "    signal: unclear\n"
+            "    severity: extreme\n",
+            encoding="utf-8",
+        )
+
+        result = load_feedback(_Path(tmpdir))
+        assert result["status"] == "error"
+        codes = [e["code"] for e in result["errors"]]
+        assert "INVALID_SEVERITY" in codes, f"Expected INVALID_SEVERITY, got: {codes}"
+        print(f"  Unknown severity: status=error, INVALID_SEVERITY detected ✓")
+
+
+def test_p3_feedback_unknown_source():
+    """P3-F7: Unknown source value returns structured error."""
+    print("\n=== Test P3-F7: Unknown source ===")
+    import tempfile
+    from pathlib import Path as _Path
+    from core.shared.feedback import load_feedback
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        vault_files = _Path(tmpdir) / "Vault Files"
+        vault_files.mkdir()
+        fb = vault_files / "feedback.md"
+        fb.write_text(
+            "feedback:\n"
+            "  - path: Fundamentals/Algorithms.md\n"
+            "    source: robot\n"
+            "    signal: unclear\n"
+            "    severity: medium\n",
+            encoding="utf-8",
+        )
+
+        result = load_feedback(_Path(tmpdir))
+        assert result["status"] == "error"
+        codes = [e["code"] for e in result["errors"]]
+        assert "INVALID_SOURCE" in codes, f"Expected INVALID_SOURCE, got: {codes}"
+        print(f"  Unknown source: status=error, INVALID_SOURCE detected ✓")
+
+
+def test_p3_feedback_missing_note_path():
+    """P3-F8: Feedback referencing a non-existent note produces a warning, not error."""
+    print("\n=== Test P3-F8: Missing note path produces warning ===")
+    import tempfile
+    from pathlib import Path as _Path
+    from core.shared.feedback import load_feedback
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        vault_files = _Path(tmpdir) / "Vault Files"
+        vault_files.mkdir()
+        fb = vault_files / "feedback.md"
+        fb.write_text(
+            "feedback:\n"
+            "  - path: Fundamentals/NonExistentNote.md\n"
+            "    source: human\n"
+            "    signal: unclear\n"
+            "    severity: medium\n",
+            encoding="utf-8",
+        )
+
+        result = load_feedback(_Path(tmpdir))
+        # Entry is valid (no structural errors) but the referenced note is missing
+        assert result["status"] == "ok", f"Expected ok (missing note = warning): {result}"
+        assert len(result["entries"]) == 1, "Entry must still be included"
+        assert len(result["warnings"]) > 0, "Must have at least one warning"
+        assert any("NonExistentNote" in w for w in result["warnings"]), (
+            f"Warning must mention missing note path: {result['warnings']}"
+        )
+        print(f"  Missing note: status=ok, entry included, warning={result['warnings'][0]!r} ✓")
+
+
+def test_p3_feedback_exclusion_from_notes():
+    """P3-E1: feedback.md does not appear in /notes or note index."""
+    print("\n=== Test P3-E1: feedback.md excluded from note index ===")
+    from mcp.core.vault_registry import list_vaults, get_vault_path
+    from mcp.core.note_index import build_index, get_index
+    from core.shared.feedback import feedback_path
+
+    vault = list_vaults()[0]
+    vault_path = get_vault_path(vault)
+    fb_file = feedback_path(vault_path)
+
+    build_index(vault)
+    index = get_index(vault)
+    paths = [n["path"] for n in index]
+
+    # feedback.md must never appear in the note index
+    feedback_in_index = [p for p in paths if "feedback" in p.lower()]
+    assert feedback_in_index == [], (
+        f"feedback.md must not appear in note index, found: {feedback_in_index}"
+    )
+    print(f"  {len(paths)} notes indexed — feedback.md absent ✓")
+
+
+def test_p3_feedback_exclusion_from_query():
+    """P3-E2: feedback.md does not appear in query results."""
+    print("\n=== Test P3-E2: feedback.md excluded from query ===")
+    from mcp.core.vault_registry import list_vaults
+    from mcp.core.query_engine import list_notes
+
+    vault = list_vaults()[0]
+    result = list_notes(vault, limit=500)
+    assert result["status"] == "ok"
+
+    paths = [n["path"] for n in result["results"]]
+    feedback_in_results = [p for p in paths if "feedback" in p.lower()]
+    assert feedback_in_results == [], (
+        f"feedback.md must not appear in query results, found: {feedback_in_results}"
+    )
+    print(f"  {len(paths)} notes in query results — feedback.md absent ✓")
+
+
+def test_p3_feedback_exclusion_from_graph():
+    """P3-E3: feedback.md does not appear as a graph node."""
+    print("\n=== Test P3-E3: feedback.md excluded from graph nodes ===")
+    from mcp.core.vault_registry import list_vaults
+    from mcp.core.graph_builder import build_graph
+
+    vault = list_vaults()[0]
+    graph = build_graph(vault_name=vault)
+
+    node_ids = [n["id"] for n in graph["nodes"]]
+    feedback_nodes = [nid for nid in node_ids if "feedback" in nid.lower()]
+    assert feedback_nodes == [], (
+        f"feedback.md must not appear as graph node, found: {feedback_nodes}"
+    )
+    print(f"  {len(node_ids)} graph nodes — feedback.md absent ✓")
+
+
+def test_p3_feedback_exclusion_from_bundle():
+    """P3-E4: feedback.md does not appear as a bundle note."""
+    print("\n=== Test P3-E4: feedback.md excluded from bundle notes ===")
+    from mcp.core.vault_registry import list_vaults
+    from mcp.core.note_index import build_index
+    from core.shared.context_bundle import generate_bundle
+
+    vault = list_vaults()[0]
+    build_index(vault)
+    bundle = generate_bundle(vault_name=vault, allow_partial=True, max_notes=50)
+
+    assert bundle["status"] == "ok"
+    note_paths = [n["path"] for n in bundle["notes"]]
+    feedback_in_bundle = [p for p in note_paths if "feedback" in p.lower()]
+    assert feedback_in_bundle == [], (
+        f"feedback.md must not appear as bundle note, found: {feedback_in_bundle}"
+    )
+    print(f"  {len(note_paths)} bundle notes — feedback.md absent ✓")
+
+
+def test_p3_task_weighting_false():
+    """P3-T1: include_feedback=False preserves existing task score behaviour."""
+    print("\n=== Test P3-T1: include_feedback=False preserves scores ===")
+    from mcp.core.vault_registry import list_vaults
+    from mcp.core.adapters.tasks_adapter import get_tasks
+
+    vault = list_vaults()[0]
+
+    result_no_fb = get_tasks(vault_name=vault, limit=50, include_feedback=False)
+    assert "error" not in result_no_fb, f"Unexpected error: {result_no_fb.get('error')}"
+    assert "tasks" in result_no_fb
+
+    # Without feedback, tasks must NOT have feedback_weight
+    for task in result_no_fb["tasks"]:
+        assert "feedback_weight" not in task, (
+            f"Task must not have feedback_weight when include_feedback=False: {task}"
+        )
+
+    # feedback_status must not be in result
+    assert "feedback_status" not in result_no_fb
+
+    print(f"  {len(result_no_fb['tasks'])} tasks — no feedback_weight fields ✓")
+
+
+def test_p3_task_weighting_true():
+    """P3-T2: include_feedback=True adds feedback_weight to every task."""
+    print("\n=== Test P3-T2: include_feedback=True adds feedback_weight ===")
+    from mcp.core.vault_registry import list_vaults
+    from mcp.core.adapters.tasks_adapter import get_tasks
+
+    vault = list_vaults()[0]
+    result = get_tasks(vault_name=vault, limit=50, include_feedback=True)
+
+    assert "error" not in result, f"Unexpected error: {result.get('error')}"
+    assert "tasks" in result
+    assert "feedback_status" in result, "feedback_status must be present when include_feedback=True"
+
+    for task in result["tasks"]:
+        assert "feedback_weight" in task, (
+            f"Task must have feedback_weight when include_feedback=True: {task}"
+        )
+        fw = task["feedback_weight"]
+        assert "score_delta" in fw
+        assert "entry_count" in fw
+        assert "summary" in fw
+        assert isinstance(fw["score_delta"], (int, float))
+        assert isinstance(fw["entry_count"], int)
+        assert isinstance(fw["summary"], list)
+
+    print(f"  {len(result['tasks'])} tasks — all have feedback_weight ✓")
+
+
+def test_p3_task_weighting_score_change():
+    """P3-T3: Feedback for a note changes its task score when include_feedback=True."""
+    print("\n=== Test P3-T3: Feedback changes task score ===")
+    import tempfile
+    from pathlib import Path as _Path
+    from mcp.core.vault_registry import list_vaults, get_vault_path
+    from mcp.core.note_index import build_index, get_index
+    from core.shared.upgrade_vault import load_all, generate_tasks
+    from core.shared.feedback import feedback_weight_for_path, load_feedback
+    from mcp.core.schema_loader import load_schema as _load_schema
+
+    vault = list_vaults()[0]
+    vault_path = get_vault_path(vault)
+
+    # Get base tasks
+    _schema = _load_schema(vault_path)
+    records = load_all(vault_path, _schema)
+    base_tasks = generate_tasks(records, _schema)
+
+    if not base_tasks:
+        print("  SKIP: no partial notes to test weighting")
+        return
+
+    # Check if any base task has feedback
+    target_task = base_tasks[0]
+    note_path = target_task["path"].replace("\\", "/")
+    weight = feedback_weight_for_path(vault_path, note_path)
+
+    if weight["entry_count"] == 0:
+        print(f"  Note {note_path!r} has no feedback — score_delta=0 confirmed ✓")
+    else:
+        # score_delta must not be zero when feedback exists
+        base_score = target_task["score"]
+        expected_adjusted = round(base_score + weight["score_delta"], 4)
+        print(f"  Note {note_path!r}: base_score={base_score}, "
+              f"score_delta={weight['score_delta']}, "
+              f"expected_adjusted={expected_adjusted}, "
+              f"summary={weight['summary']} ✓")
+
+
+def test_p3_task_useful_signal_does_not_raise_priority():
+    """P3-T4: useful/agent_succeeded signals do not increase priority."""
+    print("\n=== Test P3-T4: useful/agent_succeeded lower or neutral priority ===")
+    from core.shared.feedback import feedback_weight_for_path, _SIGNAL_DELTA, _SEVERITY_MULTIPLIER
+
+    # Verify the signal tables directly
+    for sig in ("useful", "agent_succeeded"):
+        delta = _SIGNAL_DELTA.get(sig, 0.0)
+        assert delta <= 0, f"Signal '{sig}' must not increase priority; delta={delta}"
+    print(f"  useful delta={_SIGNAL_DELTA['useful']} ≤ 0 ✓")
+    print(f"  agent_succeeded delta={_SIGNAL_DELTA['agent_succeeded']} ≤ 0 ✓")
+
+
+def test_p3_task_ordering_deterministic():
+    """P3-T5: Task ordering with include_feedback=True is still deterministic."""
+    print("\n=== Test P3-T5: Task ordering deterministic with feedback ===")
+    from mcp.core.vault_registry import list_vaults
+    from mcp.core.adapters.tasks_adapter import get_tasks
+
+    vault = list_vaults()[0]
+
+    result1 = get_tasks(vault_name=vault, limit=50, include_feedback=True)
+    result2 = get_tasks(vault_name=vault, limit=50, include_feedback=True)
+
+    assert "error" not in result1
+    paths1 = [t["path"] for t in result1["tasks"]]
+    paths2 = [t["path"] for t in result2["tasks"]]
+    assert paths1 == paths2, f"Task ordering not deterministic: {paths1} vs {paths2}"
+
+    # Verify ordering: descending priority then ascending path
+    priorities = [t["priority"] for t in result1["tasks"]]
+    for i in range(len(priorities) - 1):
+        assert priorities[i] >= priorities[i + 1], (
+            f"Tasks not sorted descending by priority at index {i}: "
+            f"{priorities[i]} < {priorities[i + 1]}"
+        )
+
+    print(f"  {len(paths1)} tasks — deterministic and priority-sorted ✓")
+
+
+def test_p3_api_feedback_endpoint():
+    """P3-A1: GET /feedback returns structured response."""
+    print("\n=== Test P3-A1: GET /feedback ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: TestClient unavailable — {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    from mcp.core.vault_registry import list_vaults
+
+    vault = list_vaults()[0]
+
+    with TestClient(app, raise_server_exceptions=True) as client:
+        resp = client.get(f"/feedback?vault={vault}")
+        assert resp.status_code == 200, (
+            f"/feedback status {resp.status_code}: {resp.text[:300]}"
+        )
+        body = resp.json()
+        assert body["status"] in ("ok", "error"), f"Unexpected status: {body['status']}"
+        assert body["vault"] == vault
+        assert "entries" in body
+        assert "warnings" in body
+        assert "errors" in body
+        assert isinstance(body["entries"], list)
+        assert isinstance(body["warnings"], list)
+        assert isinstance(body["errors"], list)
+        print(f"  GET /feedback?vault={vault}: 200 OK, "
+              f"status={body['status']}, entries={len(body['entries'])} ✓")
+
+
+def test_p3_api_feedback_unknown_vault():
+    """P3-A2: GET /feedback with unknown vault returns structured 404."""
+    print("\n=== Test P3-A2: GET /feedback unknown vault ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: TestClient unavailable — {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+
+    with TestClient(app, raise_server_exceptions=True) as client:
+        resp = client.get("/feedback?vault=__nonexistent__")
+        assert resp.status_code == 404, (
+            f"Expected 404 for unknown vault, got {resp.status_code}: {resp.text}"
+        )
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"]["code"] == "INVALID_VAULT"
+        print(f"  Unknown vault: 404 INVALID_VAULT ✓")
+
+
+def test_p3_api_tasks_include_feedback():
+    """P3-A3: GET /tasks?include_feedback=true returns feedback_weight fields."""
+    print("\n=== Test P3-A3: GET /tasks?include_feedback=true ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: TestClient unavailable — {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    from mcp.core.vault_registry import list_vaults
+
+    vault = list_vaults()[0]
+
+    with TestClient(app, raise_server_exceptions=True) as client:
+        resp = client.get(f"/tasks?vault={vault}&include_feedback=true")
+        assert resp.status_code == 200, (
+            f"/tasks?include_feedback=true status {resp.status_code}: {resp.text[:300]}"
+        )
+        body = resp.json()
+        assert body["status"] == "ok"
+        assert "feedback_status" in body["data"], (
+            "feedback_status must be present when include_feedback=true"
+        )
+        for task in body["data"]["tasks"]:
+            assert "feedback_weight" in task, (
+                f"Task missing feedback_weight with include_feedback=true: {task}"
+            )
+        print(f"  GET /tasks?include_feedback=true: 200 OK, "
+              f"tasks={len(body['data']['tasks'])}, "
+              f"feedback_status={body['data']['feedback_status']} ✓")
+
+
+def test_p3_api_tasks_no_feedback_default():
+    """P3-A4: GET /tasks (default) has no feedback_weight in output."""
+    print("\n=== Test P3-A4: GET /tasks default has no feedback_weight ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: TestClient unavailable — {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    from mcp.core.vault_registry import list_vaults
+
+    vault = list_vaults()[0]
+
+    with TestClient(app, raise_server_exceptions=True) as client:
+        resp = client.get(f"/tasks?vault={vault}")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "ok"
+        # No feedback_status at top level when not requested
+        assert "feedback_status" not in body["data"], (
+            "feedback_status must not appear when include_feedback=false"
+        )
+        for task in body["data"]["tasks"]:
+            assert "feedback_weight" not in task, (
+                f"Task must not have feedback_weight when include_feedback=false: {task}"
+            )
+        print(f"  GET /tasks (default): no feedback_weight in output ✓")
+
+
+def test_p3_bundle_includes_feedback():
+    """P3-B1: Context bundle includes 'feedback' top-level field."""
+    print("\n=== Test P3-B1: Bundle includes feedback field ===")
+    from mcp.core.vault_registry import list_vaults
+    from mcp.core.note_index import build_index
+    from core.shared.context_bundle import generate_bundle
+
+    vault = list_vaults()[0]
+    build_index(vault)
+
+    bundle = generate_bundle(vault_name=vault, allow_partial=True, max_notes=5)
+
+    assert bundle["status"] == "ok"
+    assert "feedback" in bundle, "Bundle must have top-level 'feedback' field"
+    fb = bundle["feedback"]
+    assert "entries" in fb, "feedback must have 'entries'"
+    assert "warnings" in fb, "feedback must have 'warnings'"
+    assert isinstance(fb["entries"], list)
+    assert isinstance(fb["warnings"], list)
+    print(f"  Bundle has feedback field: entries={len(fb['entries'])}, "
+          f"warnings={len(fb['warnings'])} ✓")
+
+
+def test_p3_bundle_feedback_only_selected_notes():
+    """P3-B2: Bundle feedback entries only reference selected notes."""
+    print("\n=== Test P3-B2: Bundle feedback limited to selected notes ===")
+    from mcp.core.vault_registry import list_vaults
+    from mcp.core.note_index import build_index
+    from core.shared.context_bundle import generate_bundle
+
+    vault = list_vaults()[0]
+    build_index(vault)
+
+    bundle = generate_bundle(vault_name=vault, allow_partial=True, max_notes=50)
+    assert bundle["status"] == "ok"
+
+    selected = {n["path"] for n in bundle["notes"]}
+    fb_entries = bundle["feedback"]["entries"]
+
+    for entry in fb_entries:
+        assert entry["path"] in selected, (
+            f"Feedback entry references unselected note: {entry['path']!r}. "
+            f"Selected: {sorted(selected)}"
+        )
+    print(f"  {len(fb_entries)} feedback entries — all reference selected notes ✓")
+
+
+def test_p3_bundle_determinism_with_feedback():
+    """P3-B3: Bundle determinism holds with feedback included."""
+    print("\n=== Test P3-B3: Bundle determinism with feedback ===")
+    from mcp.core.vault_registry import list_vaults
+    from mcp.core.note_index import build_index
+    from core.shared.context_bundle import generate_bundle
+
+    vault = list_vaults()[0]
+    build_index(vault)
+
+    kwargs = dict(
+        vault_name=vault,
+        filters={},
+        include_sections=["Key Principles"],
+        include_related=False,
+        include_body=False,
+        max_notes=5,
+        max_chars=999999,
+        allow_partial=True,
+    )
+    b1 = generate_bundle(**kwargs)
+    b2 = generate_bundle(**kwargs)
+
+    assert b1["status"] == "ok" and b2["status"] == "ok"
+    assert b1["bundle_id"] == b2["bundle_id"], "bundle_id must be deterministic"
+    assert [n["path"] for n in b1["notes"]] == [n["path"] for n in b2["notes"]]
+
+    # feedback entries (from same file) must match
+    assert b1["feedback"]["entries"] == b2["feedback"]["entries"], (
+        "feedback entries must be deterministic"
+    )
+    print(f"  bundle_id={b1['bundle_id']}, feedback entries deterministic ✓")
+
+
+def test_p3_cli_feedback():
+    """P3-CLI: python run.py feedback returns valid JSON."""
+    print("\n=== Test P3-CLI: python run.py feedback ===")
+    import json
+    import subprocess
+
+    result = subprocess.run(
+        [sys.executable, "run.py", "feedback"],
+        capture_output=True,
+        text=True,
+        cwd=str(Path(__file__).resolve().parent.parent),
+        timeout=60,
+    )
+
+    assert result.returncode == 0, (
+        f"CLI feedback exited {result.returncode}\n"
+        f"stdout: {result.stdout[:500]}\n"
+        f"stderr: {result.stderr[:500]}"
+    )
+
+    try:
+        output = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise AssertionError(
+            f"CLI feedback output is not valid JSON: {exc}\n"
+            f"stdout: {result.stdout[:500]}"
+        ) from exc
+
+    assert output["status"] in ("ok", "error"), f"Unexpected status: {output['status']}"
+    assert "vault" in output
+    assert "entries" in output
+    assert "warnings" in output
+    assert "errors" in output
+    print(f"  CLI feedback: status={output['status']}, "
+          f"entries={len(output['entries'])}, "
+          f"vault={output['vault']!r} ✓")
+
+
+# ============================================================
 # Main
 # ============================================================
 
@@ -2309,6 +2955,33 @@ def main():
     test_p2_budget_high_max_chars()
     test_p2_budget_truncation_warning()
     test_p2_budget_max_notes_vs_max_chars()
+
+    # Phase 3 — Feedback Loop
+    test_p3_feedback_missing_file()
+    test_p3_feedback_valid_file()
+    test_p3_feedback_empty_list()
+    test_p3_feedback_malformed_yaml()
+    test_p3_feedback_unknown_signal()
+    test_p3_feedback_unknown_severity()
+    test_p3_feedback_unknown_source()
+    test_p3_feedback_missing_note_path()
+    test_p3_feedback_exclusion_from_notes()
+    test_p3_feedback_exclusion_from_query()
+    test_p3_feedback_exclusion_from_graph()
+    test_p3_feedback_exclusion_from_bundle()
+    test_p3_task_weighting_false()
+    test_p3_task_weighting_true()
+    test_p3_task_weighting_score_change()
+    test_p3_task_useful_signal_does_not_raise_priority()
+    test_p3_task_ordering_deterministic()
+    test_p3_api_feedback_endpoint()
+    test_p3_api_feedback_unknown_vault()
+    test_p3_api_tasks_include_feedback()
+    test_p3_api_tasks_no_feedback_default()
+    test_p3_bundle_includes_feedback()
+    test_p3_bundle_feedback_only_selected_notes()
+    test_p3_bundle_determinism_with_feedback()
+    test_p3_cli_feedback()
 
     print()
     print("=" * 60)

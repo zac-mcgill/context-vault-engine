@@ -135,6 +135,7 @@ All adapter endpoints accept an optional `vault` query parameter. If omitted, th
 | `GET /note?vault=&path=` | Single note by path |
 | `GET /stats?vault=&field=` | Field-value frequency aggregation |
 | `POST /context/bundle` | Generate a deterministic context bundle |
+| `GET /feedback[?vault=]` | Load and validate vault feedback entries |
 | `GET /health` | Server health and metrics |
 | `GET /contract` | System contract check |
 
@@ -201,6 +202,100 @@ py run.py bundle
 ```
 
 Prints a default bundle as JSON to stdout. Uses `status=complete` notes if any exist; falls back to partial notes with a warning.
+
+### Feedback Loop (Phase 3)
+
+The feedback loop is a signal-collection layer that captures human or agent observations about specific notes and feeds them into the task priority engine. It does not modify notes — it only adjusts which notes the system recommends working on next.
+
+#### feedback.md
+
+Feedback is stored in `Vault Files/feedback.md` inside the vault. This file is excluded from note discovery, validation, graph nodes, and context bundles — it is treated as a vault metadata file, not a knowledge note.
+
+**Schema:**
+```yaml
+feedback:
+  - path: Fundamentals/Algorithms.md   # vault-relative POSIX path
+    source: human                      # human | agent | system
+    signal: unclear                    # see valid signals below
+    severity: medium                   # low | medium | high | critical
+    comment: "Optional free-text note."
+    created_at: "2026-05-04T12:00:00Z"
+```
+
+**Valid signals:**
+- Negative (increase priority): `unclear`, `incomplete`, `outdated`, `incorrect`, `agent_failed`, `needs_example`, `needs_constraints`
+- Positive (decrease priority): `useful`, `agent_succeeded`
+
+**Severity multipliers:** `low` × 0.5, `medium` × 1.0, `high` × 1.5, `critical` × 2.0
+
+**Validation behaviour:**
+- Missing `feedback.md` → `status: ok`, empty entries (not an error)
+- Malformed YAML → `status: error`, `MALFORMED_YAML`
+- Unknown `source` / `signal` / `severity` → entry excluded, `status: error`
+- Path references a non-existent note → entry kept, warning added
+
+#### Task priority weighting
+
+When `include_feedback=true`, each task's priority is adjusted by the sum of `signal_delta × severity_multiplier` across all feedback entries for that note. Tasks are re-sorted after adjustment. The base task cache is never modified — feedback is applied on top at query time.
+
+```text
+GET /tasks?vault=demo-vault&include_feedback=true
+```
+
+Each task in the response gains a `feedback_weight` field:
+```json
+{
+  "feedback_weight": {
+    "score_delta": 0.75,
+    "entry_count": 2,
+    "summary": ["unclear/medium (+0.50)", "needs_example/low (+0.25)"]
+  }
+}
+```
+
+The response also includes `feedback_status` (`ok` or `error`) and `feedback_errors` (list of structured errors from loading feedback.md).
+
+#### GET /feedback
+
+Returns the raw parsed feedback for a vault:
+
+```text
+GET /feedback?vault=demo-vault
+```
+
+Response:
+```json
+{
+  "status": "ok",
+  "vault": "demo-vault",
+  "entries": [...],
+  "warnings": [...],
+  "errors": [...]
+}
+```
+
+Returns HTTP 404 with `INVALID_VAULT` for unknown vaults. Returns HTTP 200 with `status: error` for malformed feedback.md.
+
+#### CLI
+
+```bash
+py run.py feedback
+```
+
+Prints parsed feedback as JSON to stdout. Exits 0 if `status: ok`, exits 1 if `status: error`.
+
+#### Context bundle feedback
+
+`POST /context/bundle` includes a `feedback` key in the response. Entries are filtered to only those referencing notes selected for the bundle:
+
+```json
+{
+  "feedback": {
+    "entries": [...],
+    "warnings": [...]
+  }
+}
+```
 
 ### Task Output
 
@@ -293,7 +388,9 @@ knowledge-system/
 │       ├── __init__.py             # Schema loader (resolves vault_schema.py)
 │       ├── analyse_vault.py        # 7-analysis engine
 │       ├── compare_reports.py      # Report comparison
+│       ├── context_bundle.py       # Deterministic context bundle generation
 │       ├── discover_missing.py     # Missing note discovery
+│       ├── feedback.py             # Feedback parser, validator, and weight calculator
 │       ├── generate_report.py      # Markdown report generator
 │       ├── inject_frontmatter.py   # YAML frontmatter injection
 │       ├── quality_audit.py        # Quality audit checks
@@ -303,6 +400,7 @@ knowledge-system/
 ├── demo-vault/
 │   ├── Fundamentals/               # 19 core-concept notes
 │   └── Vault Files/
+│       ├── feedback.md             # Feedback entries (excluded from note discovery)
 │       ├── Vault Report.md         # Generated report output
 │       └── Scripts/
 │           └── vault_schema.py     # Single source of truth for schema

@@ -104,6 +104,52 @@ Prints a JSON context bundle to stdout. The bundle packages selected notes with 
 
 ---
 
+## 5c. Feedback Loop (Phase 3)
+
+**View vault feedback:**
+```bash
+py run.py feedback
+```
+
+Prints the contents of `Vault Files/feedback.md` as structured JSON. Exits 0 if valid, exits 1 if the feedback file has errors.
+
+**Output shape:**
+```json
+{
+  "status": "ok",
+  "vault": "demo-vault",
+  "entries": [
+    {
+      "path": "Fundamentals/Algorithms.md",
+      "source": "human",
+      "signal": "unclear",
+      "severity": "medium",
+      "comment": "The How It Works section needs a clearer description.",
+      "created_at": "2026-05-04T12:00:00Z"
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}
+```
+
+**Add feedback** by editing `demo-vault/Vault Files/feedback.md` directly. Valid signals:
+- Negative (raise priority): `unclear`, `incomplete`, `outdated`, `incorrect`, `agent_failed`, `needs_example`, `needs_constraints`
+- Positive (lower priority): `useful`, `agent_succeeded`
+
+Valid sources: `human`, `agent`, `system`. Valid severities: `low`, `medium`, `high`, `critical`.
+
+**Get tasks with feedback-adjusted priorities:**
+```bash
+GET /tasks?vault=demo-vault&include_feedback=true
+```
+
+Each task gains a `feedback_weight` field showing the score delta and contributing entries. The response includes `feedback_status` and `feedback_errors`.
+
+**Important:** feedback never modifies notes. It only adjusts which notes the task engine recommends working on next.
+
+---
+
 ## 6. Start API Server (Optional)
 
 Requires the MCP dependencies (fastapi + uvicorn):
@@ -127,11 +173,14 @@ py mcp/server/mcp_server.py
 * http://127.0.0.1:8000/tasks
 * http://127.0.0.1:8000/tasks?limit=5
 * http://127.0.0.1:8000/tasks?vault=demo-vault&limit=5&min_priority=2
+* http://127.0.0.1:8000/tasks?vault=demo-vault&include_feedback=true
 * http://127.0.0.1:8000/notes
 * http://127.0.0.1:8000/notes?vault=demo-vault
 * http://127.0.0.1:8000/quality
 * http://127.0.0.1:8000/missing
 * http://127.0.0.1:8000/gaps
+* http://127.0.0.1:8000/feedback
+* http://127.0.0.1:8000/feedback?vault=demo-vault
 
 **Context bundle** (POST with JSON body):
 ```json

@@ -52,6 +52,7 @@ from mcp.core.adapters.compare_adapter import get_compare
 from mcp.core.graph_builder import build_graph
 from mcp.core.graph_query import get_neighbors, get_related_nodes, get_missing_neighbors
 from core.shared.context_bundle import generate_bundle as _generate_bundle
+from core.shared.feedback import load_feedback as _load_feedback
 
 
 # ---------- Structured Logging (Phase 7) ----------
@@ -699,11 +700,11 @@ def endpoint_summary():
         return _error("SUMMARY_FAILED", f"Summary failed: {exc}", 500)
 
 
-def _normalise_task(task: dict) -> dict:
+def _normalise_task(task: dict, include_feedback: bool = False) -> dict:
     """Transform a raw adapter task into a normalised decision-ready structure."""
     missing = task.get("missing", [])
     target = missing[0] if missing else ""
-    return {
+    result = {
         "note": task["note"],
         "path": task.get("path", ""),
         "priority": task["priority"],
@@ -713,6 +714,9 @@ def _normalise_task(task: dict) -> dict:
         "instruction": f"Add missing section: {target}" if target else "Review note",
         "constraints": task.get("constraints", []),
     }
+    if include_feedback and "feedback_weight" in task:
+        result["feedback_weight"] = task["feedback_weight"]
+    return result
 
 
 @app.get("/tasks")
@@ -720,6 +724,7 @@ def endpoint_tasks(
     vault: str = Query(None, description="Vault name (defaults to first registered vault)"),
     limit: int = Query(10, ge=1, description="Maximum number of tasks to return"),
     min_priority: float = Query(None, description="Minimum priority threshold"),
+    include_feedback: bool = Query(False, description="Adjust task scores by feedback signals"),
 ):
     """Return prioritised upgrade tasks, optionally filtered by min_priority.
 
@@ -730,12 +735,17 @@ def endpoint_tasks(
     Each task object:
         note (str): Note stem name.
         path (str): Vault-relative POSIX path to the note.
-        priority (float): Computed priority score.
+        priority (float): Computed priority score (adjusted by feedback when include_feedback=true).
         type (str): Always ``"missing_section"``.
         target (str): Primary missing section.
         missing (list[str]): All missing sections.
         instruction (str): Human-readable action.
         constraints (list[str]): Writing constraints for the primary issue.
+        feedback_weight (dict): Score delta, entry count, and summary (only when include_feedback=true).
+
+    When include_feedback=true:
+        feedback_status (str): ``"ok"`` or ``"error"`` from feedback parser.
+        feedback_errors (list): Structured errors from feedback parser (if any).
     """
     if vault is not None:
         err = _validate_vault(vault)
@@ -743,7 +753,7 @@ def endpoint_tasks(
             return err
     try:
         # Fetch all tasks (no limit at adapter level when filtering)
-        result = get_tasks(vault_name=vault, limit=9999)
+        result = get_tasks(vault_name=vault, limit=9999, include_feedback=include_feedback)
         if "error" in result:
             return _error("TASKS_FAILED", result["error"], 500)
 
@@ -760,14 +770,20 @@ def endpoint_tasks(
         tasks = tasks[:limit]
 
         # Normalise
-        normalised = [_normalise_task(t) for t in tasks]
+        normalised = [_normalise_task(t, include_feedback=include_feedback) for t in tasks]
+
+        response_data: dict = {
+            "total": len(result["tasks"]),
+            "tasks": normalised,
+        }
+
+        if include_feedback:
+            response_data["feedback_status"] = result.get("feedback_status", "ok")
+            response_data["feedback_errors"] = result.get("feedback_errors", [])
 
         return {
             "status": "ok",
-            "data": {
-                "total": len(result["tasks"]),
-                "tasks": normalised,
-            },
+            "data": response_data,
         }
     except Exception as exc:
         return _error("TASKS_FAILED", f"Tasks retrieval failed: {exc}", 500)
@@ -1298,6 +1314,63 @@ def endpoint_context_bundle(req: BundleRequest):
         return result
     except Exception as exc:
         return _error("BUNDLE_FAILED", f"Bundle generation failed: {exc}", 500)
+
+
+# ---------- Phase 3: Feedback ----------
+
+
+@app.get("/feedback")
+def endpoint_feedback(
+    vault: str = Query(None, description="Vault name (defaults to first registered vault)"),
+):
+    """Return feedback entries from the vault's feedback file.
+
+    Feedback is stored in ``<vault>/Vault Files/feedback.md``.
+    The file is optional; a missing file returns ok with empty entries.
+
+    Response data:
+        status (str): ``"ok"`` if no errors, ``"error"`` if feedback is malformed.
+        vault (str): Resolved vault name.
+        entries (list): Validated feedback entries.
+        warnings (list[str]): Non-fatal issues (e.g. feedback for a missing note).
+        errors (list): Structured validation errors (empty on ok).
+
+    Each feedback entry:
+        path (str): Vault-relative POSIX path to the referenced note.
+        source (str): One of ``"human"``, ``"agent"``, ``"system"``.
+        signal (str): One of the supported signal values.
+        severity (str): One of ``"low"``, ``"medium"``, ``"high"``, ``"critical"``.
+        comment (str): Human-readable comment (may be empty).
+        created_at (str): ISO-8601 timestamp string (may be empty).
+
+    Error codes:
+        INVALID_VAULT: Vault is not registered.
+        FEEDBACK_ERROR: Feedback file is malformed (structured errors included in response).
+    """
+    if vault is not None:
+        err = _validate_vault(vault)
+        if err:
+            return err
+
+    try:
+        if vault is None:
+            vaults = list_vaults()
+            if not vaults:
+                return _error("NO_VAULTS", "No vaults registered", 500)
+            vault = vaults[0]
+
+        vault_path = get_vault_path(vault)
+        result = _load_feedback(vault_path)
+
+        return {
+            "status": result["status"],
+            "vault": vault,
+            "entries": result["entries"],
+            "warnings": result["warnings"],
+            "errors": result["errors"],
+        }
+    except Exception as exc:
+        return _error("FEEDBACK_ERROR", f"Feedback retrieval failed: {exc}", 500)
 
 
 # ---------- Run ----------

@@ -39,6 +39,7 @@ Commands:
   improve        Generate prioritised upgrade tasks
   report         Generate a markdown report
   bundle         Generate a context bundle and print JSON to stdout
+  feedback       Load and print vault feedback entries as JSON
   templates      Generate canonical templates from vault schema
                  Use --dry-run to preview without writing"""
 
@@ -176,6 +177,36 @@ def main():
             error_output = {
                 "status": "error",
                 "error": {"code": "BUNDLE_FAILED", "message": str(exc)},
+            }
+            print(json.dumps(error_output, indent=2, ensure_ascii=False))
+            raise SystemExit(1)
+
+    if command == "feedback":
+        import json
+        sys.path.insert(0, str(repo_root))
+        try:
+            from mcp.core.vault_registry import list_vaults, get_vault_path
+            from core.shared.feedback import load_feedback
+
+            vault_name = list_vaults()[0]
+            vault_path = get_vault_path(vault_name)
+            result = load_feedback(vault_path)
+
+            output = {
+                "status": result["status"],
+                "vault": vault_name,
+                "entries": result["entries"],
+                "warnings": result["warnings"],
+                "errors": result["errors"],
+            }
+            print(json.dumps(output, indent=2, ensure_ascii=False))
+            raise SystemExit(0 if result["status"] == "ok" else 1)
+        except SystemExit:
+            raise
+        except Exception as exc:
+            error_output = {
+                "status": "error",
+                "error": {"code": "FEEDBACK_FAILED", "message": str(exc)},
             }
             print(json.dumps(error_output, indent=2, ensure_ascii=False))
             raise SystemExit(1)

@@ -31,6 +31,7 @@ from mcp.core.note_index import build_index, get_index
 from mcp.core.adapters.validation_adapter import get_validation
 from mcp.core.graph_builder import build_graph
 from mcp.core.graph_query import get_related_nodes
+from core.shared.feedback import load_feedback as _load_feedback
 
 
 def _make_bundle_id(
@@ -239,12 +240,32 @@ def generate_bundle(
     validation_status = "fail" if has_invalid else "pass"
 
     # ------------------------------------------------------------------
-    # 8. Schema version (null if not defined in schema)
+    # 8. Feedback for selected notes (Phase 3)
+    # ------------------------------------------------------------------
+    try:
+        vault_path = get_vault_path(vault_name)
+        fb_result = _load_feedback(vault_path)
+        # Include only feedback entries that reference selected notes.
+        fb_entries = [
+            e for e in fb_result.get("entries", [])
+            if e["path"] in selected_paths
+        ]
+        fb_warnings = fb_result.get("warnings", [])
+        feedback_block: dict = {
+            "entries": fb_entries,
+            "warnings": fb_warnings,
+        }
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"Feedback load failed: {exc}")
+        feedback_block = {"entries": [], "warnings": []}
+
+    # ------------------------------------------------------------------
+    # 9. Schema version (null if not defined in schema)
     # ------------------------------------------------------------------
     schema_version: str | None = getattr(schema, "SCHEMA_VERSION", None)
 
     # ------------------------------------------------------------------
-    # 9. Bundle ID and timestamp
+    # 10. Bundle ID and timestamp
     # ------------------------------------------------------------------
     bundle_id = _make_bundle_id(
         vault_name,
@@ -273,6 +294,7 @@ def generate_bundle(
             "note_count": len(notes_out),
             "truncated": truncated,
         },
+        "feedback": feedback_block,
         "warnings": warnings,
         "manifest": {
             "source_paths": sorted(n["path"] for n in notes_out),

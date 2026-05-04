@@ -1,4 +1,6 @@
-# Quickstart
+# Context Vault Engine — Quickstart
+
+This guide walks through an end-to-end session with Context Vault Engine: install, validate, analyse, generate a context bundle, export a package, run security scans, and use the API.
 
 > On Windows, use `py run.py ...` (the Python launcher).  
 > On macOS/Linux, use `python3 run.py ...` if `python` is not available.
@@ -361,6 +363,7 @@ POST /compare
 **Relationship graph** — two forms, both accept a vault name:
 * http://127.0.0.1:8000/graph?vault=demo-vault  *(query-param form)*
 * http://127.0.0.1:8000/graph/demo-vault  *(path-param form)*
+* http://127.0.0.1:8000/graph/neighbors?node=note::Fundamentals/Algorithms.md&vault=demo-vault
 * http://127.0.0.1:8000/graph/demo-vault/related?node_id=note::Fundamentals/Algorithms.md
 * http://127.0.0.1:8000/graph/demo-vault/missing?node_id=note::Fundamentals/Algorithms.md
 
@@ -399,3 +402,47 @@ Tests 11 and 15 (rate limiter, structured logging) import from the MCP server an
 pip install -r mcp/requirements.txt
 py mcp/test_verify.py
 ```
+
+A passing run ends with:
+
+```
+============================================================
+ALL VERIFICATION TESTS PASSED
+============================================================
+```
+
+---
+
+## 9. Troubleshooting
+
+**Package already exists error**
+
+```
+{"status": "error", "error": {"code": "PACKAGE_EXISTS", ...}}
+```
+
+Use `--overwrite` to replace an existing package:
+
+```bash
+py run.py export --overwrite
+```
+
+**FastAPI / httpx not found**
+
+Some tests (11, 15) and the API server require the MCP dependencies:
+
+```bash
+pip install -r mcp/requirements.txt
+```
+
+**/missing returns MISSING_CONCEPTS_EMPTY (HTTP 422)**
+
+The demo vault schema does not define `EXPECTED_CONCEPTS`. This is expected behaviour. If your vault schema defines `EXPECTED_CONCEPTS`, the `/missing` endpoint will return results. Use `bootstrap` to generate a schema that includes this field.
+
+**Security scan warns on URLs or code blocks**
+
+The security scanner uses deterministic regex rules. Content that describes security concepts (e.g. example API key formats in documentation) may produce `warning`-severity findings. Review findings manually — only `fail`-severity findings block export when `require_security_pass: true` is set.
+
+**`/missing` or `/tasks` return wrong vault**
+
+All adapter endpoints accept a `?vault=<name>` query parameter. If omitted, the first registered vault is used. Check `config/config.yaml` for the configured `vault_root`.

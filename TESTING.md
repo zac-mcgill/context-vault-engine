@@ -1,0 +1,281 @@
+# Context Vault Engine — Testing
+
+All tests live in `mcp/test_verify.py`. There are 153 test functions covering all implemented phases.
+
+---
+
+## Running the Tests
+
+### Full verification suite (recommended)
+
+```bash
+pip install -r mcp/requirements.txt
+py mcp/test_verify.py
+```
+
+A passing run ends with:
+
+```
+============================================================
+ALL VERIFICATION TESTS PASSED
+============================================================
+```
+
+Any failure prints the test name, assertion message, and a traceback, then exits with code 1.
+
+### Core tests only (no API dependencies)
+
+The majority of tests (excluding tests 11 and 15) run without FastAPI:
+
+```bash
+pip install -r requirements.txt
+py mcp/test_verify.py
+```
+
+Tests 11 (`test_rate_limiter`), 15 (`test_structured_logging`), and `test_p6_docs_consistency` (documentation coverage check) import from the MCP server and require the full API dependencies.
+
+### CLI smoke commands
+
+These can be run independently to verify core commands work:
+
+```bash
+py run.py validate              # exit 0 = all notes pass schema
+py run.py analyse               # prints seven structured analyses
+py run.py improve               # prints ranked upgrade tasks
+py run.py bundle                # prints JSON bundle to stdout
+py run.py feedback              # prints feedback entries as JSON
+py run.py export --overwrite    # exports bundle to dist/; exit 0 = ok
+py run.py security              # prints security scan as JSON; exit 0 = pass/warning
+```
+
+---
+
+## Test Dependencies
+
+- Core tests: `requirements.txt` (PyYAML, etc.)
+- API and HTTP tests: `mcp/requirements.txt` (FastAPI, httpx, uvicorn)
+
+Install both for the full suite:
+
+```bash
+pip install -r requirements.txt
+pip install -r mcp/requirements.txt
+```
+
+---
+
+## Test Categories by Phase
+
+### Original Hardening Tests (Tests 1–16)
+
+Basic correctness and server behaviour:
+
+- **Test 1** `test_basic_functionality` — all vaults load and index correctly.
+- **Test 2** `test_deterministic_ordering` — index and query results are sorted deterministically.
+- **Test 3** `test_concurrent_queries` — 20 concurrent queries produce consistent results.
+- **Test 4** `test_schema_hash_tracking` — schema hash is stored and retrievable.
+- **Test 5** `test_pagination_stable` — pages are bounded, non-overlapping, and stable.
+- **Test 6** `test_path_traversal_blocked` — path traversal attacks are rejected.
+- **Test 7** `test_strict_mode` / filter validation — unknown fields rejected in both strict and non-strict mode.
+- **Test 8** `test_limit_and_timeout` — limits are respected; max limit is clamped to 500.
+- **Test 9** `test_typed_responses` — all responses follow the typed contract.
+- **Test 10** `test_cross_vault_queries` — aggregate works across all vaults.
+- **Test 11** `test_rate_limiter` — in-memory rate limiter enforces 50 req/s *(requires mcp/requirements.txt)*.
+- **Test 12** `test_schema_refresh_cooldown` — schema reload respects 2-second cooldown.
+- **Test 13** `test_index_metadata` — index metadata is populated after build.
+- **Test 14** `test_config_validation` — startup config validation catches missing vaults.
+- **Test 15** `test_structured_logging` — structured logging is active *(requires mcp/requirements.txt)*.
+- **Test 16** `test_concurrent_build_and_query` — concurrent build + query does not crash.
+
+### Contract Tests
+
+- `test_contract_runner_pass` — contract checks pass for demo vault.
+- `test_contract_schema_interface` — schema exposes required functions.
+- `test_contract_index_integrity` — index fields match expected shape.
+- `test_contract_query_determinism` — repeated queries return identical results.
+- `test_contract_lightweight` — lightweight contract check completes without error.
+
+### Phase 0 — Query Correctness Tests
+
+Regression tests for correctness fixes:
+
+- Unknown field → `INVALID_FILTER` error with zero results (both strict and non-strict mode).
+- `field__in` with non-list value → `INVALID_FILTER`.
+- Unsupported operator (e.g. `status__gt`) → `INVALID_FILTER`.
+- Valid equality, `__in`, `__contains` queries → correct results.
+- Pagination preserved after index rebuild.
+- Note edit reflected in index within cooldown window.
+- `get_note` reflects edits.
+- Query reflects frontmatter edits.
+- Schema hash rebuild still works.
+- Deterministic ordering preserved after rebuild.
+
+### Phase 1 — API Route Tests
+
+- `test_p1_http_smoke` — HTTP server starts and responds.
+- `test_p1_validation_adapter` — `GET /validation` returns structured result.
+- `test_p1_tasks_full_path` — each task includes a full vault-relative POSIX path.
+- `test_p1_tasks_constraints` — each task includes writing constraints.
+- `test_p1_notes_full_paths` — each note includes a full vault-relative POSIX path.
+- `test_p1_quality_adapter` — `GET /quality` returns structured result.
+- `test_p1_missing_adapter` — `GET /missing` returns 422 for demo vault (no `EXPECTED_CONCEPTS`).
+- `test_p1_compare_missing_file` — `POST /compare` with non-existent file returns error.
+- `test_p1_graph_build` — `GET /graph/{vault}` returns nodes and edges.
+- `test_p1_graph_related` — `GET /graph/{vault}/related` returns related nodes.
+- `test_p1_graph_missing_neighbors` — `GET /graph/{vault}/missing` returns missing concepts.
+- `test_p1_unknown_vault_structured_error` — unknown vault returns structured 404.
+- Vault param tests: validation, tasks, notes, quality, missing all accept `?vault=` param.
+
+### Phase 2 — Bundle Generation Tests
+
+20 tests covering bundle engine behaviour:
+
+- Basic bundle shape and field presence.
+- POSIX paths in bundle notes.
+- `max_notes` and `max_chars` budget enforcement.
+- `allow_partial=false` excludes partial notes; `allow_partial=true` includes them.
+- Section extraction (present and missing sections).
+- `include_body=false` excludes body field.
+- `include_related=true` populates graph relationships.
+- `validation_status` reflects invalid note state.
+- `bundle_id` is deterministic across identical requests.
+- Unknown vault → 404 structured error.
+- Empty filter returns notes.
+- CLI bundle: `py run.py bundle` returns valid JSON.
+- HTTP bundle: `POST /context/bundle` returns valid response.
+- Budget: high `max_chars` → no truncation.
+- Budget: low `max_chars` → `truncated=True` + warning.
+- Budget: `max_notes` cap vs `max_chars` truncation are distinguishable.
+
+### Phase 3 — Feedback Tests
+
+28 tests:
+
+- Missing `feedback.md` → ok, empty entries.
+- Valid `feedback.md` → entries parsed and validated.
+- Empty `feedback.md` → ok, empty list.
+- Malformed YAML → error.
+- Unknown signal/severity/source → entry excluded with error.
+- Feedback for missing note path → warning.
+- `feedback.md` excluded from notes, query, graph, and bundle note selection.
+- Task weighting: `include_feedback=false` → no `feedback_weight`.
+- Task weighting: `include_feedback=true` → `feedback_weight` present.
+- Score change: negative signals raise priority; positive signals lower it.
+- `useful`/`agent_succeeded` signals do not raise priority.
+- Task ordering is deterministic with feedback applied.
+- `GET /feedback` returns structured response.
+- `GET /feedback` with unknown vault returns 404.
+- `GET /tasks?include_feedback=true` returns `feedback_weight` on tasks.
+- Bundle includes `feedback` block.
+- Bundle feedback only includes entries for selected notes.
+- Bundle with feedback is deterministic.
+- `py run.py feedback` returns valid JSON.
+
+### Phase 4 — Export Tests
+
+21 tests:
+
+- Export writes all six required package files.
+- `context.json` is valid bundle JSON.
+- `context.md` contains required fields.
+- `manifest.json` lists all six files with hashes.
+- Manifest hashes match actual file content.
+- Return value hashes match manifest.
+- `validation.json` is structured.
+- `graph.json` is structured.
+- `feedback-summary.json` is structured.
+- `overwrite=False` with existing package → `PACKAGE_EXISTS` error.
+- `overwrite=True` replaces package.
+- Error bundle returns structured error.
+- No extra files in package directory.
+- CLI export returns valid JSON.
+- CLI export writes package directory.
+- CLI export conflict without `--overwrite` → exits 1.
+- CLI export with `--overwrite` → exits 0.
+- `POST /context/export` → ok.
+- `POST /context/export` conflict → 409.
+- `POST /context/export` with `overwrite=true` → ok.
+- `POST /context/export` unknown vault → 404.
+
+### Phase 5 — Security Scan Tests
+
+39 tests:
+
+- Safe text → no findings.
+- Private key pattern → detected as `fail`.
+- AWS API key → detected.
+- GitHub token → detected.
+- Slack token → detected.
+- Password placeholder → not flagged.
+- Real password assignment → flagged.
+- Prompt injection phrase → detected.
+- External link → detected.
+- Script tag → detected.
+- Executable code block → detected.
+- Findings are in deterministic order.
+- Broad agent instruction → detected.
+- Empty text → no crash.
+- Bundle scan returns correct shape.
+- Bundle scan uses POSIX source paths.
+- Empty bundle → no crash.
+- Bundle finding includes path.
+- Error bundle input → no crash.
+- Section content is scanned.
+- `scan_vault_context` works end-to-end.
+- Unknown vault → structured error.
+- CLI security: returns valid JSON.
+- CLI security: demo vault → exit 0.
+- CLI `--fail-on-warning` flag works.
+- `POST /context/security` works.
+- Unknown vault → 404.
+- Invalid filter → 400.
+- Empty filter → no crash.
+- Synthetic `fail` result blocked by export gate.
+- `require_security_pass=false` → export unchanged.
+- `require_security_pass=true` + clean bundle → export succeeds.
+- `require_security_pass=true` + fail bundle → export blocked with 400.
+
+---
+
+## Interpreting Failures
+
+### `AssertionError` with test name printed
+
+The test assertion failed. The printed message explains what was expected vs what was received. Most failures indicate a regression in the affected feature.
+
+### `ImportError` or `ModuleNotFoundError`
+
+Missing dependency. Install with:
+```bash
+pip install -r requirements.txt
+pip install -r mcp/requirements.txt
+```
+
+### `PACKAGE_EXISTS` during CLI export tests
+
+A previous test run left a package in `dist/`. The test suite cleans up after export tests. If residue remains, delete `dist/` manually:
+```bash
+rmdir /s /q dist
+```
+The `dist/` directory is gitignored — this is safe.
+
+### HTTP tests fail on connection refused
+
+The test suite starts a `TestClient` (in-process ASGI client) — it does not require a running server. If tests fail on import of `TestClient`, install `mcp/requirements.txt`.
+
+---
+
+## Generated Artefacts in Tests
+
+Export tests write to `dist/context-bundles/` and clean up after themselves using `shutil.rmtree`. Module-level export tests use `tempfile.mkdtemp()` for isolation. Neither creates permanent state in the repository.
+
+The `dist/` directory is gitignored and should not be committed.
+
+---
+
+## Adding New Tests
+
+1. Add test functions to `mcp/test_verify.py` following the existing naming convention.
+2. Add the function call to the `if __name__ == "__main__":` block at the bottom of the file.
+3. Run the full suite to confirm all tests pass.
+4. Update this document if adding a new test category.

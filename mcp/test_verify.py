@@ -4403,6 +4403,57 @@ def test_p5_export_require_security_pass_blocks_fail():
 
 
 # ============================================================
+# Phase 6 — Documentation Consistency
+# ============================================================
+
+def test_p6_docs_consistency():
+    """P6-DOCS: Required doc files exist, no stale naming, API.md covers all routes."""
+    print("\n=== Test P6-DOCS: Documentation consistency ===")
+    from pathlib import Path as _Path
+
+    repo_root = _Path(__file__).resolve().parent.parent
+
+    # 1. Required docs files exist
+    required_docs = [
+        "README.md",
+        "QUICKSTART.md",
+        "ARCHITECTURE.md",
+        "ROADMAP.md",
+        "CONTEXT_BUNDLE_SPEC.md",
+        "API.md",
+        "TESTING.md",
+    ]
+    for fname in required_docs:
+        assert (repo_root / fname).exists(), f"Required docs file missing: {fname}"
+    print(f"  All {len(required_docs)} required docs files present \u2713")
+
+    # 2. README uses current project name
+    readme = (repo_root / "README.md").read_text(encoding="utf-8")
+    assert "Context Vault Engine" in readme, "README missing 'Context Vault Engine'"
+    print("  README mentions 'Context Vault Engine' \u2713")
+
+    # 3. QUICKSTART does not contain the old project name
+    quickstart = (repo_root / "QUICKSTART.md").read_text(encoding="utf-8")
+    assert "Knowledge System" not in quickstart, "QUICKSTART contains stale 'Knowledge System'"
+    print("  QUICKSTART does not contain 'Knowledge System' \u2713")
+
+    # 4. API.md documents every project route registered in the FastAPI app
+    # Requires mcp dependencies (same as tests 11 and 15).
+    from mcp.server.mcp_server import app
+    api_md = (repo_root / "API.md").read_text(encoding="utf-8")
+    excluded = {"/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}
+    project_routes = [
+        r.path for r in app.routes
+        if hasattr(r, "path") and r.path not in excluded
+    ]
+    missing_from_api_md = [p for p in project_routes if p not in api_md]
+    assert not missing_from_api_md, (
+        f"API.md is missing documentation for route(s): {missing_from_api_md}"
+    )
+    print(f"  API.md covers all {len(project_routes)} project routes \u2713")
+
+
+# ============================================================
 # Main
 # ============================================================
 
@@ -4597,6 +4648,12 @@ def main():
     test_p5_export_require_security_pass_false_unchanged()
     test_p5_export_require_security_pass_clean_bundle()
     test_p5_export_require_security_pass_blocks_fail()
+
+    # ---- Phase 6: Documentation Consistency ----
+    print("\n" + "=" * 60)
+    print("Phase 6 — Documentation Consistency")
+    print("=" * 60)
+    test_p6_docs_consistency()
 
     print()
     print("=" * 60)

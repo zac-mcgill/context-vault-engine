@@ -94,7 +94,7 @@ Prints a JSON context bundle to stdout. The bundle packages selected notes with 
   "graph": {"related": {}},
   "budget": {"max_chars": 20000, "used_chars": 8500, "note_count": 5, "truncated": false},
   "warnings": [],
-  "manifest": {"source_paths": [...], "schema_version": null}
+  "manifest": {"source_paths": [...], "schema_version": "3.0.0"}
 }
 ```
 
@@ -437,7 +437,7 @@ pip install -r mcp/requirements.txt
 
 **/missing returns MISSING_CONCEPTS_EMPTY (HTTP 422)**
 
-The demo vault schema does not define `EXPECTED_CONCEPTS`. This is expected behaviour. If your vault schema defines `EXPECTED_CONCEPTS`, the `/missing` endpoint will return results. Use `bootstrap` to generate a schema that includes this field.
+The endpoint returns this error only when `EXPECTED_CONCEPTS` is not defined or is empty in `vault_schema.py`. The demo vault defines `EXPECTED_CONCEPTS` with example gap data for the Fundamentals domain, so `/missing` returns real results. If your vault schema does not yet define `EXPECTED_CONCEPTS`, use `bootstrap` to generate a schema that includes this field.
 
 **Security scan warns on URLs or code blocks**
 

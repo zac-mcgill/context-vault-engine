@@ -4908,6 +4908,140 @@ def test_p7_q_fields_empty_returns_invalid_query():
 
 
 # ============================================================
+# Phase 9 — Schema Data (SCHEMA_VERSION and EXPECTED_CONCEPTS)
+# ============================================================
+
+def test_p9_schema_version_defined():
+    """P9-S1: vault_schema.py exposes SCHEMA_VERSION = '3.0.0'."""
+    print("\n=== Test P9-S1: SCHEMA_VERSION defined in schema ===")
+    vault = list_vaults()[0]
+    schema = get_schema(vault)
+
+    assert hasattr(schema, "SCHEMA_VERSION"), (
+        "Schema must expose SCHEMA_VERSION constant"
+    )
+    version = schema.SCHEMA_VERSION
+    assert isinstance(version, str), (
+        f"SCHEMA_VERSION must be a string, got {type(version).__name__}"
+    )
+    assert version == "3.0.0", (
+        f"Expected SCHEMA_VERSION='3.0.0', got {version!r}"
+    )
+    print(f"  SCHEMA_VERSION={version!r} ✓")
+
+
+def test_p9_bundle_manifest_schema_version():
+    """P9-S2: Bundle manifest schema_version is '3.0.0'."""
+    print("\n=== Test P9-S2: Bundle manifest schema_version ===")
+    from core.shared.context_bundle import generate_bundle
+
+    vault = list_vaults()[0]
+    build_index(vault)
+
+    bundle = generate_bundle(vault_name=vault, allow_partial=True, max_notes=2)
+
+    assert bundle["status"] == "ok", f"Expected ok: {bundle}"
+    manifest = bundle.get("manifest", {})
+    assert "schema_version" in manifest, "manifest must contain 'schema_version'"
+    assert manifest["schema_version"] == "3.0.0", (
+        f"Expected manifest.schema_version='3.0.0', got {manifest['schema_version']!r}"
+    )
+    print(f"  bundle manifest schema_version={manifest['schema_version']!r} ✓")
+
+
+def test_p9_export_manifest_schema_version():
+    """P9-S3: Exported manifest.json schema_version is '3.0.0'."""
+    print("\n=== Test P9-S3: Exported manifest.json schema_version ===")
+    import tempfile
+    import shutil
+    import json as _json
+    from core.shared.context_bundle import generate_bundle
+    from core.shared.context_package import export_context_package
+
+    vault = list_vaults()[0]
+    build_index(vault)
+    bundle = generate_bundle(
+        vault_name=vault,
+        filters={"status": "complete"},
+        include_body=False,
+        max_notes=1,
+        allow_partial=False,
+    )
+    assert bundle["status"] == "ok", f"Bundle generation failed: {bundle}"
+
+    tmp = tempfile.mkdtemp()
+    try:
+        result = export_context_package(bundle, output_root=tmp)
+        assert result["status"] == "ok", f"Export failed: {result}"
+        pkg_dir = Path(tmp) / result["bundle_id"]
+        manifest = _json.loads((pkg_dir / "manifest.json").read_text(encoding="utf-8"))
+        assert "schema_version" in manifest, "manifest.json must contain schema_version"
+        assert manifest["schema_version"] == "3.0.0", (
+            f"Expected schema_version='3.0.0', got {manifest['schema_version']!r}"
+        )
+        print(f"  Exported manifest.json schema_version={manifest['schema_version']!r} ✓")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_p9_missing_returns_concept_gaps():
+    """P9-S4: /missing returns meaningful gap data for the demo vault."""
+    print("\n=== Test P9-S4: /missing returns concept gap data ===")
+    from mcp.core.adapters.missing_adapter import get_missing
+
+    vault = list_vaults()[0]
+    result = get_missing(vault_name=vault)
+
+    assert "error" not in result, (
+        f"/missing must not return error when EXPECTED_CONCEPTS is populated: {result}"
+    )
+    for key in ("total_expected", "total_actual", "total_missing",
+                "domains_assessed", "subdomains", "gaps", "ranked"):
+        assert key in result, f"Result missing key: {key!r}"
+
+    assert result["total_expected"] == 5, (
+        f"Expected 5 expected concepts (one per entry), got {result['total_expected']}"
+    )
+    assert result["total_missing"] > 0, (
+        "Expected at least one missing concept in the gap data"
+    )
+    assert result["total_missing"] <= result["total_expected"], (
+        "total_missing must not exceed total_expected"
+    )
+    assert isinstance(result["gaps"], dict) and len(result["gaps"]) > 0, (
+        "gaps must be a non-empty dict"
+    )
+    assert isinstance(result["ranked"], list) and len(result["ranked"]) > 0, (
+        "ranked must be a non-empty list"
+    )
+
+    # Every ranked entry must have required fields
+    for entry in result["ranked"]:
+        assert "rank" in entry and "score" in entry
+        assert "subdomain" in entry and "concept" in entry
+
+    # The fundamentals subdomain must be present
+    assert "fundamentals" in result["gaps"], (
+        f"'fundamentals' subdomain must be in gaps; got keys: {list(result['gaps'])}"
+    )
+
+    missing_concepts = [e["concept"] for e in result["gaps"]["fundamentals"]]
+    expected_slugs = {
+        "sorting-algorithms", "graph-theory", "distributed-systems",
+        "compiler-design", "regular-expressions",
+    }
+    # All reported missing concepts must be from the expected set
+    assert all(c in expected_slugs for c in missing_concepts), (
+        f"Unexpected concepts in gaps: {set(missing_concepts) - expected_slugs}"
+    )
+
+    print(f"  total_expected={result['total_expected']}, "
+          f"total_missing={result['total_missing']}, "
+          f"subdomains={result['subdomains']}, "
+          f"ranked[0]={result['ranked'][0]} ✓")
+
+
+# ============================================================
 # Main
 # ============================================================
 
@@ -5136,6 +5270,15 @@ def main():
     test_p7_partial_lexical_results_sorted_deterministically()
     test_p7_q_omitted_timeout_unchanged()
     test_p7_q_fields_empty_returns_invalid_query()
+
+    # ---- Phase 9: Schema Data (SCHEMA_VERSION + EXPECTED_CONCEPTS) ----
+    print("\n" + "=" * 60)
+    print("Phase 9 — Schema Data")
+    print("=" * 60)
+    test_p9_schema_version_defined()
+    test_p9_bundle_manifest_schema_version()
+    test_p9_export_manifest_schema_version()
+    test_p9_missing_returns_concept_gaps()
 
     print()
     print("=" * 60)

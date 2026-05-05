@@ -40,6 +40,9 @@ EXCLUDE_FILENAMES = frozenset({"Index.md", "Demo Vault Report.md"})
 # Set to a positive integer to require substantive content per section.
 MIN_SECTION_CONTENT_CHARS: int = 0
 
+# Schema version — exposed in bundle manifests and exported packages.
+SCHEMA_VERSION: str = "3.0.0"
+
 # ============================================================================
 # TYPE REGISTRY — maps filename → note type for non-default types
 # ============================================================================
@@ -140,7 +143,16 @@ OPTIONAL_SECTION_MAP: dict[str, tuple[str, ...]] = {}
 
 DOMAIN_PRIORITY_WEIGHT: dict[str, float] = {}
 SUBDOMAIN_DIFFICULTY: dict[str, str] = {}
-EXPECTED_CONCEPTS: dict[str, frozenset[str]] = {}
+EXPECTED_CONCEPTS: dict[str, frozenset[str]] = {
+    # Demo gap data — concepts expected in the Fundamentals domain but not yet added as notes.
+    "fundamentals": frozenset({
+        "sorting-algorithms",
+        "graph-theory",
+        "distributed-systems",
+        "compiler-design",
+        "regular-expressions",
+    }),
+}
 PRIORITY_DOMAINS: frozenset[str] = frozenset()
 CONCEPT_PRIORITY: dict[str, float] = {}
 

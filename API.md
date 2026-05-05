@@ -284,7 +284,7 @@ Detect missing concepts across expected subdomains.
 - `gaps` — mapping of subdomain → list of missing concept objects.
 - `ranked` — all missing concepts ranked by score.
 
-**Note:** Returns `MISSING_CONCEPTS_EMPTY` (HTTP 422) if `EXPECTED_CONCEPTS` is not defined or empty in `vault_schema.py`. The demo vault does not define `EXPECTED_CONCEPTS`.
+**Note:** Returns `MISSING_CONCEPTS_EMPTY` (HTTP 422) if `EXPECTED_CONCEPTS` is not defined or empty in `vault_schema.py`. The demo vault defines `EXPECTED_CONCEPTS` with example gap data for the Fundamentals domain.
 
 ---
 

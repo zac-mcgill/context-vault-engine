@@ -118,7 +118,7 @@ Regression tests for correctness fixes:
 - `test_p1_tasks_constraints` — each task includes writing constraints.
 - `test_p1_notes_full_paths` — each note includes a full vault-relative POSIX path.
 - `test_p1_quality_adapter` — `GET /quality` returns structured result.
-- `test_p1_missing_adapter` — `GET /missing` returns 422 for demo vault (no `EXPECTED_CONCEPTS`).
+- `test_p1_missing_adapter` — `GET /missing` returns gap data for demo vault (`EXPECTED_CONCEPTS` populated with 5 Fundamentals concepts).
 - `test_p1_compare_missing_file` — `POST /compare` with non-existent file returns error.
 - `test_p1_graph_build` — `GET /graph/{vault}` returns nodes and edges.
 - `test_p1_graph_related` — `GET /graph/{vault}/related` returns related nodes.

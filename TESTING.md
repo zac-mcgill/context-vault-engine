@@ -308,6 +308,57 @@ Regression tests for correctness fixes:
 - `test_p11a_api_bootstrap_success_envelope` — `POST /vault/bootstrap` with valid inputs returns HTTP 200 with standard `status/data` envelope, and `data` contains `vault`, `created`, and `warnings`.
 - `test_p11a_api_bootstrap_invalid_input_errors` — Various invalid inputs return structured `status/error/code/message` responses with 400 or 422 status.
 
+### Phase 13B — Export Package UI
+
+Phase 13B is a frontend-only phase. No new backend tests were added (all 202 backend tests still pass).
+
+**Verification steps for Phase 13B:**
+
+```bash
+# Frontend build verification
+cd ui
+npm run build      # must produce no TypeScript errors (ExportPackage.svelte built cleanly)
+
+# Backend suite (unchanged — 202 tests)
+py mcp/test_verify.py
+
+# Vault validation and security scan
+py run.py validate
+py run.py security
+```
+
+**What was added:**
+- `ui/src/lib/api.ts` — export types (`ExportFileInfo`, `ContextExportRequest`, `ContextExportResponse`) and `exportContextPackage()` function calling `POST /context/export`
+- `ui/src/components/ExportPackage.svelte` — full Export Package island: vault selector, filter controls (status/domain/type/difficulty), section tag editor with duplicate/empty validation, content option checkboxes (include_body/include_related/allow_partial), budget number inputs, export options (overwrite/require_security_pass), Export Package button; result panel with Export Overview, Files/Manifest table (filename/bytes/SHA-256), Warnings panel, Raw JSON toggle; conflict panel for PACKAGE_EXISTS; security gate failure panel for SECURITY_SCAN_FAIL; request preview panel before export
+- `ui/src/pages/exports.astro` — replaced PlaceholderPage with ExportPackage island
+- `ui/src/layouts/AppLayout.astro` — removed "soon" badge from Exports nav item; footer updated to Phase 13B
+
+**Manual acceptance checks:**
+- `/app/exports` loads the Export Package form
+- Vault dropdown populates from `GET /vaults`
+- Status buttons toggle between complete / partial / all
+- Domain, type, difficulty inputs accept optional values
+- Default sections (Key Principles, How It Works, Trade-offs) pre-filled as tags
+- Adding a duplicate section shows an error
+- Adding an empty section shows an error
+- Sections can be removed with the X button
+- include_body, include_related, allow_partial checkboxes work
+- Overwrite and require_security_pass checkboxes work
+- Partial-status conflict warning appears when status=partial + allow_partial=false
+- max_notes and max_chars inputs accept values in range
+- Request preview panel updates reactively as form is edited
+- Export Package button POSTs `POST /context/export` with correct request shape (including overwrite and require_security_pass)
+- Loading spinner shown while request is in flight
+- Success: Export Overview (bundle_id, package_dir, file count, total bytes, warnings, overwrite flag, security gate flag), Files table (filename/bytes/SHA-256 with expandable full hash), Warnings panel, Raw JSON toggle all render
+- PACKAGE_EXISTS error shows amber conflict panel with instructions to enable overwrite
+- SECURITY_SCAN_FAIL error shows red security gate panel explaining nothing was written to disk
+- Other structured backend errors show generic error panel with error title and message
+- Network failure shows "Backend Unavailable" error panel
+- Raw JSON is hidden by default; Show button reveals it
+- Navigation sidebar: Exports no longer shows "soon" badge
+
+---
+
 ### Phase 13A — Bundle Builder UI
 
 Phase 13A is a frontend-only phase. No new backend tests were added (all 202 backend tests still pass).

@@ -1,11 +1,7 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
-import PlaceholderPage from '../components/PlaceholderPage.astro';
+import ExportPackage from '../components/ExportPackage.svelte';
 ---
 <AppLayout title="Exports">
-  <PlaceholderPage
-    pageTitle="Exports"
-    description="Export signed packages to disk: manifest.json with SHA-256 hashes, context.json, and context.md."
-    phase="13"
-  />
+  <ExportPackage client:load />
 </AppLayout>

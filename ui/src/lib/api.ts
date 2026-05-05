@@ -416,3 +416,34 @@ export function bootstrapVault(
 ): Promise<ApiResult<VaultBootstrapResponse>> {
   return post<VaultBootstrapResponse>('/vault/bootstrap', request);
 }
+// ---------------------------------------------------------------------------
+// Context Export — POST /context/export
+// ---------------------------------------------------------------------------
+
+export interface ExportFileInfo {
+  sha256: string;
+  bytes: number;
+}
+
+export interface ContextExportRequest extends ContextBundleRequest {
+  overwrite: boolean;
+  require_security_pass: boolean;
+}
+
+export interface ContextExportResponse {
+  status: string;
+  bundle_id: string;
+  package_dir: string;
+  files: Record<string, ExportFileInfo>;
+  warnings: string[];
+}
+
+/**
+ * POST /context/export — generate a context bundle and write it to disk as a
+ * portable package. Returns file manifest with SHA-256 hashes.
+ */
+export function exportContextPackage(
+  request: ContextExportRequest,
+): Promise<ApiResult<ContextExportResponse>> {
+  return post<ContextExportResponse>('/context/export', request);
+}

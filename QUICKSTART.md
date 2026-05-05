@@ -447,7 +447,39 @@ A browser-based Bundle Builder is available for interactively generating and pre
    - **Graph Relationships** — related node counts (visible only when include_related=true)
    - **Raw JSON** — full bundle JSON, hidden by default
 
-The Bundle Builder does not write packages to disk. To export a bundle as a portable package, use `py run.py export` or `POST /context/export` (Phase 13B).
+The Bundle Builder does not write packages to disk. To export a bundle as a portable package, use `py run.py export`, `POST /context/export`, or the Export Package UI at `/app/exports` (Phase 13B).
+
+---
+
+## 6f. Export Package UI (Phase 13B)
+
+The Export Package UI at `/app/exports` lets you configure and export a context bundle as a portable package written to disk with a SHA-256 manifest.
+
+**To export a package:**
+1. Navigate to **Exports** in the sidebar.
+2. Select a **Vault** from the dropdown.
+3. Configure **Filters** — status (complete / partial / all), optional domain / type / difficulty.
+4. Configure **Sections to Extract** — defaults are Key Principles, How It Works, Trade-offs. Add or remove as needed.
+5. Configure **Content Options** — include body, include related notes, allow partial notes.
+6. Set **Budget** — max notes (1–100), max chars (100–500,000).
+7. Set **Export Options**:
+   - **Overwrite existing package** — if the same deterministic bundle ID already exists on disk, enable this to replace it. If off and the package exists, the export will return a conflict error.
+   - **Require security pass** — abort export if the security scan detects a blocking finding. Nothing is written to disk on failure.
+8. Review the **Request Preview** panel to confirm settings and expected output path.
+9. Click **Export Package** to call `POST /context/export`.
+10. The result panel shows:
+    - **Export Overview** — bundle ID, package directory, file count, total bytes, warnings, overwrite used, security gate status badges
+    - **Files** — table of all written files with filename, size, and SHA-256 hash (expandable to full hash)
+    - **Warnings** — any warnings returned by the backend
+    - **Raw Export JSON** — full response, hidden by default
+
+**Conflict handling:** If the export returns `PACKAGE_EXISTS`, a conflict panel explains that the package already exists and prompts you to enable the overwrite option.
+
+**Security gate failure:** If the export returns `SECURITY_SCAN_FAIL`, a security gate panel explains that nothing was written and directs you to review the security findings in the Dashboard.
+
+Packages are written to `dist/context-bundles/<bundle-id>/` under the repo root. The `dist/` directory is gitignored.
+
+---
 
 ---
 

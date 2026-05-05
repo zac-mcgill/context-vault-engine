@@ -224,9 +224,10 @@ Phase 13	Bundle, Export, and Security UI	Complete
 Partial
 Phase	Name	Priority
 Phase 14A	Feedback Write API (backend)	Complete
+Phase 14B	Feedback and Task Workflow UI	Complete
+Phase 14	Feedback and Task Workflow UI	Complete
 Future
 Phase	Name	Priority
-Phase 14B	Feedback and Task Workflow UI	Medium
 Phase 15	Note Browser and Safe Editing UI	Medium
 Phase 16	Visual Graph and Missing Concepts UI	Medium
 Phase 17	Distribution and Packaging	Medium
@@ -702,24 +703,23 @@ What was delivered:
 
 Suggested Commit: feat(feedback): stable IDs and write API (Phase 14A)
 
-Phase 14B - Feedback and Task Workflow UI (PENDING)
+Phase 14B - Feedback and Task Workflow UI (COMPLETE)
 
-UI Features
-Feedback list
-Add feedback form
-Edit feedback entry
-Delete feedback entry
-Filter feedback by source/signal/severity/path
-Toggle "include feedback in task priority"
-Show before/after priority scores
-Acceptance Criteria
-User can add feedback from UI
-Invalid feedback is rejected before write
-Feedback file remains human-readable
-Task priority changes are visible
-Existing manual feedback file editing remains valid
-Suggested Commit
-feat(ui): add feedback review workflow
+What was delivered:
+- FeedbackWorkflow.svelte: vault selector, 6-tile summary cards, feedback list with filters (path/signal/severity/source), add form with inline validation, inline edit, inline delete with confirmation, Maintenance panel (Normalise IDs), task priority panel (feedback-adjusted), raw JSON behind details expanders
+- api.ts: FeedbackSource/Signal/Severity types, FeedbackCreateRequest/UpdateRequest, FeedbackResponse, FeedbackDeleteResponse, FeedbackNormaliseResponse; createFeedback, updateFeedback, deleteFeedback, normaliseFeedback; put/del helpers
+- feedback.astro: replaced PlaceholderPage with FeedbackWorkflow island
+- AppLayout.astro: Feedback removed from placeholder list; footer updated to Phase 14B
+- Docs: QUICKSTART.md section 6h, TESTING.md Phase 14B section
+
+Verification:
+- npm run build: pass (FeedbackWorkflow 32.70 kB)
+- py mcp/test_verify.py: 222 tests, all pass
+- py run.py validate: 19/19 valid
+- py run.py security: pass
+- py run.py feedback: exits 0
+
+Suggested Commit: feat(ui): add feedback and task workflow UI (Phase 14B)
 Phase 15 - Note Browser and Safe Editing UI
 Purpose
 

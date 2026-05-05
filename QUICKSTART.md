@@ -530,6 +530,58 @@ The Security Scan UI at `/app/security` lets you run a fully configurable `POST 
 
 ---
 
+## 6h. Feedback Workflow UI (Phase 14B)
+
+The Feedback Workflow UI at `/app/feedback` lets you view, add, edit, delete, and normalise feedback entries, and see how feedback affects task priority.
+
+**To use the Feedback Workflow:**
+1. Navigate to **Feedback** in the sidebar.
+2. Select a **Vault** from the dropdown. Feedback and feedback-adjusted tasks load automatically.
+3. **Summary cards** at the top show: entry count, warning count, error count, task count, feedback-adjusted task count, and highest-priority task.
+
+**Feedback list**
+- All feedback entries are listed, sorted by newest first.
+- Filter by path text, signal, severity, or source using the filter controls.
+- Click **Clear filters** to reset all filters.
+- Each entry shows: id, path, source, signal, severity, comment, created_at.
+- Entries without an id cannot be edited or deleted until you run Normalise IDs.
+
+**Add feedback**
+1. Fill in **Path** (vault-relative, e.g. `Fundamentals/Algorithms.md`), **Source**, **Signal**, **Severity**, and **Comment**.
+2. Inline validation prevents submission if path is blank, contains `..`, or if the comment exceeds 2000 characters.
+3. Click **Add feedback** to call `POST /feedback`.
+4. On success, the feedback list and task panel refresh automatically. The form clears only on success.
+
+**Edit feedback**
+1. Click **Edit** on any entry that has an id.
+2. An inline edit form opens pre-filled with the entry's current values.
+3. Modify fields and click **Save changes** to call `PUT /feedback/{id}`.
+4. Click **Cancel** to discard changes.
+5. The list and task panel refresh on success.
+
+**Delete feedback**
+1. Click **Delete** on any entry that has an id.
+2. A confirmation panel appears — click **Confirm Delete** to proceed with `DELETE /feedback/{id}?vault=<vault>`.
+3. Deletion cannot be undone. The list and task panel refresh on success.
+
+**Normalise feedback IDs**
+- Located in the **Maintenance** panel at the bottom of the left column.
+- Calls `POST /feedback/normalise?vault=<vault>` to assign stable hex IDs to any entries that lack them.
+- Entries that already have IDs are unchanged.
+- The feedback list refreshes after normalisation.
+
+**Task priority panel**
+- The right column shows improvement tasks weighted by feedback (`GET /tasks?include_feedback=true&limit=10`).
+- Each task shows: priority badge, path, note, instruction, missing sections, constraints, and feedback_weight (expandable raw JSON behind a details element).
+- The panel refreshes automatically after any feedback write operation.
+
+**Error handling:**
+- Network errors, backend validation errors (`INVALID_INPUT`, `NOTE_NOT_FOUND`, etc.), and write failures are shown in structured error panels.
+- Backend warnings and errors from the feedback file are displayed above the entry list.
+- Raw response JSON is hidden by default behind `<details>` expanders.
+
+---
+
 ## 7. Query the System
 
 **Vault overview**

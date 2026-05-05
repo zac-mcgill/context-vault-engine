@@ -308,6 +308,47 @@ Regression tests for correctness fixes:
 - `test_p11a_api_bootstrap_success_envelope` — `POST /vault/bootstrap` with valid inputs returns HTTP 200 with standard `status/data` envelope, and `data` contains `vault`, `created`, and `warnings`.
 - `test_p11a_api_bootstrap_invalid_input_errors` — Various invalid inputs return structured `status/error/code/message` responses with 400 or 422 status.
 
+### Phase 14B — Feedback Workflow UI
+
+Phase 14B is a frontend-only phase. No new backend tests were added (all 222 backend tests still pass).
+
+**Verification steps for Phase 14B:**
+
+```bash
+cd ui && npm run build     # must complete with 0 errors; FeedbackWorkflow.svelte compiled
+py mcp/test_verify.py      # 222 tests — all must pass
+py run.py validate         # 19/19 valid
+py run.py security         # status: pass
+py run.py feedback         # exits 0, valid JSON
+```
+
+**Manual checks for Phase 14B:**
+
+1. Start the backend: `py mcp/server/mcp_server.py`
+2. Serve the built UI: `cd ui && npx serve dist`
+3. Navigate to `http://localhost:3000/app/feedback`
+4. Confirm the vault selector loads vaults and selects the first one.
+5. Confirm feedback entries appear in the list (or an empty-state message).
+6. Confirm the summary cards show correct counts (entries, warnings, errors, tasks, feedback-adjusted, top priority).
+7. Confirm filters for path, signal, severity, and source work; confirm "Clear filters" resets them.
+8. Add a new feedback entry via the Add Feedback form; confirm the list refreshes and shows the new entry.
+9. Edit an entry (requires an id); confirm pre-fill, save, and list refresh.
+10. Delete an entry; confirm the confirmation dialog and list refresh.
+11. Run Normalise IDs from the Maintenance panel; confirm the success message and list refresh.
+12. Confirm the Task Priority panel shows feedback-adjusted tasks.
+13. Confirm raw JSON panels are hidden by default behind `<details>` expanders.
+14. Confirm Feedback nav item no longer shows "soon" badge.
+
+**What was added:**
+
+- `ui/src/components/FeedbackWorkflow.svelte` — full Feedback Workflow island (32.70 kB built). Vault selector, summary cards (6 tiles), feedback list with 4-field filter + clear filters, backend warnings/errors panels, per-entry id/path/source/signal/severity/comment/created_at display, severity and signal badges, edit (inline expandable form) and delete (inline confirmation) actions with loading states, add feedback form with inline validation (path traversal check, required fields, 2000-char limit), Maintenance panel with Normalise IDs action, task priority panel (feedback-adjusted, expandable feedback_weight), raw JSON behind `<details>` expanders.
+- `ui/src/lib/api.ts` — added `FeedbackSource`, `FeedbackSignal`, `FeedbackSeverity` type aliases; strengthened `FeedbackEntry` with optional `id` and `updated_at`; added `FeedbackResponse`, `FeedbackDeleteResponse`, `FeedbackNormaliseResponse`, `FeedbackCreateRequest`, `FeedbackUpdateRequest`; added `put` and `del` HTTP helpers; added `createFeedback`, `updateFeedback`, `deleteFeedback`, `normaliseFeedback` functions.
+- `ui/src/pages/feedback.astro` — replaced `PlaceholderPage` with `<FeedbackWorkflow client:load />`.
+- `ui/src/layouts/AppLayout.astro` — removed "Feedback" from placeholder items; removed "soon" badge from Feedback nav item; updated footer to "Phase 14B — Feedback Workflow".
+- `QUICKSTART.md` — added §6h Feedback Workflow UI section.
+- `TESTING.md` — added Phase 14B section (this entry).
+- `ROADMAP.md` — marked Phase 14B Complete, Phase 14 Complete.
+
 ### Phase 14A — Feedback Write API and Task Workflow Backend Support
 
 Phase 14A adds stable IDs and write operations to the feedback system. No UI changes were made.

@@ -290,16 +290,31 @@ export function fetchMissing(vault?: string): Promise<ApiResult<MissingData>> {
 }
 
 // ---------------------------------------------------------------------------
-// Feedback — GET /feedback
+// Feedback — GET /feedback + write operations
 // ---------------------------------------------------------------------------
 
+export type FeedbackSource = 'human' | 'agent' | 'system';
+export type FeedbackSignal =
+  | 'unclear'
+  | 'incomplete'
+  | 'outdated'
+  | 'incorrect'
+  | 'agent_failed'
+  | 'needs_example'
+  | 'needs_constraints'
+  | 'useful'
+  | 'agent_succeeded';
+export type FeedbackSeverity = 'low' | 'medium' | 'high' | 'critical';
+
 export interface FeedbackEntry {
+  id?: string;
   path: string;
-  source: string;
-  signal: string;
-  severity: string;
+  source: FeedbackSource | string;
+  signal: FeedbackSignal | string;
+  severity: FeedbackSeverity | string;
   comment: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface FeedbackData {
@@ -310,10 +325,117 @@ export interface FeedbackData {
   errors: unknown[];
 }
 
+/** Shape returned by POST /feedback and PUT /feedback/{id} */
+export interface FeedbackResponse {
+  entry: FeedbackEntry;
+  feedback: FeedbackData;
+}
+
+/** Shape returned by DELETE /feedback/{id} */
+export interface FeedbackDeleteResponse {
+  deleted: string;
+  feedback: FeedbackData;
+}
+
+/** Shape returned by POST /feedback/normalise */
+export interface FeedbackNormaliseResponse {
+  normalised: number;
+  feedback: FeedbackData;
+}
+
+export interface FeedbackCreateRequest {
+  vault: string;
+  path: string;
+  source: FeedbackSource;
+  signal: FeedbackSignal;
+  severity: FeedbackSeverity;
+  comment: string;
+}
+
+export interface FeedbackUpdateRequest {
+  vault: string;
+  path: string;
+  source: FeedbackSource;
+  signal: FeedbackSignal;
+  severity: FeedbackSeverity;
+  comment: string;
+}
+
+/** Perform a PUT request with a JSON body and return the typed result. */
+async function put<T>(path: string, body: unknown): Promise<ApiResult<T>> {
+  try {
+    const resp = await fetch(`${API_BASE}${path}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json = await resp.json();
+    return json as ApiResult<T>;
+  } catch (err) {
+    return {
+      status: 'error',
+      error: {
+        code: 'NETWORK_ERROR',
+        message: err instanceof Error ? err.message : 'Network request failed',
+      },
+    };
+  }
+}
+
+/** Perform a DELETE request and return the typed result. */
+async function del<T>(path: string): Promise<ApiResult<T>> {
+  try {
+    const resp = await fetch(`${API_BASE}${path}`, { method: 'DELETE' });
+    const json = await resp.json();
+    return json as ApiResult<T>;
+  } catch (err) {
+    return {
+      status: 'error',
+      error: {
+        code: 'NETWORK_ERROR',
+        message: err instanceof Error ? err.message : 'Network request failed',
+      },
+    };
+  }
+}
+
 /** GET /feedback — vault feedback entries from Vault Files/feedback.md. */
 export function fetchFeedback(vault?: string): Promise<ApiResult<FeedbackData>> {
   const qs = vault ? `?vault=${encodeURIComponent(vault)}` : '';
   return get<FeedbackData>(`/feedback${qs}`);
+}
+
+/** POST /feedback — add a new feedback entry. */
+export function createFeedback(
+  request: FeedbackCreateRequest,
+): Promise<ApiResult<FeedbackResponse>> {
+  return post<FeedbackResponse>('/feedback', request);
+}
+
+/** PUT /feedback/{feedback_id} — update an existing feedback entry. */
+export function updateFeedback(
+  feedbackId: string,
+  request: FeedbackUpdateRequest,
+): Promise<ApiResult<FeedbackResponse>> {
+  return put<FeedbackResponse>(`/feedback/${encodeURIComponent(feedbackId)}`, request);
+}
+
+/** DELETE /feedback/{feedback_id}?vault=<vault> — delete a feedback entry. */
+export function deleteFeedback(
+  feedbackId: string,
+  vault: string,
+): Promise<ApiResult<FeedbackDeleteResponse>> {
+  return del<FeedbackDeleteResponse>(
+    `/feedback/${encodeURIComponent(feedbackId)}?vault=${encodeURIComponent(vault)}`,
+  );
+}
+
+/** POST /feedback/normalise?vault=<vault> — assign IDs to id-less entries. */
+export function normaliseFeedback(vault: string): Promise<ApiResult<FeedbackNormaliseResponse>> {
+  return post<FeedbackNormaliseResponse>(
+    `/feedback/normalise?vault=${encodeURIComponent(vault)}`,
+    {},
+  );
 }
 
 // ---------------------------------------------------------------------------

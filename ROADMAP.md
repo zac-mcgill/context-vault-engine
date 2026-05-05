@@ -221,9 +221,12 @@ Phase 13A	Bundle Builder UI	Complete
 Phase 13B	Export Package UI	Complete
 Phase 13C	Security Scan UI	Complete
 Phase 13	Bundle, Export, and Security UI	Complete
+Partial
+Phase	Name	Priority
+Phase 14A	Feedback Write API (backend)	Complete
 Future
 Phase	Name	Priority
-Phase 14	Feedback and Task Workflow UI	Medium
+Phase 14B	Feedback and Task Workflow UI	Medium
 Phase 15	Note Browser and Safe Editing UI	Medium
 Phase 16	Visual Graph and Missing Concepts UI	Medium
 Phase 17	Distribution and Packaging	Medium
@@ -682,34 +685,33 @@ User Story
 
 As a user, I want to add feedback to a note from the UI and see task priorities update.
 
+Phase 14A - Feedback Write API and Task Workflow Backend Support (COMPLETE)
+
+Backend-only. No UI was built in this sub-phase.
+
+What was delivered:
+- Stable IDs (12-16 lowercase hex chars, SHA-256 derived) on all feedback entries
+- POST /feedback - add a new entry with validation
+- PUT /feedback/{id} - update an existing entry, preserving id and created_at
+- DELETE /feedback/{id} - remove an entry by id
+- POST /feedback/normalise - assign IDs to all existing id-less entries
+- Atomic file writes via tempfile + os.replace
+- Path traversal protection and note existence validation
+- Backward compatibility: id-less entries in feedback.md remain valid
+- 20 new verification tests (222 total)
+
+Suggested Commit: feat(feedback): stable IDs and write API (Phase 14A)
+
+Phase 14B - Feedback and Task Workflow UI (PENDING)
+
 UI Features
 Feedback list
 Add feedback form
 Edit feedback entry
 Delete feedback entry
 Filter feedback by source/signal/severity/path
-Toggle “include feedback in task priority”
+Toggle "include feedback in task priority"
 Show before/after priority scores
-Backend Additions
-
-Currently feedback is read from feedback.md. Add safe write operations:
-
-POST /feedback
-PUT /feedback/{id}
-DELETE /feedback/{id}
-
-Only if feedback entries receive stable IDs.
-
-Alternative simpler approach:
-
-Keep file-based feedback
-UI edits whole feedback document through a controlled textarea
-Validate before save
-
-Recommended approach:
-
-Add generated stable IDs to feedback entries
-Use structured add/edit/delete routes
 Acceptance Criteria
 User can add feedback from UI
 Invalid feedback is rejected before write

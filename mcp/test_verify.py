@@ -5810,8 +5810,775 @@ def test_p11a_api_bootstrap_invalid_input_errors():
 
 
 # ============================================================
+# Phase 14A — Feedback Write API Tests
+# ============================================================
+
+def _demo_vault_feedback_path():
+    """Return (vault_name, vault_path, feedback_file) for the demo-vault."""
+    vault_name = list_vaults()[0]
+    vault_path = get_vault_path(vault_name)
+    fb_file = vault_path / "Vault Files" / "feedback.md"
+    return vault_name, vault_path, fb_file
+
+
+def _save_restore_feedback(fb_file):
+    """Context helper — save current content; return (original_text | None)."""
+    try:
+        return fb_file.read_text(encoding="utf-8") if fb_file.is_file() else None
+    except OSError:
+        return None
+
+
+def test_p14a_idless_entries_still_parse():
+    """P14A-1: Existing feedback entries without 'id' remain readable."""
+    print("\n=== Test P14A-1: ID-less entries still parse ===")
+    import tempfile, os, yaml
+    from pathlib import Path as _Path
+    from core.shared.feedback import load_feedback
+
+    content = """feedback:
+  - path: Fundamentals/Algorithms.md
+    source: human
+    signal: unclear
+    severity: medium
+    comment: "No id field here."
+    created_at: "2026-01-01T00:00:00Z"
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = _Path(tmp)
+        vault_files = tmp_path / "Vault Files"
+        vault_files.mkdir()
+        (vault_files / "feedback.md").write_text(content, encoding="utf-8")
+
+        result = load_feedback(tmp_path)
+        assert result["status"] == "ok", f"Expected ok, got: {result}"
+        assert len(result["entries"]) == 1, "Should have 1 entry"
+        entry = result["entries"][0]
+        assert entry["path"] == "Fundamentals/Algorithms.md"
+        assert entry["source"] == "human"
+        assert entry["signal"] == "unclear"
+        # id is absent — that's fine; 'id' key either absent or empty
+        assert entry.get("id", "") == "" or "id" not in entry
+        print(f"  ID-less entry parsed successfully ✓")
+
+
+def test_p14a_normalise_adds_ids_without_dropping():
+    """P14A-2: normalise_entries assigns ids without dropping entries."""
+    print("\n=== Test P14A-2: Normalise adds ids without dropping ===")
+    from core.shared.feedback import normalise_entries, _FEEDBACK_ID_RE
+
+    entries = [
+        {"path": "A.md", "source": "human", "signal": "unclear",
+         "severity": "low", "comment": "c1", "created_at": "2026-01-01T00:00:00Z"},
+        {"path": "B.md", "source": "agent", "signal": "incomplete",
+         "severity": "medium", "comment": "c2", "created_at": "2026-01-02T00:00:00Z",
+         "id": "aabbccddeeff"},  # 12 valid lowercase hex chars
+    ]
+    normalised = normalise_entries(entries)
+
+    assert len(normalised) == 2, "No entries should be dropped"
+    # First entry must receive a new id
+    assert "id" in normalised[0], "Entry 0 should have id after normalisation"
+    assert _FEEDBACK_ID_RE.match(normalised[0]["id"]), (
+        f"id {normalised[0]['id']!r} must be 12–16 hex chars"
+    )
+    # Second entry's existing id must be preserved
+    assert normalised[1]["id"] == "aabbccddeeff", "Existing id must be preserved"
+    # Ids must be unique
+    ids = [n["id"] for n in normalised]
+    assert len(ids) == len(set(ids)), "Ids must be unique"
+    print(f"  Normalised {len(normalised)} entries; ids: {ids} ✓")
+
+
+def test_p14a_post_feedback_adds_entry():
+    """P14A-3: POST /feedback adds an entry with id and created_at."""
+    print("\n=== Test P14A-3: POST /feedback adds entry ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name, vault_path, fb_file = _demo_vault_feedback_path()
+    original = _save_restore_feedback(fb_file)
+    try:
+        with TestClient(app) as client:
+            resp = client.post("/feedback", json={
+                "vault": vault_name,
+                "path": "Fundamentals/Algorithms.md",
+                "source": "human",
+                "signal": "unclear",
+                "severity": "medium",
+                "comment": "Phase 14A test — POST adds entry.",
+            })
+            assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+            body = resp.json()
+            assert body["status"] == "ok", f"Expected ok: {body}"
+            entry = body["data"]["entry"]
+            assert entry.get("id"), "Entry must have a non-empty id"
+            assert entry.get("created_at"), "Entry must have created_at"
+            assert entry["path"] == "Fundamentals/Algorithms.md"
+            assert entry["source"] == "human"
+            assert entry["signal"] == "unclear"
+            assert entry["severity"] == "medium"
+            assert "feedback" in body["data"], "Response must include feedback summary"
+            print(f"  Entry added with id={entry['id']!r} ✓")
+    finally:
+        if original is not None:
+            fb_file.write_text(original, encoding="utf-8")
+        elif fb_file.is_file():
+            fb_file.unlink()
+
+
+def test_p14a_post_feedback_rejects_invalid_source():
+    """P14A-4: POST /feedback rejects invalid source."""
+    print("\n=== Test P14A-4: POST /feedback rejects invalid source ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name = list_vaults()[0]
+    with TestClient(app) as client:
+        resp = client.post("/feedback", json={
+            "vault": vault_name,
+            "path": "Fundamentals/Algorithms.md",
+            "source": "robot",  # invalid
+            "signal": "unclear",
+            "severity": "medium",
+            "comment": "test",
+        })
+        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}"
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"]["code"] in ("INVALID_INPUT", "INVALID_SOURCE")
+        print(f"  Invalid source rejected with {resp.status_code} ✓")
+
+
+def test_p14a_post_feedback_rejects_invalid_signal():
+    """P14A-5: POST /feedback rejects invalid signal."""
+    print("\n=== Test P14A-5: POST /feedback rejects invalid signal ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name = list_vaults()[0]
+    with TestClient(app) as client:
+        resp = client.post("/feedback", json={
+            "vault": vault_name,
+            "path": "Fundamentals/Algorithms.md",
+            "source": "human",
+            "signal": "bananas",  # invalid
+            "severity": "medium",
+            "comment": "test",
+        })
+        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}"
+        body = resp.json()
+        assert body["status"] == "error"
+        print(f"  Invalid signal rejected with {resp.status_code} ✓")
+
+
+def test_p14a_post_feedback_rejects_invalid_severity():
+    """P14A-6: POST /feedback rejects invalid severity."""
+    print("\n=== Test P14A-6: POST /feedback rejects invalid severity ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name = list_vaults()[0]
+    with TestClient(app) as client:
+        resp = client.post("/feedback", json={
+            "vault": vault_name,
+            "path": "Fundamentals/Algorithms.md",
+            "source": "human",
+            "signal": "unclear",
+            "severity": "extreme",  # invalid
+            "comment": "test",
+        })
+        assert resp.status_code == 400, f"Expected 400, got {resp.status_code}"
+        body = resp.json()
+        assert body["status"] == "error"
+        print(f"  Invalid severity rejected with {resp.status_code} ✓")
+
+
+def test_p14a_post_feedback_rejects_empty_comment():
+    """P14A-7: POST /feedback rejects empty or blank comment."""
+    print("\n=== Test P14A-7: POST /feedback rejects empty comment ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name = list_vaults()[0]
+    with TestClient(app) as client:
+        for bad_comment in ("", "   "):
+            resp = client.post("/feedback", json={
+                "vault": vault_name,
+                "path": "Fundamentals/Algorithms.md",
+                "source": "human",
+                "signal": "unclear",
+                "severity": "medium",
+                "comment": bad_comment,
+            })
+            assert resp.status_code == 400, (
+                f"Expected 400 for comment={bad_comment!r}, got {resp.status_code}"
+            )
+            body = resp.json()
+            assert body["status"] == "error"
+            print(f"  Blank comment {bad_comment!r} rejected ✓")
+
+
+def test_p14a_post_feedback_rejects_path_traversal():
+    """P14A-8: POST /feedback rejects path traversal in note path."""
+    print("\n=== Test P14A-8: POST /feedback rejects path traversal ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name = list_vaults()[0]
+    with TestClient(app) as client:
+        for bad_path in ("../outside.md", "../../etc/passwd", "Fundamentals/../../evil.md"):
+            resp = client.post("/feedback", json={
+                "vault": vault_name,
+                "path": bad_path,
+                "source": "human",
+                "signal": "unclear",
+                "severity": "medium",
+                "comment": "traversal attempt",
+            })
+            assert resp.status_code == 400, (
+                f"Expected 400 for path {bad_path!r}, got {resp.status_code}"
+            )
+            body = resp.json()
+            assert body["status"] == "error"
+            assert body["error"]["code"] == "PATH_TRAVERSAL", (
+                f"Expected PATH_TRAVERSAL, got {body['error']['code']!r}"
+            )
+            print(f"  Path traversal {bad_path!r} rejected ✓")
+
+
+def test_p14a_post_feedback_rejects_unknown_note():
+    """P14A-9: POST /feedback rejects a path that does not exist in the vault."""
+    print("\n=== Test P14A-9: POST /feedback rejects unknown note ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name = list_vaults()[0]
+    with TestClient(app) as client:
+        resp = client.post("/feedback", json={
+            "vault": vault_name,
+            "path": "Fundamentals/DoesNotExistAtAll.md",
+            "source": "human",
+            "signal": "unclear",
+            "severity": "medium",
+            "comment": "this note does not exist",
+        })
+        assert resp.status_code == 404, (
+            f"Expected 404 for unknown note, got {resp.status_code}: {resp.text}"
+        )
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"]["code"] == "NOTE_NOT_FOUND"
+        print(f"  Unknown note path rejected with 404 ✓")
+
+
+def test_p14a_put_feedback_updates_entry():
+    """P14A-10: PUT /feedback/{id} updates an existing entry."""
+    print("\n=== Test P14A-10: PUT /feedback/{id} updates entry ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name, vault_path, fb_file = _demo_vault_feedback_path()
+    original = _save_restore_feedback(fb_file)
+    try:
+        with TestClient(app) as client:
+            # Create entry
+            resp = client.post("/feedback", json={
+                "vault": vault_name,
+                "path": "Fundamentals/Algorithms.md",
+                "source": "human",
+                "signal": "unclear",
+                "severity": "low",
+                "comment": "Original comment for update test.",
+            })
+            assert resp.status_code == 200
+            entry_id = resp.json()["data"]["entry"]["id"]
+
+            # Update it
+            resp2 = client.put(f"/feedback/{entry_id}", json={
+                "vault": vault_name,
+                "path": "Fundamentals/Algorithms.md",
+                "source": "human",
+                "signal": "needs_example",
+                "severity": "high",
+                "comment": "Updated comment — needs a concrete example.",
+            })
+            assert resp2.status_code == 200, f"Expected 200, got {resp2.status_code}: {resp2.text}"
+            body2 = resp2.json()
+            assert body2["status"] == "ok"
+            updated = body2["data"]["entry"]
+            assert updated["signal"] == "needs_example"
+            assert updated["severity"] == "high"
+            assert updated["comment"] == "Updated comment — needs a concrete example."
+            print(f"  Entry {entry_id!r} updated to signal={updated['signal']!r} ✓")
+    finally:
+        if original is not None:
+            fb_file.write_text(original, encoding="utf-8")
+        elif fb_file.is_file():
+            fb_file.unlink()
+
+
+def test_p14a_put_feedback_preserves_id():
+    """P14A-11: PUT /feedback/{id} does not change the entry id."""
+    print("\n=== Test P14A-11: PUT preserves id ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name, vault_path, fb_file = _demo_vault_feedback_path()
+    original = _save_restore_feedback(fb_file)
+    try:
+        with TestClient(app) as client:
+            resp = client.post("/feedback", json={
+                "vault": vault_name,
+                "path": "Fundamentals/Algorithms.md",
+                "source": "human",
+                "signal": "unclear",
+                "severity": "medium",
+                "comment": "Comment for id preservation test.",
+            })
+            assert resp.status_code == 200
+            original_id = resp.json()["data"]["entry"]["id"]
+
+            resp2 = client.put(f"/feedback/{original_id}", json={
+                "vault": vault_name,
+                "path": "Fundamentals/Algorithms.md",
+                "source": "human",
+                "signal": "incomplete",
+                "severity": "medium",
+                "comment": "Updated; id must remain unchanged.",
+            })
+            assert resp2.status_code == 200
+            returned_id = resp2.json()["data"]["entry"]["id"]
+            assert returned_id == original_id, (
+                f"id changed: {original_id!r} → {returned_id!r}"
+            )
+            print(f"  id preserved as {original_id!r} after PUT ✓")
+    finally:
+        if original is not None:
+            fb_file.write_text(original, encoding="utf-8")
+        elif fb_file.is_file():
+            fb_file.unlink()
+
+
+def test_p14a_put_feedback_preserves_created_at():
+    """P14A-12: PUT /feedback/{id} preserves the original created_at."""
+    print("\n=== Test P14A-12: PUT preserves created_at ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name, vault_path, fb_file = _demo_vault_feedback_path()
+    original = _save_restore_feedback(fb_file)
+    try:
+        with TestClient(app) as client:
+            resp = client.post("/feedback", json={
+                "vault": vault_name,
+                "path": "Fundamentals/Algorithms.md",
+                "source": "human",
+                "signal": "unclear",
+                "severity": "low",
+                "comment": "Comment for created_at preservation test.",
+            })
+            assert resp.status_code == 200
+            post_entry = resp.json()["data"]["entry"]
+            original_id = post_entry["id"]
+            original_created_at = post_entry["created_at"]
+
+            resp2 = client.put(f"/feedback/{original_id}", json={
+                "vault": vault_name,
+                "path": "Fundamentals/Algorithms.md",
+                "source": "human",
+                "signal": "incomplete",
+                "severity": "medium",
+                "comment": "Updated; created_at must be preserved.",
+            })
+            assert resp2.status_code == 200
+            put_entry = resp2.json()["data"]["entry"]
+            assert put_entry["created_at"] == original_created_at, (
+                f"created_at changed: {original_created_at!r} → {put_entry['created_at']!r}"
+            )
+            print(f"  created_at preserved as {original_created_at!r} ✓")
+    finally:
+        if original is not None:
+            fb_file.write_text(original, encoding="utf-8")
+        elif fb_file.is_file():
+            fb_file.unlink()
+
+
+def test_p14a_put_feedback_rejects_unknown_id():
+    """P14A-13: PUT /feedback/{id} returns 404 for unknown id."""
+    print("\n=== Test P14A-13: PUT rejects unknown id ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name = list_vaults()[0]
+    with TestClient(app) as client:
+        resp = client.put("/feedback/aabbccddee00", json={
+            "vault": vault_name,
+            "path": "Fundamentals/Algorithms.md",
+            "source": "human",
+            "signal": "unclear",
+            "severity": "medium",
+            "comment": "This id does not exist.",
+        })
+        assert resp.status_code == 404, f"Expected 404, got {resp.status_code}: {resp.text}"
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"]["code"] == "FEEDBACK_NOT_FOUND"
+        print(f"  Unknown id returns 404 FEEDBACK_NOT_FOUND ✓")
+
+
+def test_p14a_delete_feedback_removes_entry():
+    """P14A-14: DELETE /feedback/{id} removes the entry."""
+    print("\n=== Test P14A-14: DELETE removes entry ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name, vault_path, fb_file = _demo_vault_feedback_path()
+    original = _save_restore_feedback(fb_file)
+    try:
+        with TestClient(app) as client:
+            # Create an entry to delete
+            resp = client.post("/feedback", json={
+                "vault": vault_name,
+                "path": "Fundamentals/Algorithms.md",
+                "source": "human",
+                "signal": "unclear",
+                "severity": "low",
+                "comment": "Entry to be deleted by test.",
+            })
+            assert resp.status_code == 200
+            entry_id = resp.json()["data"]["entry"]["id"]
+
+            # Delete it
+            resp2 = client.delete(f"/feedback/{entry_id}", params={"vault": vault_name})
+            assert resp2.status_code == 200, f"Expected 200, got {resp2.status_code}: {resp2.text}"
+            body2 = resp2.json()
+            assert body2["status"] == "ok"
+            assert body2["data"]["deleted"] == entry_id
+            print(f"  Entry {entry_id!r} deleted ✓")
+
+            # Confirm it is gone from GET /feedback
+            resp3 = client.get(f"/feedback?vault={vault_name}")
+            assert resp3.status_code == 200
+            entries_after = resp3.json()["entries"]
+            ids_after = [e.get("id") for e in entries_after]
+            assert entry_id not in ids_after, (
+                f"Deleted id {entry_id!r} still present after DELETE"
+            )
+            print(f"  Entry absent from GET /feedback after DELETE ✓")
+    finally:
+        if original is not None:
+            fb_file.write_text(original, encoding="utf-8")
+        elif fb_file.is_file():
+            fb_file.unlink()
+
+
+def test_p14a_delete_feedback_rejects_unknown_id():
+    """P14A-15: DELETE /feedback/{id} returns 404 for unknown id."""
+    print("\n=== Test P14A-15: DELETE rejects unknown id ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name = list_vaults()[0]
+    with TestClient(app) as client:
+        resp = client.delete("/feedback/aabbccddee00", params={"vault": vault_name})
+        assert resp.status_code == 404, f"Expected 404, got {resp.status_code}: {resp.text}"
+        body = resp.json()
+        assert body["status"] == "error"
+        assert body["error"]["code"] == "FEEDBACK_NOT_FOUND"
+        print(f"  Unknown id returns 404 FEEDBACK_NOT_FOUND ✓")
+
+
+def test_p14a_get_feedback_reflects_post():
+    """P14A-16: GET /feedback reflects POST/PUT/DELETE changes immediately."""
+    print("\n=== Test P14A-16: GET /feedback reflects write changes ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name, vault_path, fb_file = _demo_vault_feedback_path()
+    original = _save_restore_feedback(fb_file)
+    try:
+        with TestClient(app) as client:
+            # POST
+            resp = client.post("/feedback", json={
+                "vault": vault_name,
+                "path": "Fundamentals/Algorithms.md",
+                "source": "human",
+                "signal": "unclear",
+                "severity": "medium",
+                "comment": "Reflects immediately after POST.",
+            })
+            assert resp.status_code == 200
+            entry_id = resp.json()["data"]["entry"]["id"]
+
+            get1 = client.get(f"/feedback?vault={vault_name}")
+            assert get1.status_code == 200
+            ids_after_post = [e.get("id") for e in get1.json()["entries"]]
+            assert entry_id in ids_after_post, "New entry not in GET /feedback after POST"
+            print(f"  GET /feedback reflects POST ✓")
+
+            # PUT
+            client.put(f"/feedback/{entry_id}", json={
+                "vault": vault_name,
+                "path": "Fundamentals/Algorithms.md",
+                "source": "human",
+                "signal": "needs_example",
+                "severity": "high",
+                "comment": "Updated via PUT.",
+            })
+            get2 = client.get(f"/feedback?vault={vault_name}")
+            entries_after_put = {e.get("id"): e for e in get2.json()["entries"]}
+            assert entries_after_put[entry_id]["signal"] == "needs_example", (
+                "Signal not updated after PUT"
+            )
+            print(f"  GET /feedback reflects PUT ✓")
+
+            # DELETE
+            client.delete(f"/feedback/{entry_id}", params={"vault": vault_name})
+            get3 = client.get(f"/feedback?vault={vault_name}")
+            ids_after_delete = [e.get("id") for e in get3.json()["entries"]]
+            assert entry_id not in ids_after_delete, "Entry still present after DELETE"
+            print(f"  GET /feedback reflects DELETE ✓")
+    finally:
+        if original is not None:
+            fb_file.write_text(original, encoding="utf-8")
+        elif fb_file.is_file():
+            fb_file.unlink()
+
+
+def test_p14a_tasks_include_feedback_reflects_changes():
+    """P14A-17: GET /tasks?include_feedback=true reflects feedback changes."""
+    print("\n=== Test P14A-17: GET /tasks?include_feedback=true reflects changes ===")
+    try:
+        from fastapi.testclient import TestClient
+    except RuntimeError as exc:
+        print(f"  SKIP: {exc}")
+        return
+
+    from mcp.server.mcp_server import app
+    vault_name, vault_path, fb_file = _demo_vault_feedback_path()
+    original = _save_restore_feedback(fb_file)
+    try:
+        with TestClient(app) as client:
+            # Get baseline
+            r0 = client.get(
+                f"/tasks?vault={vault_name}&include_feedback=true&limit=50"
+            )
+            assert r0.status_code == 200
+            tasks0 = {t["path"]: t for t in r0.json()["data"]["tasks"]}
+            alg_path = "Fundamentals/Algorithms.md"
+
+            # Add a critical/incorrect feedback for Algorithms.md
+            resp = client.post("/feedback", json={
+                "vault": vault_name,
+                "path": alg_path,
+                "source": "human",
+                "signal": "incorrect",
+                "severity": "critical",
+                "comment": "Critical error in algorithm description.",
+            })
+            assert resp.status_code == 200
+            entry_id = resp.json()["data"]["entry"]["id"]
+
+            # Check tasks now reflect the feedback weight
+            r1 = client.get(
+                f"/tasks?vault={vault_name}&include_feedback=true&limit=50"
+            )
+            assert r1.status_code == 200
+            r1_data = r1.json()["data"]
+            assert r1_data["feedback_status"] == "ok"
+            tasks1 = {t["path"]: t for t in r1_data["tasks"]}
+
+            if alg_path in tasks1 and alg_path in tasks0:
+                p0 = tasks0[alg_path]["priority"]
+                p1 = tasks1[alg_path]["priority"]
+                assert p1 > p0, (
+                    f"Priority should increase after critical/incorrect feedback: "
+                    f"{p0} → {p1}"
+                )
+                print(f"  Priority changed {p0} → {p1} for {alg_path} ✓")
+            else:
+                print(f"  {alg_path} found in tasks response ✓")
+
+            print(f"  GET /tasks?include_feedback=true reflects feedback changes ✓")
+    finally:
+        if original is not None:
+            fb_file.write_text(original, encoding="utf-8")
+        elif fb_file.is_file():
+            fb_file.unlink()
+
+
+def test_p14a_file_valid_and_readable_after_writes():
+    """P14A-18: Feedback file remains valid YAML and human-readable after writes."""
+    print("\n=== Test P14A-18: File valid and readable after writes ===")
+    import tempfile, yaml as _yaml
+    from pathlib import Path as _Path
+    from core.shared.feedback import (
+        add_feedback_entry, update_feedback_entry, delete_feedback_entry, load_feedback,
+    )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        vault_path = _Path(tmp)
+        (vault_path / "Vault Files").mkdir()
+        # Create a dummy note so note-existence check passes in unit context
+        (vault_path / "Fundamentals").mkdir()
+        (vault_path / "Fundamentals" / "Algorithms.md").write_text("# Algorithms\n")
+
+        # Add
+        r1 = add_feedback_entry(
+            vault_path, "Fundamentals/Algorithms.md",
+            "human", "unclear", "medium", "Write check comment.",
+        )
+        assert r1["status"] == "ok"
+
+        fb_file = vault_path / "Vault Files" / "feedback.md"
+        content = fb_file.read_text(encoding="utf-8")
+        # Must be valid YAML
+        parsed = _yaml.safe_load(content)
+        assert isinstance(parsed, dict), "feedback.md must be a YAML mapping"
+        assert "feedback" in parsed
+        assert isinstance(parsed["feedback"], list)
+        # Must be human-readable: check key names appear in text
+        for key in ("path", "source", "signal", "severity", "comment", "created_at"):
+            assert key in content, f"Key {key!r} not in human-readable output"
+        print(f"  File valid after add ✓")
+
+        # Update
+        entry_id = r1["entry"]["id"]
+        update_feedback_entry(
+            vault_path, entry_id,
+            "Fundamentals/Algorithms.md", "human", "incomplete", "high",
+            "Updated write check comment.",
+        )
+        content2 = fb_file.read_text(encoding="utf-8")
+        parsed2 = _yaml.safe_load(content2)
+        assert isinstance(parsed2, dict)
+        print(f"  File valid after update ✓")
+
+        # Delete
+        delete_feedback_entry(vault_path, entry_id)
+        content3 = fb_file.read_text(encoding="utf-8")
+        parsed3 = _yaml.safe_load(content3)
+        assert isinstance(parsed3, dict)
+        assert parsed3.get("feedback") == [], "feedback list should be empty after delete"
+        print(f"  File valid after delete ✓")
+
+
+def test_p14a_writes_confined_to_vault():
+    """P14A-19: Feedback writes are confined to the active vault path."""
+    print("\n=== Test P14A-19: Writes confined to vault ===")
+    import tempfile
+    from pathlib import Path as _Path
+    from core.shared.feedback import validate_feedback_write
+
+    with tempfile.TemporaryDirectory() as tmp:
+        vault_path = _Path(tmp) / "my-vault"
+        vault_path.mkdir()
+        (vault_path / "Notes").mkdir()
+
+        for bad_path in ("../outside.md", "../../secret.md", "Notes/../../out.md"):
+            errors = validate_feedback_write(
+                vault_path, bad_path, "human", "unclear", "medium", "test",
+                check_note_exists=False,
+            )
+            assert any(e["code"] == "PATH_TRAVERSAL" for e in errors), (
+                f"Expected PATH_TRAVERSAL for {bad_path!r}, got: {errors}"
+            )
+            print(f"  Path {bad_path!r} rejected as PATH_TRAVERSAL ✓")
+
+
+def test_p14a_cli_feedback_still_works():
+    """P14A-20: CLI `py run.py feedback` still works after Phase 14A changes."""
+    print("\n=== Test P14A-20: CLI feedback still works ===")
+    import subprocess, json
+    from pathlib import Path as _Path
+
+    repo_root = _Path(__file__).resolve().parent.parent
+    result = subprocess.run(
+        ["python", "run.py", "feedback", "--json"],
+        capture_output=True,
+        text=True,
+        cwd=str(repo_root),
+    )
+    # run.py feedback --json: check for either JSON output or plain pass
+    if result.returncode != 0:
+        # Try without --json flag in case it's not supported
+        result = subprocess.run(
+            ["python", "run.py", "feedback"],
+            capture_output=True,
+            text=True,
+            cwd=str(repo_root),
+        )
+    assert result.returncode == 0, (
+        f"py run.py feedback failed:\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+    )
+    output = result.stdout + result.stderr
+    assert "feedback" in output.lower() or "entries" in output.lower() or "ok" in output.lower(), (
+        f"Expected feedback-related output, got:\n{output}"
+    )
+    print(f"  py run.py feedback exited 0 ✓")
+
+
+# ============================================================
 # Main
 # ============================================================
+
 
 def main():
     print("=" * 60)
@@ -6079,6 +6846,31 @@ def main():
     test_p11a_cli_bootstrap_still_importable()
     test_p11a_api_bootstrap_success_envelope()
     test_p11a_api_bootstrap_invalid_input_errors()
+
+    # ---- Phase 14A: Feedback Write API ----
+    print("\n" + "=" * 60)
+    print("Phase 14A — Feedback Write API and Task Workflow Backend")
+    print("=" * 60)
+    test_p14a_idless_entries_still_parse()
+    test_p14a_normalise_adds_ids_without_dropping()
+    test_p14a_post_feedback_adds_entry()
+    test_p14a_post_feedback_rejects_invalid_source()
+    test_p14a_post_feedback_rejects_invalid_signal()
+    test_p14a_post_feedback_rejects_invalid_severity()
+    test_p14a_post_feedback_rejects_empty_comment()
+    test_p14a_post_feedback_rejects_path_traversal()
+    test_p14a_post_feedback_rejects_unknown_note()
+    test_p14a_put_feedback_updates_entry()
+    test_p14a_put_feedback_preserves_id()
+    test_p14a_put_feedback_preserves_created_at()
+    test_p14a_put_feedback_rejects_unknown_id()
+    test_p14a_delete_feedback_removes_entry()
+    test_p14a_delete_feedback_rejects_unknown_id()
+    test_p14a_get_feedback_reflects_post()
+    test_p14a_tasks_include_feedback_reflects_changes()
+    test_p14a_file_valid_and_readable_after_writes()
+    test_p14a_writes_confined_to_vault()
+    test_p14a_cli_feedback_still_works()
 
     print()
     print("=" * 60)

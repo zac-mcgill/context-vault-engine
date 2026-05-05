@@ -348,7 +348,7 @@
         <div class="space-y-3">
           <!-- Status -->
           <div>
-            <label class="block text-xs font-medium text-zinc-400 mb-1.5">Status</label>
+            <span class="block text-xs font-medium text-zinc-400 mb-1.5">Status</span>
             <div class="flex gap-2">
               {#each ['complete', 'partial', 'all'] as opt}
                 <button
@@ -373,8 +373,9 @@
 
           <!-- Domain -->
           <div>
-            <label class="block text-xs font-medium text-zinc-400 mb-1">Domain <span class="text-zinc-600">(optional)</span></label>
+            <label for="filter-domain" class="block text-xs font-medium text-zinc-400 mb-1">Domain <span class="text-zinc-600">(optional)</span></label>
             <input
+              id="filter-domain"
               bind:value={filterDomain}
               type="text"
               placeholder="e.g. fundamentals"
@@ -384,8 +385,9 @@
 
           <!-- Type -->
           <div>
-            <label class="block text-xs font-medium text-zinc-400 mb-1">Type <span class="text-zinc-600">(optional)</span></label>
+            <label for="filter-type" class="block text-xs font-medium text-zinc-400 mb-1">Type <span class="text-zinc-600">(optional)</span></label>
             <input
+              id="filter-type"
               bind:value={filterType}
               type="text"
               placeholder="e.g. core-concept"
@@ -395,8 +397,9 @@
 
           <!-- Difficulty -->
           <div>
-            <label class="block text-xs font-medium text-zinc-400 mb-1">Difficulty <span class="text-zinc-600">(optional)</span></label>
+            <label for="filter-difficulty" class="block text-xs font-medium text-zinc-400 mb-1">Difficulty <span class="text-zinc-600">(optional)</span></label>
             <input
+              id="filter-difficulty"
               bind:value={filterDifficulty}
               type="text"
               placeholder="e.g. intermediate"
@@ -480,10 +483,11 @@
 
         <div class="space-y-3">
           <div>
-            <label class="block text-xs font-medium text-zinc-400 mb-1">
+            <label for="max-notes" class="block text-xs font-medium text-zinc-400 mb-1">
               Max notes <span class="text-zinc-600 font-normal">(1–100)</span>
             </label>
             <input
+              id="max-notes"
               bind:value={maxNotes}
               type="number"
               min="1"
@@ -493,10 +497,11 @@
           </div>
 
           <div>
-            <label class="block text-xs font-medium text-zinc-400 mb-1">
+            <label for="max-chars" class="block text-xs font-medium text-zinc-400 mb-1">
               Max chars <span class="text-zinc-600 font-normal">(100–500,000)</span>
             </label>
             <input
+              id="max-chars"
               bind:value={maxChars}
               type="number"
               min="100"

@@ -133,11 +133,34 @@ Prints the contents of `Vault Files/feedback.md` as structured JSON. Exits 0 if 
 }
 ```
 
-**Add feedback** by editing `demo-vault/Vault Files/feedback.md` directly. Valid signals:
+**Add feedback** by editing `demo-vault/Vault Files/feedback.md` directly, or via the API (Phase 14A). Valid signals:
 - Negative (raise priority): `unclear`, `incomplete`, `outdated`, `incorrect`, `agent_failed`, `needs_example`, `needs_constraints`
 - Positive (lower priority): `useful`, `agent_succeeded`
 
 Valid sources: `human`, `agent`, `system`. Valid severities: `low`, `medium`, `high`, `critical`.
+
+**Add feedback via API (Phase 14A):**
+```bash
+POST /feedback
+{
+  "vault": "demo-vault",
+  "path": "Fundamentals/Algorithms.md",
+  "source": "human",
+  "signal": "unclear",
+  "severity": "medium",
+  "comment": "How It Works needs a clearer explanation."
+}
+```
+
+The server generates `id` and `created_at`. Returns the new entry and updated feedback summary.
+
+**Update feedback:** `PUT /feedback/{id}` — provide same fields as POST plus vault. Preserves `created_at`.
+
+**Delete feedback:** `DELETE /feedback/{id}?vault=demo-vault`
+
+**Normalise (assign IDs to existing entries):** `POST /feedback/normalise?vault=demo-vault`
+
+Manual editing of `Vault Files/feedback.md` remains fully supported. Entries without IDs are still readable; IDs are assigned on next write or explicit normalise.
 
 **Get tasks with feedback-adjusted priorities:**
 ```bash

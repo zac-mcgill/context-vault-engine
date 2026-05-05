@@ -54,7 +54,15 @@ from mcp.core.adapters.compare_adapter import get_compare
 from mcp.core.graph_builder import build_graph
 from mcp.core.graph_query import get_neighbors, get_related_nodes, get_missing_neighbors
 from core.shared.context_bundle import generate_bundle as _generate_bundle
-from core.shared.feedback import load_feedback as _load_feedback
+from core.shared.feedback import (
+    load_feedback as _load_feedback,
+    add_feedback_entry as _add_feedback_entry,
+    update_feedback_entry as _update_feedback_entry,
+    delete_feedback_entry as _delete_feedback_entry,
+    normalise_feedback as _normalise_feedback,
+    validate_feedback_write as _validate_feedback_write,
+    is_valid_feedback_id as _is_valid_feedback_id,
+)
 from core.shared.context_package import export_context_package as _export_package
 from core.shared.context_security import scan_vault_context as _scan_vault_context
 from core.shared.context_security import scan_context_bundle as _scan_context_bundle
@@ -311,7 +319,7 @@ app.add_middleware(
         "http://localhost:4322",
         "http://127.0.0.1:4322",
     ],
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type"],
     allow_credentials=False,
 )
@@ -529,6 +537,28 @@ class SecurityRequest(BaseModel):
         default=False,
         description="Include notes with status=partial",
     )
+
+
+class FeedbackCreateRequest(BaseModel):
+    """Request body for POST /feedback."""
+
+    vault: str = Field(..., description="Vault name")
+    path: str = Field(..., description="Vault-relative note path (POSIX forward slashes)")
+    source: str = Field(..., description="Feedback source: human | agent | system")
+    signal: str = Field(..., description="Feedback signal (e.g. unclear, incomplete, useful)")
+    severity: str = Field(..., description="Severity: low | medium | high | critical")
+    comment: str = Field(..., description="Human-readable feedback comment (max 2000 chars)")
+
+
+class FeedbackUpdateRequest(BaseModel):
+    """Request body for PUT /feedback/{feedback_id}."""
+
+    vault: str = Field(..., description="Vault name")
+    path: str = Field(..., description="Vault-relative note path (POSIX forward slashes)")
+    source: str = Field(..., description="Feedback source: human | agent | system")
+    signal: str = Field(..., description="Feedback signal (e.g. unclear, incomplete, useful)")
+    severity: str = Field(..., description="Severity: low | medium | high | critical")
+    comment: str = Field(..., description="Human-readable feedback comment (max 2000 chars)")
 
 
 class VaultBootstrapRequest(BaseModel):
@@ -1505,6 +1535,222 @@ def endpoint_feedback(
         }
     except Exception as exc:
         return _error("FEEDBACK_ERROR", f"Feedback retrieval failed: {exc}", 500)
+
+
+@app.post("/feedback/normalise")
+def endpoint_feedback_normalise(
+    vault: str = Query(..., description="Vault name"),
+):
+    """Normalise the vault feedback file by assigning IDs to id-less entries.
+
+    Reads the existing feedback file, generates stable hex IDs for any entry
+    that lacks one, and rewrites the file atomically.  Entries that already
+    carry valid IDs are preserved unchanged.
+
+    Response data:
+        normalised (int): Count of entries that were assigned a new id.
+        feedback (dict): Updated ``load_feedback`` result.
+
+    Error codes:
+        INVALID_VAULT:         Vault is not registered.
+        FEEDBACK_WRITE_FAILED: File write error.
+        FEEDBACK_ERROR:        Unexpected error.
+    """
+    err = _validate_vault(vault)
+    if err:
+        return err
+
+    vault_path = get_vault_path(vault)
+    try:
+        result = _normalise_feedback(vault_path)
+        return {
+            "status": "ok",
+            "data": {
+                "normalised": result["normalised"],
+                "feedback": result["feedback"],
+            },
+        }
+    except OSError as exc:
+        return _error("FEEDBACK_WRITE_FAILED", f"Failed to write feedback file: {exc}", 500)
+    except Exception as exc:
+        return _error("FEEDBACK_ERROR", f"Feedback normalisation failed: {exc}", 500)
+
+
+@app.post("/feedback")
+def endpoint_feedback_create(req: FeedbackCreateRequest):
+    """Add a new feedback entry to the vault's feedback file.
+
+    Validates all fields, generates a server-side id and created_at timestamp,
+    appends the entry, and rewrites the file atomically.
+
+    Request body:
+        vault (str, required): Vault name.
+        path (str, required): Vault-relative note path (POSIX forward slashes).
+        source (str, required): ``"human"``, ``"agent"``, or ``"system"``.
+        signal (str, required): One of the supported signal values.
+        severity (str, required): ``"low"``, ``"medium"``, ``"high"``, or ``"critical"``.
+        comment (str, required): Human-readable comment (max 2000 chars).
+
+    Response data:
+        entry (dict): The newly created entry (includes id and created_at).
+        feedback (dict): Updated ``load_feedback`` result.
+
+    Error codes:
+        INVALID_VAULT:         Vault is not registered (HTTP 404).
+        INVALID_INPUT:         One or more fields are invalid (HTTP 400).
+        PATH_TRAVERSAL:        path escapes vault root (HTTP 400).
+        NOTE_NOT_FOUND:        Note does not exist in vault (HTTP 404).
+        FEEDBACK_WRITE_FAILED: File write error (HTTP 500).
+        FEEDBACK_ERROR:        Unexpected error (HTTP 500).
+    """
+    err = _validate_vault(req.vault)
+    if err:
+        return err
+
+    vault_path = get_vault_path(req.vault)
+    validation_errors = _validate_feedback_write(
+        vault_path, req.path, req.source, req.signal, req.severity, req.comment,
+    )
+    if validation_errors:
+        first = validation_errors[0]
+        code = first["code"]
+        messages = "; ".join(e["message"] for e in validation_errors)
+        status_code = 404 if code == "NOTE_NOT_FOUND" else 400
+        return _error(code, messages, status_code)
+
+    try:
+        result = _add_feedback_entry(
+            vault_path, req.path, req.source, req.signal, req.severity, req.comment,
+        )
+        return {"status": "ok", "data": {"entry": result["entry"], "feedback": result["feedback"]}}
+    except OSError as exc:
+        return _error("FEEDBACK_WRITE_FAILED", f"Failed to write feedback file: {exc}", 500)
+    except Exception as exc:
+        return _error("FEEDBACK_ERROR", f"Feedback operation failed: {exc}", 500)
+
+
+@app.put("/feedback/{feedback_id}")
+def endpoint_feedback_update(feedback_id: str, req: FeedbackUpdateRequest):
+    """Update an existing feedback entry by id.
+
+    Locates the entry by feedback_id, applies the new field values, preserves
+    the original ``created_at``, and rewrites the file atomically.
+
+    Path parameter:
+        feedback_id (str): 12–16 lowercase hex characters.
+
+    Request body:
+        vault (str, required): Vault name.
+        path (str, required): Vault-relative note path.
+        source (str, required): ``"human"``, ``"agent"``, or ``"system"``.
+        signal (str, required): One of the supported signal values.
+        severity (str, required): ``"low"``, ``"medium"``, ``"high"``, or ``"critical"``.
+        comment (str, required): Human-readable comment (max 2000 chars).
+
+    Response data:
+        entry (dict): The updated entry.
+        feedback (dict): Updated ``load_feedback`` result.
+
+    Error codes:
+        INVALID_INPUT:         feedback_id format invalid, or field validation failed (HTTP 400).
+        INVALID_VAULT:         Vault is not registered (HTTP 404).
+        PATH_TRAVERSAL:        path escapes vault root (HTTP 400).
+        NOTE_NOT_FOUND:        Note does not exist in vault (HTTP 404).
+        FEEDBACK_NOT_FOUND:    feedback_id not found in the file (HTTP 404).
+        FEEDBACK_WRITE_FAILED: File write error (HTTP 500).
+        FEEDBACK_ERROR:        Unexpected error (HTTP 500).
+    """
+    if not _is_valid_feedback_id(feedback_id):
+        return _error(
+            "INVALID_INPUT",
+            "feedback_id must be 12–16 lowercase hex characters",
+            400,
+        )
+
+    err = _validate_vault(req.vault)
+    if err:
+        return err
+
+    vault_path = get_vault_path(req.vault)
+    validation_errors = _validate_feedback_write(
+        vault_path, req.path, req.source, req.signal, req.severity, req.comment,
+    )
+    if validation_errors:
+        first = validation_errors[0]
+        code = first["code"]
+        messages = "; ".join(e["message"] for e in validation_errors)
+        status_code = 404 if code == "NOTE_NOT_FOUND" else 400
+        return _error(code, messages, status_code)
+
+    try:
+        result = _update_feedback_entry(
+            vault_path,
+            feedback_id,
+            req.path,
+            req.source,
+            req.signal,
+            req.severity,
+            req.comment,
+        )
+        return {"status": "ok", "data": {"entry": result["entry"], "feedback": result["feedback"]}}
+    except KeyError as exc:
+        return _error("FEEDBACK_NOT_FOUND", str(exc), 404)
+    except OSError as exc:
+        return _error("FEEDBACK_WRITE_FAILED", f"Failed to write feedback file: {exc}", 500)
+    except Exception as exc:
+        return _error("FEEDBACK_ERROR", f"Feedback operation failed: {exc}", 500)
+
+
+@app.delete("/feedback/{feedback_id}")
+def endpoint_feedback_delete(
+    feedback_id: str,
+    vault: str = Query(..., description="Vault name"),
+):
+    """Delete a feedback entry by id.
+
+    Removes the entry with the given feedback_id and rewrites the file atomically.
+
+    Path parameter:
+        feedback_id (str): 12–16 lowercase hex characters.
+
+    Query parameter:
+        vault (str, required): Vault name.
+
+    Response data:
+        deleted (str): The deleted feedback_id.
+        feedback (dict): Updated ``load_feedback`` result.
+
+    Error codes:
+        INVALID_INPUT:         feedback_id format invalid (HTTP 400).
+        INVALID_VAULT:         Vault is not registered (HTTP 404).
+        FEEDBACK_NOT_FOUND:    feedback_id not found in the file (HTTP 404).
+        FEEDBACK_WRITE_FAILED: File write error (HTTP 500).
+        FEEDBACK_ERROR:        Unexpected error (HTTP 500).
+    """
+    if not _is_valid_feedback_id(feedback_id):
+        return _error(
+            "INVALID_INPUT",
+            "feedback_id must be 12–16 lowercase hex characters",
+            400,
+        )
+
+    err = _validate_vault(vault)
+    if err:
+        return err
+
+    vault_path = get_vault_path(vault)
+    try:
+        result = _delete_feedback_entry(vault_path, feedback_id)
+        return {
+            "status": "ok",
+            "data": {"deleted": feedback_id, "feedback": result["feedback"]},
+        }
+    except KeyError as exc:
+        return _error("FEEDBACK_NOT_FOUND", str(exc), 404)
+    except OSError as exc:
+        return _error("FEEDBACK_WRITE_FAILED", f"Failed to write feedback file: {exc}", 500)
+    except Exception as exc:
+        return _error("FEEDBACK_ERROR", f"Feedback operation failed: {exc}", 500)
 
 
 # ---------- Phase 4: Context Export ----------

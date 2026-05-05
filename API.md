@@ -37,6 +37,10 @@ py mcp/server/mcp_server.py
 | `GET` | `/missing` | Missing concept detection |
 | `GET` | `/gaps` | High-priority incomplete notes |
 | `GET` | `/feedback` | Vault feedback entries |
+| `POST` | `/feedback` | Add a new feedback entry (Phase 14A) |
+| `PUT` | `/feedback/{feedback_id}` | Update an existing feedback entry (Phase 14A) |
+| `DELETE` | `/feedback/{feedback_id}` | Delete a feedback entry (Phase 14A) |
+| `POST` | `/feedback/normalise` | Assign IDs to id-less entries (Phase 14A) |
 | `POST` | `/compare` | Delta comparison between two vault states |
 | `GET` | `/graph` | Full vault relationship graph |
 | `GET` | `/graph/neighbors` | All nodes directly connected to a node |
@@ -313,10 +317,129 @@ Return vault feedback entries from `Vault Files/feedback.md`.
 - `warnings` — non-fatal issues (e.g. feedback for a missing note path).
 - `errors` — structured validation errors (empty when `status="ok"`).
 
-**Each feedback entry:** `path`, `source`, `signal`, `severity`, `comment`, `created_at`.
+**Each feedback entry:** `path`, `source`, `signal`, `severity`, `comment`, `created_at`. After Phase 14A normalisation, entries also include `id`.
 
 **Error codes:**
 - `FEEDBACK_ERROR` — feedback file is malformed (HTTP 500).
+
+---
+
+### POST /feedback
+
+Add a new feedback entry to the vault's `Vault Files/feedback.md`.
+
+**Request body:**
+```json
+{
+  "vault": "demo-vault",
+  "path": "Fundamentals/Algorithms.md",
+  "source": "human",
+  "signal": "unclear",
+  "severity": "medium",
+  "comment": "How It Works needs a clearer explanation."
+}
+```
+
+| Field | Type | Required | Valid values |
+|-------|------|----------|--------------|
+| `vault` | string | yes | registered vault name |
+| `path` | string | yes | vault-relative POSIX path to an existing note |
+| `source` | string | yes | `human`, `agent`, `system` |
+| `signal` | string | yes | `unclear`, `incomplete`, `outdated`, `incorrect`, `useful`, `agent_failed`, `agent_succeeded`, `needs_example`, `needs_constraints` |
+| `severity` | string | yes | `low`, `medium`, `high`, `critical` |
+| `comment` | string | yes | non-blank, max 2000 chars, no control characters |
+
+Server generates `id` (12–16 lowercase hex) and `created_at` (UTC ISO-8601).
+
+**Success response (HTTP 200):**
+```json
+{
+  "status": "ok",
+  "data": {
+    "entry": {"id": "a1b2c3d4e5f6", "path": "...", "source": "human", "signal": "unclear", "severity": "medium", "comment": "...", "created_at": "2026-05-05T12:00:00Z"},
+    "feedback": {"status": "ok", "entries": [...], "warnings": [], "errors": []}
+  }
+}
+```
+
+**Error codes:**
+- `INVALID_VAULT` — vault not registered (HTTP 404).
+- `INVALID_INPUT` — field validation failed (HTTP 400).
+- `PATH_TRAVERSAL` — path escapes vault root (HTTP 400).
+- `NOTE_NOT_FOUND` — note does not exist in vault (HTTP 404).
+- `FEEDBACK_WRITE_FAILED` — file write error (HTTP 500).
+
+---
+
+### PUT /feedback/{feedback_id}
+
+Update an existing feedback entry by id. Preserves `created_at`. Does not change `id`.
+
+**Path parameter:** `feedback_id` — 12–16 lowercase hex characters.
+
+**Request body:** Same fields as `POST /feedback` (all required, `vault` included).
+
+**Success response (HTTP 200):** Same shape as `POST /feedback` response.
+
+**Error codes:**
+- `INVALID_INPUT` — `feedback_id` format invalid or field validation failed (HTTP 400).
+- `INVALID_VAULT` — vault not registered (HTTP 404).
+- `PATH_TRAVERSAL` — path escapes vault root (HTTP 400).
+- `NOTE_NOT_FOUND` — note does not exist in vault (HTTP 404).
+- `FEEDBACK_NOT_FOUND` — id not found in feedback file (HTTP 404).
+- `FEEDBACK_WRITE_FAILED` — file write error (HTTP 500).
+
+---
+
+### DELETE /feedback/{feedback_id}
+
+Delete a feedback entry by id.
+
+**Path parameter:** `feedback_id` — 12–16 lowercase hex characters.
+
+**Query parameter:** `vault` (required) — vault name.
+
+**Success response (HTTP 200):**
+```json
+{
+  "status": "ok",
+  "data": {
+    "deleted": "a1b2c3d4e5f6",
+    "feedback": {"status": "ok", "entries": [...], "warnings": [], "errors": []}
+  }
+}
+```
+
+**Error codes:**
+- `INVALID_INPUT` — `feedback_id` format invalid (HTTP 400).
+- `INVALID_VAULT` — vault not registered (HTTP 404).
+- `FEEDBACK_NOT_FOUND` — id not found in feedback file (HTTP 404).
+- `FEEDBACK_WRITE_FAILED` — file write error (HTTP 500).
+
+---
+
+### POST /feedback/normalise
+
+Assign stable IDs to any feedback entries that lack them, and rewrite `feedback.md` atomically. Entries that already carry valid IDs are unchanged.
+
+**Query parameter:** `vault` (required) — vault name.
+
+**Success response (HTTP 200):**
+```json
+{
+  "status": "ok",
+  "data": {
+    "normalised": 3,
+    "feedback": {"status": "ok", "entries": [...], "warnings": [], "errors": []}
+  }
+}
+```
+
+**`normalised`** — count of entries that were assigned a new ID in this call.
+
+**Error codes:**
+- `INVALID_VAULT` — vault not registered (HTTP 404).
+- `FEEDBACK_WRITE_FAILED` — file write error (HTTP 500).
 
 ---
 
@@ -685,4 +808,6 @@ The in-process vault registry is refreshed automatically after a successful boot
 | `VAULT_EXISTS` | 409 | Vault directory already exists (bootstrap) |
 | `BOOTSTRAP_FAILED` | 500 | Vault creation or template generation error (bootstrap) |
 | `CONFIG_UPDATE_FAILED` | 500 | Config write failed during bootstrap |
+| `FEEDBACK_NOT_FOUND` | 404 | Feedback entry ID not found in feedback file |
+| `FEEDBACK_WRITE_FAILED` | 500 | Feedback file write error (atomic write failed) |
 | `INTERNAL` | 500 | Unexpected server error |

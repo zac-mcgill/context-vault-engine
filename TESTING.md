@@ -308,6 +308,49 @@ Regression tests for correctness fixes:
 - `test_p11a_api_bootstrap_success_envelope` — `POST /vault/bootstrap` with valid inputs returns HTTP 200 with standard `status/data` envelope, and `data` contains `vault`, `created`, and `warnings`.
 - `test_p11a_api_bootstrap_invalid_input_errors` — Various invalid inputs return structured `status/error/code/message` responses with 400 or 422 status.
 
+### Phase 14A — Feedback Write API and Task Workflow Backend Support
+
+Phase 14A adds stable IDs and write operations to the feedback system. No UI changes were made.
+
+**20 new tests added (222 total):**
+
+- `test_p14a_idless_entries_still_parse` — Entries without an `id` field are still parsed successfully (backward compatibility).
+- `test_p14a_normalise_adds_ids_without_dropping` — `normalise_entries()` adds IDs to id-less entries and preserves existing valid IDs, with no entries dropped.
+- `test_p14a_post_feedback_adds_entry` — `POST /feedback` adds an entry; response contains `id`, all submitted fields, and valid `created_at`.
+- `test_p14a_post_feedback_rejects_invalid_source` — `POST /feedback` with an unknown source returns HTTP 400 `INVALID_INPUT`.
+- `test_p14a_post_feedback_rejects_invalid_signal` — `POST /feedback` with an unknown signal returns HTTP 400 `INVALID_INPUT`.
+- `test_p14a_post_feedback_rejects_invalid_severity` — `POST /feedback` with an unknown severity returns HTTP 400 `INVALID_INPUT`.
+- `test_p14a_post_feedback_rejects_empty_comment` — `POST /feedback` with blank or whitespace-only comment returns HTTP 400 `INVALID_INPUT`.
+- `test_p14a_post_feedback_rejects_path_traversal` — `POST /feedback` with `../` in the path returns HTTP 400 `PATH_TRAVERSAL`.
+- `test_p14a_post_feedback_rejects_unknown_note` — `POST /feedback` for a note file that doesn't exist returns HTTP 404 `NOTE_NOT_FOUND`.
+- `test_p14a_put_feedback_updates_entry` — `PUT /feedback/{id}` updates signal and other fields on an existing entry.
+- `test_p14a_put_feedback_preserves_id` — `PUT /feedback/{id}` does not change the entry's `id`.
+- `test_p14a_put_feedback_preserves_created_at` — `PUT /feedback/{id}` does not change the entry's `created_at`.
+- `test_p14a_put_feedback_rejects_unknown_id` — `PUT /feedback/{id}` with a non-existent ID returns HTTP 404 `FEEDBACK_NOT_FOUND`.
+- `test_p14a_delete_feedback_removes_entry` — `DELETE /feedback/{id}` removes the entry; subsequent `GET /feedback` confirms it is absent.
+- `test_p14a_delete_feedback_rejects_unknown_id` — `DELETE /feedback/{id}` with a non-existent ID returns HTTP 404 `FEEDBACK_NOT_FOUND`.
+- `test_p14a_get_feedback_reflects_post` — `GET /feedback` reflects changes made by POST, PUT, and DELETE in sequence.
+- `test_p14a_tasks_include_feedback_reflects_changes` — `GET /tasks?include_feedback=true` reflects feedback changes after a POST.
+- `test_p14a_file_valid_and_readable_after_writes` — Feedback file is valid YAML parseable by `GET /feedback` after each write operation.
+- `test_p14a_writes_confined_to_vault` — `validate_feedback_write` rejects path traversal attempts (`../`) with `PATH_TRAVERSAL` error code.
+- `test_p14a_cli_feedback_still_works` — `py run.py feedback` still exits 0 and produces valid JSON after Phase 14A changes.
+
+**Verification:**
+
+```bash
+py mcp/test_verify.py     # 222 tests — all must pass
+py run.py validate        # 19/19 valid
+py run.py security        # status: pass
+py run.py feedback        # exits 0, valid JSON
+```
+
+**What was added:**
+
+- `core/shared/feedback.py` — added ID generation (`_entry_id_digest`, `_unique_id`), `is_valid_feedback_id`, `_load_raw_entries`, `_serialise_entry`, `_write_feedback_atomic`, `normalise_entries`, `validate_feedback_write`, `add_feedback_entry`, `update_feedback_entry`, `delete_feedback_entry`, `normalise_feedback`; updated `_validate_entry` to preserve `id` in the clean dict
+- `mcp/server/mcp_server.py` — added `PUT`/`DELETE` to CORS `allow_methods`; imported new feedback functions; added `FeedbackCreateRequest`/`FeedbackUpdateRequest` Pydantic models; added routes `POST /feedback/normalise`, `POST /feedback`, `PUT /feedback/{feedback_id}`, `DELETE /feedback/{feedback_id}`
+- `API.md` — documented all four new endpoints and new error codes `FEEDBACK_NOT_FOUND` / `FEEDBACK_WRITE_FAILED`
+- `QUICKSTART.md` — added feedback API quick-reference under §5c
+
 ### Phase 13C — Security Scan UI
 
 Phase 13C is a frontend-only phase. No new backend tests were added (all 202 backend tests still pass).

@@ -186,7 +186,109 @@ export function fetchSecurity(vault: string): Promise<ApiResult<SecurityData>> {
     vault,
     filters: { status: 'complete' },
     max_notes: 10,
+    include_body: true,
+    allow_partial: false,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Tasks — GET /tasks
+// ---------------------------------------------------------------------------
+
+export interface FeedbackWeight {
+  score_delta: number;
+  entry_summary: string;
+}
+
+export interface Task {
+  note: string;
+  path: string;
+  priority: number;
+  type: string;
+  target: string;
+  missing: string[];
+  instruction: string;
+  constraints: string[];
+  feedback_weight?: FeedbackWeight;
+}
+
+export interface TasksData {
+  total: number;
+  tasks: Task[];
+  feedback_status?: 'ok' | 'error';
+  feedback_errors?: unknown[];
+}
+
+/** GET /tasks — prioritised improvement tasks. */
+export function fetchTasks(
+  vault?: string,
+  options?: { limit?: number; include_feedback?: boolean; min_priority?: number },
+): Promise<ApiResult<TasksData>> {
+  const params = new URLSearchParams();
+  if (vault) params.set('vault', vault);
+  if (options?.limit !== undefined) params.set('limit', String(options.limit));
+  if (options?.include_feedback !== undefined)
+    params.set('include_feedback', String(options.include_feedback));
+  if (options?.min_priority !== undefined)
+    params.set('min_priority', String(options.min_priority));
+  const qs = params.toString();
+  return get<TasksData>(`/tasks${qs ? `?${qs}` : ''}`);
+}
+
+// ---------------------------------------------------------------------------
+// Missing Concepts — GET /missing
+// ---------------------------------------------------------------------------
+
+export interface MissingConcept {
+  concept: string;
+  subdomain: string;
+  score: number;
+}
+
+export interface MissingData {
+  total_expected: number;
+  total_actual: number;
+  total_missing: number;
+  domains_assessed: number;
+  gaps: Record<string, MissingConcept[]>;
+  ranked: MissingConcept[];
+}
+
+/**
+ * GET /missing — detect missing concepts.
+ * Returns MISSING_CONCEPTS_EMPTY (HTTP 422) when no expected concepts
+ * are defined in vault_schema.py.
+ */
+export function fetchMissing(vault?: string): Promise<ApiResult<MissingData>> {
+  const qs = vault ? `?vault=${encodeURIComponent(vault)}` : '';
+  return get<MissingData>(`/missing${qs}`);
+}
+
+// ---------------------------------------------------------------------------
+// Feedback — GET /feedback
+// ---------------------------------------------------------------------------
+
+export interface FeedbackEntry {
+  path: string;
+  source: string;
+  signal: string;
+  severity: string;
+  comment: string;
+  created_at: string;
+}
+
+export interface FeedbackData {
+  status: 'ok' | 'error';
+  vault: string;
+  entries: FeedbackEntry[];
+  warnings: string[];
+  errors: unknown[];
+}
+
+/** GET /feedback — vault feedback entries from Vault Files/feedback.md. */
+export function fetchFeedback(vault?: string): Promise<ApiResult<FeedbackData>> {
+  const qs = vault ? `?vault=${encodeURIComponent(vault)}` : '';
+  return get<FeedbackData>(`/feedback${qs}`);
 }
 
 // ---------------------------------------------------------------------------

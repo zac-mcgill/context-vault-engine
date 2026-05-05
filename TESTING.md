@@ -308,6 +308,32 @@ Regression tests for correctness fixes:
 - `test_p11a_api_bootstrap_success_envelope` — `POST /vault/bootstrap` with valid inputs returns HTTP 200 with standard `status/data` envelope, and `data` contains `vault`, `created`, and `warnings`.
 - `test_p11a_api_bootstrap_invalid_input_errors` — Various invalid inputs return structured `status/error/code/message` responses with 400 or 422 status.
 
+### Phase 12A — Dashboard Data Completeness and API Coverage
+
+Phase 12A is a frontend-only phase. No new backend tests were added (all 202 Phase 11A tests still pass).
+
+**Verification steps for Phase 12A:**
+
+```bash
+# Frontend build verification
+cd ui
+npm run build      # must produce no TypeScript errors
+
+# Backend suite (unchanged — 202 tests)
+py mcp/test_verify.py
+
+# Vault validation and security scan
+py run.py validate
+py run.py security
+```
+
+**What was added:**
+- `ui/src/lib/api.ts` — `fetchTasks`, `fetchMissing`, `fetchFeedback`; updated `fetchSecurity`; new types `Task`, `TasksData`, `MissingConcept`, `MissingData`, `FeedbackEntry`, `FeedbackData`
+- `ui/src/components/Dashboard.svelte` — full rewrite: parallel loading via `Promise.all`, top health row (4 mini-cards), 8 data cards (health, summary, validation, tasks, missing concepts, feedback, index info, security), loading skeletons, raw JSON expanders
+- `ui/src/layouts/AppLayout.astro` — footer updated to Phase 12A
+
+---
+
 ### Phase 11B — Guided Vault Bootstrap UI Form
 
 Phase 11B is a frontend-only phase. No new backend tests were added (all 202 Phase 11A tests still pass).

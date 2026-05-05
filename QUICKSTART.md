@@ -343,6 +343,23 @@ py mcp/server/mcp_server.py
 
 **Stack:** Astro 5 · TypeScript · Tailwind CSS 4 · Svelte 5 islands
 
+### Dashboard panels (Phase 12A)
+
+The Dashboard now shows a complete vault health overview loaded in parallel from all relevant API endpoints:
+
+| Panel | Source |
+|---|---|
+| API health (uptime, requests, latency) | `GET /health` |
+| Vault coverage (total, complete, partial) | `GET /summary` |
+| Validation status + invalid note list | `GET /validation` |
+| Top 5 tasks (priority, note, missing sections) | `GET /tasks` |
+| Missing expected concepts | `GET /missing` |
+| Feedback entries (errors, warnings, info) | `GET /feedback` |
+| Vault index info (notes indexed, schema hash) | `GET /health` vaults map |
+| Security scan findings | `GET /security` |
+
+Select a vault from the dropdown to load all panels simultaneously. Click **Refresh** to reload.
+
 ---
 
 ## 6c. API-based Vault Bootstrap (Phase 11A)

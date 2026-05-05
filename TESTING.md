@@ -1,6 +1,6 @@
 # Context Vault Engine — Testing
 
-All tests live in `mcp/test_verify.py`. There are 172 test functions covering all implemented phases.
+All tests live in `mcp/test_verify.py`. There are 180 test functions covering all implemented phases.
 
 ---
 
@@ -241,7 +241,7 @@ Regression tests for correctness fixes:
 
 ### Phase 7 — Deterministic Lexical Query Search Tests
 
-19 tests covering lexical search on `POST /query`:
+23 tests covering lexical search on `POST /query`:
 
 - `test_p7_q_omitted_preserves_behaviour` — `q` omitted produces identical results to plain query.
 - `test_p7_q_blank_preserves_behaviour` — `q=""` and `q="   "` behave the same as `q` omitted; no `score` key in results.
@@ -262,6 +262,19 @@ Regression tests for correctness fixes:
 - `test_p7_q_http_overlong_q` — HTTP overlong `q` returns HTTP 400 `INVALID_QUERY`.
 - `test_p7_q_no_score_when_q_absent` — no `score` key in results when `q` is absent.
 - `test_p7_tiebreak_by_path` — equal-score notes are sorted by path ascending.
+- `test_p7_lexical_timeout_returns_partial` — lexical scoring loop timeout returns `status='partial'` with `warning='query timeout'`.
+- `test_p7_partial_lexical_results_sorted_deterministically` — partial lexical results are still sorted deterministically (score desc, then path asc).
+- `test_p7_q_omitted_timeout_unchanged` — `q` omitted with a near-zero timeout still returns `partial` or `ok`; no `score` key in results.
+- `test_p7_q_fields_empty_returns_invalid_query` — `q_fields=[]` returns `INVALID_QUERY`.
+
+### Phase 9 — Schema Data Tests
+
+4 tests covering `SCHEMA_VERSION` and `EXPECTED_CONCEPTS`:
+
+- `test_p9_schema_version_defined` — `vault_schema.py` exposes `SCHEMA_VERSION = '3.0.0'`.
+- `test_p9_bundle_manifest_schema_version` — bundle `manifest.schema_version` equals `'3.0.0'`.
+- `test_p9_export_manifest_schema_version` — exported `manifest.json` contains `schema_version = '3.0.0'`.
+- `test_p9_missing_returns_concept_gaps` — `GET /missing` returns `total_expected=5`, `total_missing=5`, one subdomain, and a ranked gap list.
 
 ---
 

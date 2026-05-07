@@ -675,8 +675,9 @@
 
               <div class="grid grid-cols-2 gap-2">
                 <div>
-                  <label class="text-xs text-zinc-500 block mb-1">Status</label>
+                  <label for="sq-status" class="text-xs text-zinc-500 block mb-1">Status</label>
                   <select
+                    id="sq-status"
                     bind:value={searchFilterStatus}
                     class="bg-zinc-800 border border-zinc-700 text-zinc-400 text-xs rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-sky-500"
                   >
@@ -687,8 +688,9 @@
                   </select>
                 </div>
                 <div>
-                  <label class="text-xs text-zinc-500 block mb-1">Difficulty</label>
+                  <label for="sq-difficulty" class="text-xs text-zinc-500 block mb-1">Difficulty</label>
                   <select
+                    id="sq-difficulty"
                     bind:value={searchFilterDifficulty}
                     class="bg-zinc-800 border border-zinc-700 text-zinc-400 text-xs rounded px-2 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-sky-500"
                   >
@@ -699,8 +701,9 @@
                   </select>
                 </div>
                 <div>
-                  <label class="text-xs text-zinc-500 block mb-1">Domain</label>
+                  <label for="sq-domain" class="text-xs text-zinc-500 block mb-1">Domain</label>
                   <input
+                    id="sq-domain"
                     type="text"
                     bind:value={searchFilterDomain}
                     placeholder="e.g. fundamentals"
@@ -708,8 +711,9 @@
                   />
                 </div>
                 <div>
-                  <label class="text-xs text-zinc-500 block mb-1">Type</label>
+                  <label for="sq-type" class="text-xs text-zinc-500 block mb-1">Type</label>
                   <input
+                    id="sq-type"
                     type="text"
                     bind:value={searchFilterType}
                     placeholder="e.g. core-concept"

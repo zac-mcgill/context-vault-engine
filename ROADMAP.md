@@ -1,1155 +1,789 @@
-Context Vault Engine - Updated Master Roadmap
-Executive Direction
+﻿# Context Vault Engine - Updated Master Roadmap
 
-Context Vault Engine should now move from “technically strong pipeline” to “usable local application”.
+## Executive Direction
 
-The system is already solid as a deterministic backend: schema validation, analysis, improvement tasks, context bundles, export packages, security scanning, feedback, lexical search, API routes, and a complete demo vault are all implemented. The README now correctly presents it as a local-first Python content security and packaging pipeline with credential leak scanning, prompt-injection detection, schema enforcement, path-traversal blocking, SHA-256 artefact integrity, and 180 tests.
+Context Vault Engine is moving from a usable local vault application into a private context operating layer for humans, local LLMs, and agent clients.
 
-The next strategic problem is friction.
+The current foundation is strong: deterministic Markdown validation, schema enforcement, analysis, improvement tasks, feedback, lexical search, context bundles, export packages, security scanning, FastAPI routes, and a local UI are already implemented. The current roadmap places the active work around Phase 16 - Visual Graph and Missing Concepts UI.
 
-A terminal-only workflow is acceptable for developers, but not ideal for the project’s actual use case: helping a user bootstrap, validate, improve, package, and inspect a structured knowledge vault. For that, the ideal direction is:
+The next strategic direction should preserve the existing local-first, deterministic-first model while adding a new post-completion target:
 
-A local-first web UI backed by the existing FastAPI/API engine, with the CLI retained as an automation and power-user layer.
+A user can run Context Vault Engine locally or on a private personal VPS, manage it through a web UI, and expose a safe MCP-compatible context layer to local LLM clients.
 
-Do not replace the CLI. Do not turn this into a cloud app. Do not rush semantic retrieval. The next major value is a usable interface with buttons, forms, status panels, guided vault creation, and clear outputs.
+This should not become generic SaaS, generic RAG, or a cloud AI product. The stronger endpoint is a self-hostable private context service.
 
-1. Current Project State
-1.1 Project Identity
+## Product North Star
 
-Name: Context Vault Engine
+Context Vault Engine should become:
 
-Current public positioning:
-A local-first Python content security and packaging pipeline for structured Markdown vaults.
+A private, deterministic context service for structured Markdown knowledge, usable by humans, local LLMs, and trusted agent clients.
 
-Public value statement:
-Context Vault Engine validates, scans, packages, and serves structured Markdown content as deterministic context artefacts. It enforces schema contracts, detects credential leaks and prompt-injection patterns, rejects unsafe paths, exports SHA-256 verified packages, and exposes the workflow through a CLI and FastAPI API.
+Target shape:
 
-1.2 Current Release State
+```
+Human Web UI
+Local LLM Client
+MCP-Compatible Client
+        ↓
+Context Controller
+        ↓
+Context Vault Engine API
+        ↓
+Validated Markdown Vault
+```
 
-Current release: v1.0.0
+## Core Principles
 
-Current achieved baseline:
+- Markdown remains the source of truth.
+- Schema remains the contract.
+- Validation and security gates protect output.
+- Bundles and exports are derived artefacts.
+- Feedback adjusts priority, not content.
+- Local-first remains the default.
+- Private-cloud mode is optional and self-hosted.
+- Deterministic behaviour comes before semantic/LLM behaviour.
+- LLM clients must not freely mutate notes.
+- Semantic retrieval remains optional and deferred.
 
-Area	Status
-Demo vault	19/19 notes complete
-Validation	Complete
-Analysis	Complete
-Improvement tasks	Complete
-Context bundles	Complete
-Export packages	Complete
-Security scanner	Complete
-Feedback loop	Complete
-Deterministic lexical search	Complete
-API documentation	Complete
-README positioning	Security-focused
-Tests	180 passing
-Semantic retrieval	Deferred
-UI	Not yet implemented
-1.3 Implemented System Capabilities
-
-The current system includes:
-
-Schema validation on every note
-Derived-field consistency checks
-Required section checks
-Analysis reports
-Improvement task generation
-Deterministic lexical search on POST /query
-Context bundle generation
-Export package generation to dist/context-bundles/<bundle-id>/
-SHA-256 package manifests
-Feedback parsing and task weighting
-Missing concept detection using EXPECTED_CONCEPTS
-Security scanning for:
-private keys
-AWS/GitHub/Slack token-like values
-bearer tokens
-password-like assignments
-prompt-injection phrases
-suspicious scripts and executable blocks
-Optional export security gate
-Rate-limited FastAPI API
-Path-traversal protection
-Structured JSON errors
-Full route documentation
-
-The API currently exposes routes for vaults, health, contract checks, summary, query, note retrieval, stats, validation, tasks, notes, quality, missing concepts, gaps, feedback, compare, graph, context bundle, context export, and context security.
-
-2. Strategic Assessment
-2.1 What Is Strong
-
-The backend is no longer the weak point.
-
-The strongest parts are:
-
-Deterministic architecture
-Local-first operation
-Schema-driven validation
-Security scanner with explainable findings
-Export package integrity
-Structured API
-Strong testing story
-Complete demo vault
-Recruiter-friendly security positioning
-2.2 What Is Weak
-
-The major weakness is now usability:
-
-Weakness	Impact
-Terminal-first workflow	High friction for non-developer users
-Bootstrap is interactive terminal-only	Hard to understand, hard to preview, hard to recover from mistakes
-API exists but has no human UI	Powerful backend, poor discoverability
-Reports are mostly command outputs	Hard to inspect visually
-Bundle/export/security outputs are JSON-first	Useful for tools, less friendly for humans
-No dashboard	User cannot quickly see vault health
-No guided setup	User must know command order
-No visual feedback loop	Feedback exists, but editing feedback.md manually is clunky
-No package browser	Exports work, but are not browsable in-app
-2.3 Terminal Application vs UI
-Terminal-only is not ideal
-
-The CLI should remain, but it should not be the main user experience.
-
-A terminal app is good for:
-
-automation
-testing
-CI
-reproducible workflows
-advanced users
-scripting
-
-A terminal app is poor for:
-
-guided vault bootstrapping
-editing fields
-browsing notes
-reviewing validation errors
-inspecting package artefacts
-visualising security findings
-understanding graph relationships
-presenting the project to non-technical reviewers
-Ideal direction
-
-The ideal product shape is:
-
-Local browser UI
-    ↓
-Existing FastAPI API
-    ↓
-Existing deterministic engine
-    ↓
-Markdown vault on disk
-
-In practical terms:
-
-User runs one command, such as py run.py app
-Browser opens to http://127.0.0.1:8000/app
-User can:
-create/bootstrap a vault
-choose a schema/domain
-run validation
-inspect issues
-generate tasks
-create bundles
-run security scans
-export packages
-review feedback
-browse notes
-inspect missing concepts
-
-This gives the project a real “application” feel without abandoning the local-first backend.
-
-3. Updated Product Vision
-3.1 New North Star
-
-Context Vault Engine should become a local-first desktop-style web application for validating, securing, packaging, and improving structured Markdown vaults.
-
-The backend stays deterministic. The UI makes it usable.
-
-3.2 Product Principles Going Forward
-1. Local-first
-
-No cloud requirement. No hosted account. No external API dependency.
-
-2. UI-first for humans, CLI-first for automation
-
-The CLI remains stable, but common workflows should be available through buttons and forms.
-
-3. Markdown remains the source of truth
-
-The UI may edit or generate Markdown files, but the vault remains the canonical data layer.
-
-4. Deterministic before intelligent
-
-Do not add embeddings or LLM features until the UI and local workflow are good.
-
-5. Security controls stay visible
-
-Security scanning should not be hidden in logs. Findings need a UI panel.
-
-6. Guided workflows beat raw endpoints
-
-Users should not need to know the correct command order.
-
-7. Progressive disclosure
-
-Beginner users see simple statuses. Advanced users can open raw JSON, manifests, and API output.
-
-4. Roadmap Overview
-Completed
-Phase	Name	Status
-Phase 0	Correctness stabilisation	Complete
-Phase 1	API capability exposure	Complete
-Phase 2	Context bundle generation	Complete
-Phase 3	Feedback loop	Complete
-Phase 4	Export and packaging	Complete
-Phase 5	Context security scanning	Complete
-Phase 6	Documentation and positioning	Complete
-Phase 7a	Deterministic lexical search	Complete
-Phase 8a	Demo vault completion	Complete
-Phase 8b	Schema data demo improvements	Complete
-Phase 9	Public presentation pass	Complete
-Phase 10	Local Web UI Foundation	Complete
-Phase 11A	Guided Vault Bootstrap Backend API	Complete
-Phase 11B	Guided Vault Bootstrap UI Form	Complete
-Phase 11	Guided Vault Bootstrap (full)	Complete
-Phase 12A	Vault Dashboard	Complete
-Phase 12B	Dashboard Issue Review	Complete
-Phase 12	Vault Dashboard and Issue Review	Complete
-Phase 13A	Bundle Builder UI	Complete
-Phase 13B	Export Package UI	Complete
-Phase 13C	Security Scan UI	Complete
-Phase 13	Bundle, Export, and Security UI	Complete
-Partial
-Phase	Name	Priority
-Phase 14A	Feedback Write API (backend)	Complete
-Phase 14B	Feedback and Task Workflow UI	Complete
-Phase 14	Feedback and Task Workflow UI	Complete
-Future
-Phase	Name	Priority
-Phase 15A	Note Browser Read-Only Inspector UI	Complete
-Phase 15B	Safe Note Edit Backend API	Complete
-Phase 15C	Safe Note Editing UI	Complete
-Phase 15	Note Browser and Safe Editing UI	Complete
-Phase 16	Visual Graph and Missing Concepts UI	Medium
-Phase 17	Distribution and Packaging	Medium
-Phase 18	CI and Release Hardening	Medium
-Phase 19	Optional Semantic Retrieval	Deferred
-Phase 20	Registry and Reuse Layer	Deferred
-5. Completed Phases Summary
-Phase 0 - Correctness Stabilisation
-
-Status: Complete
-
-Delivered:
-
-Query filter safety
-Index freshness fixes
-Fail-closed invalid filters
-Regression tests
-CLI/API behaviour verified
-Phase 1 - API Surface
-
-Status: Complete
-
-Delivered:
-
-Validation endpoint
-Tasks endpoint
-Notes endpoint
-Quality endpoint
-Missing endpoint
-Compare endpoint
-Graph routes
-Full paths and constraints in task output
-Phase 2 - Context Bundles
-
-Status: Complete
-
-Delivered:
-
-py run.py bundle
-POST /context/bundle
-Deterministic bundle ID
-Note selection
-Section extraction
-Budget tracking
-Validation state
-Feedback block
-Manifest source paths
-Phase 3 - Feedback Loop
-
-Status: Complete
-
-Delivered:
-
-feedback.md
-Feedback parser
-Feedback validation
-py run.py feedback
-GET /feedback
-Task priority weighting via include_feedback=true
-Bundle feedback inclusion
-Phase 4 - Export and Packaging
-
-Status: Complete
-
-Delivered:
-
-py run.py export
-POST /context/export
-Exported package directory
-context.json
-context.md
-manifest.json
-validation.json
-graph.json
-feedback-summary.json
-SHA-256 hashes
-Overwrite protection
-Phase 5 - Security Scanner
-
-Status: Complete
-
-Delivered:
-
-py run.py security
-POST /context/security
-Credential leak scanning
-Prompt-injection pattern detection
-Suspicious script/code detection
-Security severity levels
-Optional export gate with require_security_pass
-Phase 6 - Documentation
-
-Status: Complete
-
-Delivered:
-
-README
-QUICKSTART
-ARCHITECTURE
-ROADMAP
-API docs
-TESTING docs
-Context bundle spec
-Phase 7a - Deterministic Lexical Search
-
-Status: Complete
-
-Delivered:
-
-q parameter on POST /query
-q_fields
-Body/path/frontmatter lexical search
-Deterministic TF scoring
-Timeout handling
-Invalid query validation
-No embeddings
-Phase 8a - Demo Vault Completion
-
-Status: Complete
-
-Delivered:
-
-8 partial notes completed
-Vault moved to 19/19 complete
-0 improvement targets
-Phase 8b - Schema Data Demo Improvements
-
-Status: Complete
-
-Delivered:
-
-SCHEMA_VERSION = "3.0.0"
-EXPECTED_CONCEPTS["fundamentals"]
-/missing now returns meaningful gaps
-Exported manifest schema version fixed
-Phase 9 - Public Presentation
-
-Status: Complete
-
-Delivered:
-
-README repositioned around deterministic content security pipeline
-GitHub repo renamed to context-vault-engine
-GitHub About section updated
-Security controls surfaced publicly
-Sample output added
-6. New Roadmap
-Phase 10 - Local Web UI Foundation
-Purpose
-
-Create the first real user interface.
-
-This phase should not attempt to expose every feature. It should establish the UI shell, navigation, API connection, and basic status views.
-
-Recommended Architecture
-
-Use the existing FastAPI server as the backend.
-
-Frontend options:
-
-Option A - Server-rendered HTML with HTMX
-
-Best for simplicity.
-
-Pros:
-
-Low dependency burden
-Easy to serve from FastAPI
-Good for forms and dashboards
-No separate frontend build pipeline
-
-Cons:
-
-Less polished than React for complex state
-Harder to build rich graph visualisation later
-Option B - React/Vite frontend served separately or built into FastAPI
-
-Best for long-term UI quality.
-
-Pros:
-
-Better for dashboards, forms, tabs, charts
-Better portfolio presentation
-Easier to expand into a desktop shell later
-
-Cons:
-
-More dependencies
-More project complexity
-Requires frontend build tooling
-Recommendation
-
-Use React + Vite + TypeScript for the UI, but keep it small.
-
-Reason: the user explicitly wants “UI, buttons, fields etc.” and this project is now portfolio-facing. A clean React interface will show better than a terminal or basic HTML admin page.
-
-Target UI Shell
-
-Pages:
-
-Dashboard
-Vault Setup
-Notes
-Validation
-Tasks
-Bundles
-Security
-Exports
-Feedback
-API/Raw Output
-Required Backend Work
-
-Add route:
-
-GET /app
-
-or serve static frontend from:
-
-ui/dist/
-
-Add dev documentation:
-
-cd ui
-npm install
-npm run dev
-
-Production build:
-
-npm run build
-Acceptance Criteria
-UI starts locally
-UI can call /health
-UI can list vaults
-UI can show current vault summary
-UI can run validation
-UI has navigation
-UI does not break existing CLI/API/tests
-Documentation explains how to run the UI
-Tests
-Existing 180 tests still pass
-Add at least one backend test proving UI static route exists if served by FastAPI
-Frontend tests optional at this stage
-Suggested Commit
-feat(ui): add local web interface foundation
-
-Phase 11A - Guided Vault Bootstrap Backend API
-Status: Complete
-
-Purpose: Provide a non-interactive, HTTP-accessible vault bootstrap pathway that the CLI and the future UI form can both use.
-
-Delivered:
-- core/shared/bootstrap_service.py — shared vault bootstrap service (validate, create, rollback, config update)
-- core/bootstrap_vault.py — refactored _update_config() to delegate to service; interactive CLI unchanged
-- mcp/core/vault_registry.py — reload_config() for in-process registry refresh after bootstrap
-- mcp/server/mcp_server.py — POST /vault/bootstrap endpoint, VaultBootstrapRequest model, _BOOTSTRAP_REPO_ROOT override for tests
-- mcp/test_verify.py — 14 Phase 11A tests added (202 total)
-- API.md — documented POST /vault/bootstrap, request/response shapes, error codes
-- QUICKSTART.md — section 6c covers API-based vault bootstrap
-- TESTING.md — Phase 11A test descriptions added
-
-Acceptance criteria met:
-- POST /vault/bootstrap creates vault, schema, templates, updates config
-- CLI py run.py bootstrap still works
-- All prior 188 tests still pass
-- expected_concepts accepted with warning; not written to schema yet
-
-Suggested Commit
-feat(bootstrap): add POST /vault/bootstrap API endpoint (Phase 11A)
-
-Phase 11B - Guided Vault Bootstrap UI Form
-Purpose
-
-Make vault creation low-friction.
-
-The existing py run.py bootstrap flow prompts for domain, note type, and sections in the terminal. The Quickstart currently recommends py run.py bootstrap for custom vaults. That is usable for developers but not ideal for the intended product.
-
-This phase should make vault creation guided, visual, and recoverable.
-
-User Story
-
-As a user, I want to create a new vault by filling in a form, previewing the schema, and clicking “Create Vault”, without needing to understand the terminal bootstrap flow.
-
-UI Flow
-User opens Vault Setup
-Selects:
-vault name
-domain name
-note type slug
-required sections
-optional expected concepts
-UI validates inputs live
-UI previews:
-folder structure
-schema fields
-generated template
-User clicks Create Vault
-App writes vault files and updates config
-User lands on dashboard
-Backend Additions
-
-Add API route:
-
-POST /vault/bootstrap
-
-Request shape:
-
-{
-  "vault_name": "dogs-vault",
-  "domain": "dogs",
-  "note_type": "breed-profile",
-  "sections": ["Overview", "Care Requirements", "Health Risks"],
-  "expected_concepts": ["Labrador Retriever", "German Shepherd"]
-}
-
-Response:
-
-{
-  "status": "ok",
-  "vault": "dogs-vault",
-  "created": ["..."],
-  "warnings": []
-}
-Important Rules
-Do not expose arbitrary file writes
-Validate vault name strictly
-Prevent path traversal
-Do not overwrite existing vault without explicit confirmation
-Reuse existing bootstrap/generate schema logic where possible
-Keep terminal bootstrap working
-Acceptance Criteria
-User can create a vault from the UI
-Generated vault validates immediately
-Generated templates are created
-Config updates safely
-Existing py run.py bootstrap still works
-Tests cover invalid names, duplicate vaults, and successful bootstrap
-Suggested Commit
-feat(ui): add guided vault bootstrap UI form (Phase 11B)
-
-Phase 12A - Dashboard Data Completeness and API Coverage ✓ Complete
-Purpose
-
-Upgrade the Dashboard to show full vault health using all available API endpoints.
-
-Phase 12B - Issue Review Workflow ✓ Complete
-
----
-
-Phase 12 - Vault Dashboard and Issue Review
-Purpose
-
-Give users an immediate understanding of vault health.
-
-The dashboard should answer:
-
-Is my vault valid?
-How many notes do I have?
-How many are complete?
-What needs work?
-Are there security findings?
-Are there missing expected concepts?
-Can I export safely?
-Dashboard Panels
-
-Recommended panels:
-
-Panel	Source
-Vault status	/summary, /validation
-Completion	/summary
-Current tasks	/tasks
-Security status	/context/security
-Missing concepts	/missing
-Latest export	local package directory
-Feedback count	/feedback
-Test status	optional, manually run
-UI Requirements
-Clear pass/fail/warning badges
-Clickable task cards
-Validation error list
-Security findings table
-Missing concepts list
-Export package summary
-“Run pipeline” button
-Acceptance Criteria
-Dashboard loads in under 2 seconds for demo vault
-User can run validation from UI
-User can run security scan from UI
-User can see incomplete or missing work
-No raw JSON shown by default
-Raw JSON available in expandable panel
-Suggested Commit
-feat(ui): add vault health dashboard
-Phase 13 - Bundle, Export, and Security UI
-Purpose
-
-Make the strongest backend features visible and usable.
-
-Current CLI/API export is strong, but users should not need to read JSON to understand it.
-
-UI Pages
-Bundle Builder
-
-Fields:
-
-vault
-filters
-include sections
-include body
-include related
-max notes
-max chars
-allow partial
-
-Actions:
-
-Preview bundle
-Show budget usage
-Show included notes
-Show warnings
-Export Package
-
-Actions:
-
-Export package
-Overwrite existing
-Require security pass
-Open package summary
-Security Scan
-
-Display:
-
-status: pass / warning / fail
-findings grouped by severity
-finding path
-rule
-field
-explanation
-affected note
-Acceptance Criteria
-User can generate bundle from UI
-User can export package from UI
-User can require security pass
-User can inspect warnings
-User can inspect manifest hashes
-UI clearly distinguishes warning vs fail
-Suggested Commit
-feat(ui): add bundle export and security scan screens
-
-Phase 13 is complete. All three UI phases (13A Bundle Builder, 13B Export Package, 13C Security Scan) are implemented and verified.
-Phase 14 - Feedback and Task Workflow UI
-Purpose
-
-Make the Observe and Adapt layer usable without manually editing feedback.md.
-
-User Story
-
-As a user, I want to add feedback to a note from the UI and see task priorities update.
-
-Phase 14A - Feedback Write API and Task Workflow Backend Support (COMPLETE)
-
-Backend-only. No UI was built in this sub-phase.
-
-What was delivered:
-- Stable IDs (12-16 lowercase hex chars, SHA-256 derived) on all feedback entries
-- POST /feedback - add a new entry with validation
-- PUT /feedback/{id} - update an existing entry, preserving id and created_at
-- DELETE /feedback/{id} - remove an entry by id
-- POST /feedback/normalise - assign IDs to all existing id-less entries
-- Atomic file writes via tempfile + os.replace
-- Path traversal protection and note existence validation
-- Backward compatibility: id-less entries in feedback.md remain valid
-- 20 new verification tests (222 total)
-
-Suggested Commit: feat(feedback): stable IDs and write API (Phase 14A)
-
-Phase 14B - Feedback and Task Workflow UI (COMPLETE)
-
-What was delivered:
-- FeedbackWorkflow.svelte: vault selector, 6-tile summary cards, feedback list with filters (path/signal/severity/source), add form with inline validation, inline edit, inline delete with confirmation, Maintenance panel (Normalise IDs), task priority panel (feedback-adjusted), raw JSON behind details expanders
-- api.ts: FeedbackSource/Signal/Severity types, FeedbackCreateRequest/UpdateRequest, FeedbackResponse, FeedbackDeleteResponse, FeedbackNormaliseResponse; createFeedback, updateFeedback, deleteFeedback, normaliseFeedback; put/del helpers
-- feedback.astro: replaced PlaceholderPage with FeedbackWorkflow island
-- AppLayout.astro: Feedback removed from placeholder list; footer updated to Phase 14B
-- Docs: QUICKSTART.md section 6h, TESTING.md Phase 14B section
-
-Verification:
-- npm run build: pass (FeedbackWorkflow 32.70 kB)
-- py mcp/test_verify.py: 222 tests, all pass
-- py run.py validate: 19/19 valid
-- py run.py security: pass
-- py run.py feedback: exits 0
-
-Suggested Commit: feat(ui): add feedback and task workflow UI (Phase 14B)
-Phase 15A - Note Browser Read-Only Inspector UI
-Status: Complete
-
-Delivered:
-Note Browser UI at /app/notes
-Vault selector (loads first vault by default)
-Note list from GET /notes with status/difficulty/missing badges
-Filter controls: text search, status, difficulty, missing-only, clear
-Query Search panel using POST /query (q, q_fields, filters, limit)
-Search results replace list; clear search restores base list
-Note detail via GET /note: frontmatter fields table, section outline, read-only body
-Validation context from GET /validation
-Task/improvement context from GET /tasks?include_feedback=true
-Raw JSON behind details/summary expanders
-Responsive two-column layout (desktop); single column on mobile
-No note editing, no save controls, no write routes added
-
-Verification:
-npm run build: pass
-py mcp/test_verify.py: ALL VERIFICATION TESTS PASSED (222 tests)
-py run.py validate: PASSED (19/19)
-py run.py security: pass (0 findings)
-py run.py feedback: exits 0, valid JSON
-
-Suggested Commit: feat(ui): add note browser read-only inspector UI (Phase 15A)
-Phase 15B - Safe Note Edit Backend API
-Status: Complete
-
-Delivered:
-PUT /note endpoint in mcp/server/mcp_server.py
-Path safety: traversal, absolute, non-.md, Vault Files/ all rejected
-Atom writes via mkstemp + os.replace (no partial writes)
-Full schema validation before disk write (pre-validation)
-Cache invalidation via expire_index_cooldown on success
-NoteUpdateRequest Pydantic model
-note_write.py service module with serialise_note_markdown, update_note, etc.
-expire_index_cooldown() added to note_index.py
-21 new tests in mcp/test_verify.py (3 service-layer + 18 HTTP-level)
-
-Verification:
-py mcp/test_verify.py: ALL VERIFICATION TESTS PASSED (242 tests)
-py run.py validate: PASSED (19/19)
-py run.py security: pass
-py run.py feedback: exits 0
-
-Suggested Commit: feat(api): add PUT /note safe note edit backend API (Phase 15B)
-Phase 15C - Safe Note Editing UI
-
-Status: Complete
-
-Delivered:
-In-place edit mode in the Note Browser (/app/notes)
-Structured frontmatter field editor (checkbox for booleans, text input for strings, read-only for complex values)
-Markdown body textarea with character count
-Live section outline in edit mode with advisory missing-section warnings
-Save / Cancel / Reset action bar
-EDIT MODE badge and Unsaved changes badge
-Save success panel and structured error panel (VALIDATION_FAILED with details list)
-Context refresh (notes list, validation, tasks) after successful save
-Raw JSON expanders for PUT /note response and edit payload preview
-Client-side guard: null bytes and empty body blocked before save
-NoteUpdateRequest, NoteUpdateValidation, NoteUpdateResponse types in api.ts
-updateNote() function in api.ts
-AppLayout.astro footer updated to Phase 15C — Note Editing
-npm run build: PASS (NoteBrowser.svelte ~40.69 kB)
-All 242 backend tests pass; no backend changes
-
-Verification:
-cd ui && npm run build: PASS
-py mcp/test_verify.py: ALL VERIFICATION TESTS PASSED (242 tests)
-py run.py validate: PASSED (19/19)
-py run.py security: pass
-py run.py feedback: exits 0
-
-Suggested Commit: feat(ui): add safe note editing UI (Phase 15C)
-Phase 15 - Note Browser and Safe Editing UI
-
-Status: Complete
-
-All three sub-phases delivered:
-Phase 15A: Read-only Note Browser UI
-Phase 15B: Safe PUT /note backend API
-Phase 15C: Safe Note Editing UI (in-place edit mode backed by PUT /note)
-Phase 16 - Visual Graph and Missing Concepts UI
-Purpose
-
-Make graph and missing concepts visible.
-
-The graph backend exists, but graph output is not visually compelling yet.
-
-Features
-Graph view
-Domain/subdomain/topic nodes
-Note nodes
-Missing concept nodes
-Click node to inspect related notes
-Click missing concept to create draft note or task
-Filter graph by relationship type
-Important Constraint
-
-Do not overbuild graph visualisation before there is enough graph data.
-
-The demo vault currently has one primary domain. A visual graph becomes more valuable after:
-
-multiple subdomains
-richer expected concepts
-more notes
-explicit concept hierarchy
-Acceptance Criteria
-Missing concepts are visible
-User can see which concepts are absent
-User can create an improvement task from a missing concept
-Graph view does not imply semantic relationships if only schema relationships exist
-Suggested Commit
-feat(ui): add missing concept and graph visualisation
-Phase 17 - Distribution and Packaging
-Purpose
-
-Make the app easier to run.
-
-A local web app still requires commands. This phase should reduce install friction.
-
-Options
-Option A - Keep Python project, add launcher
-
-Add:
-
-py run.py app
-
-This starts backend and opens browser.
-
-Option B - Package with PyInstaller
-
-Produces executable for Windows.
-
-Pros:
-
-easier for non-dev users
-stronger demo story
-
-Cons:
-
-packaging complexity
-antivirus false positives possible
-larger build artefacts
-Option C - Desktop shell with Tauri
-
-Frontend packaged as desktop app, Python backend launched locally.
-
-Pros:
-
-polished user experience
-
-Cons:
-
-significant complexity
-Rust/Tauri dependency
-overkill for current stage
-Recommendation
-
-Do Option A first.
-
-Add:
-
-py run.py app
-
-Behaviour:
-
-start FastAPI server
-open browser
-show dashboard
-handle already-running server gracefully
-Acceptance Criteria
-One command starts app
-Browser opens automatically
-Failure messages are clear
-Existing API server command remains available
-Suggested Commit
-feat(app): add local browser launcher
-Phase 18 - CI and Release Hardening
-Purpose
-
-Make the project easier to trust publicly.
-
-Add GitHub Actions
-
-Workflow:
-
-python -m pip install -r requirements.txt
-python -m pip install -r mcp/requirements.txt
-python mcp/test_verify.py
-python run.py validate
-python run.py security
-
-Optional:
-
-export test
-bundle test
-docs consistency test
-Add Release Checklist
-
-Create:
-
-RELEASE_CHECKLIST.md
-
-Include:
-
-tests pass
-validate pass
-security pass
-export works
-README updated
-tag created
-GitHub release notes written
-Acceptance Criteria
-CI runs on push and PR
-Main branch badge added to README
-Release checklist exists
-No generated dist/ files committed
-Suggested Commit
-ci: add verification workflow
-Phase 19 - Optional Semantic Retrieval
-Status
-
-Deferred.
-
-Semantic retrieval should wait until:
-
-UI is usable
-vault creation is easy
-user can browse/search/edit notes
-the system has multiple real vaults or larger note sets
-deterministic lexical search is insufficient
-Do Not Start Until
-At least 75+ notes exist in a real vault
-There is a clear retrieval problem lexical search cannot solve
-Embedding model choice is justified
-Cache invalidation design is clear
-Security scanner handles query input surfaces
-Tests can avoid brittle ranking assertions
-Possible Future Features
-local embedding index
-hybrid lexical + semantic search
-semantic bundle selection
-explainable ranking metadata
-embedding cache invalidation
-model/version hash in bundle metadata
-Suggested Commit Eventually
-feat(search): add optional semantic retrieval
-Phase 20 - Registry and Reuse Layer
-Status
-
-Deferred.
-
-Purpose
-
-Manage exported packages over time.
-
-Features
-package registry
-package list
-package verification
-package tags
-stale package detection
-archive/delete package
-compare package manifests
-package signing, maybe later
-Do Not Start Until
-package export is used frequently
-UI package browser exists
-there are multiple bundles worth managing
-Suggested Commit Eventually
-feat(registry): add local context package registry
-7. Immediate Next Step
-Recommended Next Phase
-
-Start with:
-
-Phase 12 - Vault Dashboard and Issue Review
-
-Phase 12A (Dashboard Data Completeness and API Coverage) is complete:
-
-- ui/src/lib/api.ts — added fetchTasks, fetchMissing, fetchFeedback; updated fetchSecurity with include_body/allow_partial; new types Task, MissingConcept, FeedbackEntry etc.
-- ui/src/components/Dashboard.svelte — full rewrite: parallel data loading via Promise.all, 8 data cards (health, summary, validation, tasks, missing concepts, feedback, index info, security), top health row mini-cards, loading skeletons, raw JSON expanders
-- ui/src/layouts/AppLayout.astro — footer updated to Phase 12A
-- npm run build passes with no TypeScript errors; 202 backend tests passing
-
-Phase 12B (Issue Review Workflow) is complete:
-
-- ui/src/components/Dashboard.svelte — added Issue Review section below dashboard overview. Tabbed drill-down (Validation, Tasks, Security, Missing Concepts, Feedback). Cross-panel summary row. Expandable task rows with instruction, missing sections, constraints, feedback weighting, raw task JSON. Full findings table for security. Full ranked missing concepts list. All feedback entries with source/signal/comment/created_at. Raw JSON hidden by default on all tabs.
-- ui/src/layouts/AppLayout.astro — footer updated to Phase 12B
-- npm run build passes with no TypeScript errors; 202 backend tests passing
-
-Phase 11B (Guided Vault Bootstrap UI Form) is complete:
-
-- ui/src/components/VaultSetup.svelte — full form, live validation, preview panel, submit, success/error/warning handling
-- ui/src/pages/vault-setup.astro — functional Vault Setup page (replaced PlaceholderPage)
-- ui/src/lib/api.ts — VaultBootstrapRequest/Response types; bootstrapVault() function
-- ui/src/layouts/AppLayout.astro — Vault Setup active in sidebar; phase footer updated
-- npm run build passes with no TypeScript errors
-
-Phase 11A (Guided Vault Bootstrap Backend API) is complete:
-
-- POST /vault/bootstrap endpoint added to FastAPI server
-- core/shared/bootstrap_service.py — shared service (validate, create, rollback, config update)
-- CLI py run.py bootstrap unchanged; _update_config() now delegates to shared service
-- vault_registry.reload_config() for in-process registry refresh
-- 14 backend tests added (202 total passing)
-
-Phase 10 (Local Web UI Foundation) is complete:
-
-- Astro 5 + TypeScript + Tailwind CSS 4 + Svelte 5 islands
-- FastAPI serves built UI at GET /app (ui/dist/), returns 503 UI_NOT_BUILT if not built
-- Dashboard: server health, vault selector, completion summary, validation status, security scan
-- CORS enabled for dev server (localhost:4321)
-- 8 backend tests added (188 total passing)
-
-Do not start with semantic retrieval.
-
-Do not start with a desktop binary.
-
-Do not start with graph visualisation.
-8. UI Architecture Recommendation
-Recommended Stack
-Frontend: React + Vite + TypeScript
-Backend: existing FastAPI app
-Communication: existing JSON API
-Serving:
-  - dev: Vite dev server
-  - production: built static files served by FastAPI
-Why This Is Ideal
-
-React/Vite gives:
-
-real forms
-buttons
-tabs
-cards
-validation states
-structured tables
-future graph visualisation
-good portfolio optics
-
-FastAPI remains:
-
-backend API
-local server
-security scanner host
-export engine host
-
-CLI remains:
-
-automation layer
-testable workflow
-CI layer
-fallback for advanced users
-Avoid For Now
-Electron
-Tauri
-semantic retrieval
-database
-cloud sync
-authentication
-multi-user permissions
-AI writing assistant
-
-These are premature.
-
-9. Updated Non-Goals
+## Strategic Non-Goals
 
 Do not turn the project into:
 
-a generic note-taking app
-an Obsidian replacement
-a generic RAG wrapper
-a cloud SaaS
-an autonomous AI writer
-a heavy desktop suite
-a database-backed enterprise CMS
-an embedding-first retrieval system
+- generic SaaS
+- generic RAG wrapper
+- cloud AI service
+- database-heavy CMS
+- autonomous content writer
+- Obsidian replacement
+- multi-tenant enterprise platform
+- embedding-first retrieval system
 
-The UI should expose the pipeline. It should not replace the vault.
+## Current Baseline
 
-10. Updated Success Criteria
+### Implemented
 
-The project becomes “user friendly enough” when a user can:
+- Schema validation
+- Analysis reports
+- Improvement task generation
+- Feedback loop and feedback weighting
+- Deterministic lexical search
+- Context bundle generation
+- Context export packages
+- SHA-256 manifests
+- Context security scanner
+- Prompt-injection and credential-pattern scanning
+- FastAPI API
+- Path-traversal protection
+- Rate limiting
+- Structured JSON errors
+- Guided vault bootstrap backend/UI
+- Vault dashboard and issue review UI
+- Bundle/export/security UI
+- Feedback/task workflow UI
+- Note browser UI
+- Safe note edit API
+- Safe note editing UI
+- Documentation suite
+- Verification test suite
 
-Launch the app locally with one command.
-Create or select a vault without editing config manually.
-See whether the vault is valid.
-See what needs work.
-Run security scanning with a button.
-Generate and export a context package with a button.
-Inspect package files and hashes.
-Add feedback without hand-editing YAML.
-Search notes from the UI.
-Understand the system without reading every Markdown doc.
-11. Risks Going Forward
-Risk	Mitigation
-UI becomes bigger than backend	Build in thin phases
-React app adds dependency noise	Keep UI isolated in /ui
-UI bypasses validation	All writes must validate
-UI writes unsafe paths	Reuse existing path traversal protections
-User edits generated artefacts	UI should clearly mark dist/ as generated
-Too much AI framing returns	Keep public language security/pipeline-focused
-Semantic retrieval distracts	Defer until after UI usability
-Desktop packaging causes complexity	Start with browser UI first
-12. Memory Replacement Note
+## Current Product State
+
+The backend is strong. The local UI has reached a usable application baseline. The next move is to make the system better at serving structured context, not merely managing a vault.
+
+## Current Active Phase
+
+**Phase 16 - Visual Graph and Missing Concepts UI**
+
+## Phase Status Overview
+
+| Phase | Name                                    | Status   |
+|-------|-----------------------------------------|----------|
+| 0     | Correctness stabilisation               | Complete |
+| 1     | API capability exposure                 | Complete |
+| 2     | Context bundle generation               | Complete |
+| 3     | Feedback loop                           | Complete |
+| 4     | Export and packaging                    | Complete |
+| 5     | Context security scanning               | Complete |
+| 6     | Documentation and positioning           | Complete |
+| 7     | Deterministic lexical search            | Complete |
+| 8     | Demo vault and schema data improvements | Complete |
+| 9     | Public presentation pass                | Complete |
+| 10    | Local Web UI Foundation                 | Complete |
+| 11    | Guided Vault Bootstrap                  | Complete |
+| 12    | Vault Dashboard and Issue Review        | Complete |
+| 13    | Bundle, Export, and Security UI         | Complete |
+| 14    | Feedback and Task Workflow UI           | Complete |
+| 15    | Note Browser and Safe Editing UI        | Complete |
+| 16    | Visual Graph and Missing Concepts UI    | Next     |
+| 17    | Distribution and Local App Launcher     | Planned  |
+| 18    | CI and Release Hardening                | Planned  |
+| 19    | Context Controller Layer                | Planned  |
+| 20    | MCP Compatibility Layer                 | Planned  |
+| 21    | Private Cloud Mode                      | Planned  |
+| 22    | Session and Project State Layer         | Planned  |
+| 23    | Safe Memory Write Queue                 | Planned  |
+| 24    | Device Profiles and Context Budgets     | Planned  |
+| 25    | Trust, Staleness, and Evidence Metadata | Planned  |
+| 26    | Import Pipelines                        | Planned  |
+| 27    | Registry and Reuse Layer                | Deferred |
+| 28    | Optional Semantic Retrieval             | Deferred |
+
+## Completed Capability Summary
+
+### Phases 0-9 - Deterministic Backend
+
+Delivered:
+
+- validation
+- analysis
+- improve/task engine
+- feedback
+- lexical search
+- bundles
+- export
+- security scanning
+- API routes
+- graph routes
+- public README/docs positioning
+- complete demo vault
+- schema version and expected concepts
+
+### Phases 10-15 - Local Web Application
+
+Delivered:
+
+- UI shell
+- vault bootstrap UI
+- dashboard
+- issue review
+- bundle builder
+- export UI
+- security scan UI
+- feedback workflow UI
+- note browser
+- safe note edit API
+- safe note editing UI
+
+This completes the first major usability pass.
+
+## Remaining Roadmap
+
+### Phase 16 - Visual Graph and Missing Concepts UI
+
+#### Purpose
+
+Make schema-derived relationships and missing expected concepts visible.
+
+#### Deliver
+
+- Graph view for domains, subdomains, topics, notes, and expected concepts
+- Missing concepts panel
+- Node inspector
+- Related notes panel
+- Relationship-type filters
+- Action to create a task or draft from a missing concept
+- Clear labelling that relationships are schema-derived, not semantic inference
+
+#### Acceptance Criteria
+
+- User can see missing expected concepts visually.
+- User can inspect related notes from graph nodes.
+- User can generate an improvement action from a missing concept.
+- UI does not imply semantic relationships where none exist.
+
+#### Suggested Commit
+
+```
+feat(ui): add graph and missing concept visualisation
+```
+
+---
+
+### Phase 17 - Distribution and Local App Launcher
+
+#### Purpose
+
+Reduce launch friction.
+
+#### Deliver
+
+```
+py run.py app
+```
+
+Behaviour:
+
+- starts FastAPI server
+- serves built UI
+- opens browser
+- detects already-running server
+- gives clear failure messages
+- preserves existing API server command
+
+#### Later Options
+
+- PyInstaller executable
+- desktop shell
+- packaged releases
+
+#### Acceptance Criteria
+
+- One command opens the app.
+- Existing CLI/API/test flows remain stable.
+- Docs explain local app mode.
+
+#### Suggested Commit
+
+```
+feat(app): add local browser launcher
+```
+
+---
+
+### Phase 18 - CI and Release Hardening
+
+#### Purpose
+
+Make the public repo easier to trust.
+
+#### Deliver
+
+GitHub Actions workflow:
+
+- install `requirements.txt`
+- install `mcp/requirements.txt`
+- run full test suite
+- run validate
+- run security
+- optional export smoke test
+- README badge
+- `RELEASE_CHECKLIST.md`
+
+#### Acceptance Criteria
+
+- CI runs on push/PR.
+- Release checklist exists.
+- Generated artefacts are not committed.
+
+#### Suggested Commit
+
+```
+ci: add verification workflow
+```
+
+---
+
+### Phase 19 - Context Controller Layer
+
+#### Purpose
+
+Add the orchestration layer between local LLM/tool clients and raw API routes.
+
+A weak local LLM should not decide low-level retrieval strategy. It should ask for context, and the controller should choose the plan.
+
+#### Deliver
+
+High-level functions:
+
+- `build_context_for_question`
+- `resume_project`
+- `explain_topic`
+- `prepare_agent_context`
+- `get_current_state`
+- `get_relevant_notes`
+
+Responsibilities:
+
+- classify request intent
+- choose retrieval mode
+- call query/graph/tasks/feedback/bundle/security
+- apply context budget
+- include source paths
+- include warnings
+- enforce optional security scan before delivery
+
+#### Acceptance Criteria
+
+- One request can produce a useful context payload.
+- Payload is smaller and cleaner than raw API output.
+- Security scan can be enforced before delivery.
+- Deterministic behaviour is preserved.
+
+#### Suggested Commit
+
+```
+feat(context): add context controller layer
+```
+
+---
+
+### Phase 20 - MCP Compatibility Layer
+
+#### Purpose
+
+Allow local LLM apps and agent clients to use Context Vault Engine as a tool server.
+
+#### Deliver
+
+MCP-compatible tools:
+
+- `search_vault`
+- `get_note`
+- `build_context_bundle`
+- `build_context_for_question`
+- `get_tasks`
+- `get_project_state`
+- `add_feedback`
+- `run_validation`
+- `run_security_scan`
+
+#### Rules
+
+- Default mode is read-only.
+- Write tools must be explicitly enabled.
+- Note mutation must go through validation.
+- Unsafe paths remain blocked.
+- Tool outputs include source paths.
+- Tool outputs respect context budgets.
+
+#### Acceptance Criteria
+
+- MCP client can connect.
+- Client can retrieve bounded context.
+- Client can request project state.
+- Client can add feedback safely.
+- No direct uncontrolled note rewriting.
+
+#### Suggested Commit
+
+```
+feat(mcp): add MCP-compatible tool layer
+```
+
+---
+
+### Phase 21 - Private Cloud Mode
+
+#### Purpose
+
+Support the post-completion use case: run Context Vault Engine on a personal VPS/private server and connect local LLM clients from phone or desktop.
+
+#### Target User Story
+
+As a user, I can run Context Vault Engine as a private service on my VPS and connect a local LLM app on my phone through a private/authenticated MCP endpoint.
+
+#### Deliver
+
+- server deployment docs
+- private network guidance
+- token-based auth
+- HTTPS/reverse proxy guide
+- environment config
+- service mode
+- read-only remote mode
+- backup guidance
+- health/status checks
+
+#### Preferred Access Models
+
+- Tailscale
+- WireGuard
+- Cloudflare Tunnel with Access
+- authenticated HTTPS
+
+#### Hard Rules
+
+- Do not expose unauthenticated API publicly.
+- Do not expose raw file writes.
+- Default remote mode is read-only.
+- Write paths require auth and validation.
+- Secrets must not live in the repo.
+
+#### Acceptance Criteria
+
+- VPS deployment documented.
+- Private access works.
+- MCP endpoint can be copied into a local LLM client.
+- Health check confirms remote readiness.
+- Security guidance is explicit.
+
+#### Suggested Commit
+
+```
+feat(deploy): add private cloud mode
+```
+
+---
+
+### Phase 22 - Session and Project State Layer
+
+#### Purpose
+
+Give weak local LLMs durable continuity without relying on chat history.
+
+#### Deliver
+
+Session records:
+
+- `active_vault`
+- `current_project`
+- `current_topic`
+- `recent_notes`
+- `recent_bundle_ids`
+- `open_tasks`
+- `user_goal`
+- `last_activity`
+
+Project state files:
+
+- `current_phase`
+- `completed_work`
+- `next_actions`
+- `blockers`
+- `decisions`
+- `risks`
+
+Tools/API:
+
+- `start_session`
+- `resume_session`
+- `summarise_session`
+- `attach_note_to_session`
+- `close_session`
+- `get_project_state`
+- `update_project_state`
+
+#### Acceptance Criteria
+
+- User can ask "where was I up to?"
+- Local LLM can resume with explicit state.
+- Project state is stored outside model memory.
+- State files remain human-readable and versionable.
+
+#### Suggested Commit
+
+```
+feat(state): add sessions and project state
+```
+
+---
+
+### Phase 23 - Safe Memory Write Queue
+
+#### Purpose
+
+Allow local LLMs to propose context changes without directly mutating the vault.
+
+#### Deliver
+
+Pending change objects:
+
+- `create_note_draft`
+- `suggest_note_update`
+- `update_note_section_draft`
+- `review_pending_change`
+- `accept_pending_change`
+- `reject_pending_change`
+
+Each pending change should include:
+
+- `type`
+- `path`
+- `section`
+- `proposed_content`
+- `reason`
+- `source`
+- `created_at`
+- `validation_status`
+- `diff`
+
+#### Rules
+
+- LLMs do not directly rewrite notes by default.
+- Proposed changes are validated before acceptance.
+- UI shows diff before write.
+- Accepted changes use existing safe note edit path.
+- Rejected changes are retained or archived for audit.
+
+#### Acceptance Criteria
+
+- Agent/client can propose changes.
+- User can accept/reject/edit from UI.
+- Accepted changes validate before disk write.
+- Full diff is visible.
+
+#### Suggested Commit
+
+```
+feat(memory): add pending change review queue
+```
+
+---
+
+### Phase 24 - Device Profiles and Context Budgets
+
+#### Purpose
+
+Make context output usable by different clients, especially small local LLMs on phones.
+
+#### Deliver
+
+Device/context profiles:
+
+```yaml
+profiles:
+  s25-local-llm:
+    max_chars: 8000
+    include_body: false
+    include_sections:
+      - Key Principles
+      - How It Works
+    require_security_scan: true
+    prefer_complete: true
+
+  desktop-agent:
+    max_chars: 30000
+    include_body: true
+    include_related: true
+    require_security_scan: true
+```
+
+Bundle modes:
+
+- `tiny`
+- `small`
+- `medium`
+- `large`
+- `agent`
+
+#### Acceptance Criteria
+
+- User can select a profile.
+- Local LLM receives bounded context.
+- Bundle builder supports profiles.
+- MCP tools can request context by profile.
+
+#### Suggested Commit
+
+```
+feat(context): add device profiles and context budgets
+```
+
+---
+
+### Phase 25 - Trust, Staleness, and Evidence Metadata
+
+#### Purpose
+
+Help local LLMs prefer better sources and avoid stale/generated/low-confidence notes.
+
+#### Deliver
+
+Optional frontmatter fields:
+
+```yaml
+trust_level: verified | working | draft | external | deprecated
+source_type: authored | imported | generated | agent_suggested
+last_reviewed: 2026-05-07
+review_after: 2026-08-01
+```
+
+Endpoints/UI:
+
+- `/stale`
+- `/trust`
+- `/evidence`
+
+Evidence mode should return source paths, sections, and confidence metadata.
+
+#### Acceptance Criteria
+
+- Retrieval can prefer verified notes.
+- Stale notes are visible.
+- Deprecated notes are deprioritised.
+- Answers can cite source note paths.
+
+#### Suggested Commit
+
+```
+feat(metadata): add trust and staleness controls
+```
+
+---
+
+### Phase 26 - Import Pipelines
+
+#### Purpose
+
+Make it easier to ingest existing knowledge without bypassing schema controls.
+
+#### Import Sources
+
+- Markdown folder
+- Obsidian vault
+- GitHub repo docs
+- Copilot/agent reports
+- chat transcript
+- browser article
+- PDF-to-Markdown, later
+
+#### Flow
+
+1. import raw content
+2. scan
+3. extract metadata
+4. map to schema
+5. mark as draft
+6. generate improvement tasks
+
+#### Rules
+
+- Imported content starts as draft.
+- Imported content is security-scanned.
+- Imported content must validate or produce tasks.
+- Import should not blindly trust external text.
+
+#### Acceptance Criteria
+
+- User can import Markdown safely.
+- Imported files are schema-mapped.
+- Invalid imports produce actionable tasks.
+- No unsafe path writes.
+
+#### Suggested Commit
+
+```
+feat(import): add markdown import pipeline
+```
+
+---
+
+### Phase 27 - Registry and Reuse Layer
+
+**Status: Deferred.**
+
+#### Purpose
+
+Manage generated context packages over time.
+
+#### Possible Features
+
+- package registry
+- package list UI
+- package verification
+- package tags
+- stale package detection
+- archive/delete package
+- compare manifests
+- optional signing
+
+#### Do Not Start Until
+
+- exports are used frequently
+- package browser exists
+- multiple bundles need management
+
+#### Suggested Commit
+
+```
+feat(registry): add local context package registry
+```
+
+---
+
+### Phase 28 - Optional Semantic Retrieval
+
+**Status: Deferred.**
+
+#### Purpose
+
+Add embeddings only when deterministic lexical search becomes insufficient.
+
+#### Do Not Start Until
+
+- at least 75+ real notes exist
+- lexical search has clear failure cases
+- embedding model choice is justified
+- cache invalidation design is clear
+- tests can avoid brittle ranking assertions
+- security scanner handles retrieval input surfaces
+
+#### Possible Features
+
+- local embedding index
+- hybrid lexical + semantic search
+- semantic bundle selection
+- explainable ranking metadata
+- embedding cache invalidation
+- model/version hash in bundle metadata
+
+#### Suggested Commit
+
+```
+feat(search): add optional semantic retrieval
+```
+
+---
+
+## Priority Order
+
+Recommended sequence:
+
+16. Visual Graph and Missing Concepts UI
+17. Distribution and Local App Launcher
+18. CI and Release Hardening
+19. Context Controller Layer
+20. MCP Compatibility Layer
+21. Private Cloud Mode
+22. Session and Project State Layer
+23. Safe Memory Write Queue
+24. Device Profiles and Context Budgets
+25. Trust, Staleness, and Evidence Metadata
+26. Import Pipelines
+27. Registry and Reuse Layer
+28. Optional Semantic Retrieval
+
+## Strategic Interpretation
+
+The project should now be understood in three layers:
+
+1. **Vault Application** — Human-facing local UI for creating, validating, editing, improving, and packaging vaults.
+2. **Context Service** — API/controller layer that assembles bounded, validated, security-scanned context.
+3. **Local AI Context Backend** — MCP-compatible private service that lets weak local LLMs retrieve durable project memory.
+
+The strongest future positioning is:
+
+> Context Vault Engine gives local LLMs structured, validated, persistent project memory without handing your knowledge base to a cloud model.
+
+## Memory Replacement Note
 
 This roadmap supersedes the previous master roadmap.
 
-Crucial information transferred from the old roadmap:
+### Crucial context preserved
 
-Context Vault Engine identity
-Local-first principle
-Deterministic-first principle
-Markdown source-of-truth principle
-Schema-as-contract principle
-Bundles as generated artefacts
-Validation before packaging
-Feedback influences priority but does not mutate notes
-Avoid hidden state
-Prefer small composable primitives
-Semantic retrieval remains optional and deferred
-Registry remains future work
-Forensic reports are historical snapshots, not permanent truth
+- Context Vault Engine identity
+- local-first principle
+- deterministic-first principle
+- Markdown source-of-truth principle
+- schema-as-contract principle
+- bundles as generated artefacts
+- validation before packaging
+- security scanning before external delivery
+- feedback influences priority but does not mutate notes
+- safe note editing through validation
+- semantic retrieval remains deferred
+- registry remains future work
+- forensic reports are historical snapshots, not permanent truth
 
-New strategic direction added:
+### New direction added
 
-The next product frontier is user experience: a local web UI, guided vault bootstrap, dashboard, bundle/export/security screens, feedback workflow, and safe note browsing.
+- Context Controller Layer
+- MCP Compatibility Layer
+- Private Cloud Mode
+- Session and Project State Layer
+- Safe Memory Write Queue
+- Device Profiles and Context Budgets
+- Trust/Staleness/Evidence metadata
+- Import pipelines
+
+This keeps the current roadmap context while extending the project toward the private local-LLM context backend use case.

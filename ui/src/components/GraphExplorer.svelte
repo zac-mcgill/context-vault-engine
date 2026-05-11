@@ -19,6 +19,7 @@
     type MissingData,
     type RankedMissingConcept,
   } from '../lib/api.ts';
+  import { getStoredVault } from '../lib/vaultState.ts';
 
   // ---------------------------------------------------------------------------
   // Vault state
@@ -116,7 +117,8 @@
     if (isOk(res)) {
       vaultList = res.data.vaults;
       if (vaultList.length > 0) {
-        selectedVault = vaultList[0];
+        const stored = getStoredVault();
+        selectedVault = (stored && vaultList.includes(stored)) ? stored : vaultList[0];
         await Promise.all([loadGraph(), loadMissing()]);
       }
     } else {

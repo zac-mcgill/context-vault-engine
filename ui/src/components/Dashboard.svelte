@@ -19,6 +19,12 @@
     type FeedbackData,
     type SecurityData,
   } from '../lib/api.ts';
+  import {
+    getStoredVault,
+    setStoredVault,
+    getVaultFromUrl,
+    chooseInitialVault,
+  } from '../lib/vaultState.ts';
 
   // ---------------------------------------------------------------------------
   // State
@@ -139,7 +145,10 @@
     if (isOk(result)) {
       vaultList = result.data.vaults;
       if (vaultList.length > 0 && !selectedVault) {
-        selectedVault = vaultList[0];
+        const urlVault = getVaultFromUrl();
+        const storedVault = getStoredVault();
+        selectedVault = chooseInitialVault(vaultList, urlVault, storedVault);
+        setStoredVault(selectedVault);
       }
       vaultsState = 'ok';
     } else {
@@ -219,6 +228,7 @@
   async function handleVaultChange(event: Event) {
     const select = event.target as HTMLSelectElement;
     selectedVault = select.value;
+    setStoredVault(selectedVault);
     await loadVaultData(selectedVault);
   }
 
@@ -260,10 +270,6 @@
       {:else if vaultList.length === 0}
         <span class="text-sm text-zinc-500">
           No vaults — <a href="/app/vault-setup" class="text-sky-400 hover:underline">set one up</a>
-        </span>
-      {:else if vaultList.length === 1}
-        <span class="text-sm text-zinc-400">
-          Vault: <span class="text-zinc-200 font-medium">{selectedVault}</span>
         </span>
       {:else}
         <div class="flex items-center gap-2">

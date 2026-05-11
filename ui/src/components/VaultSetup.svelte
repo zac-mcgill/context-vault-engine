@@ -4,6 +4,7 @@
     isOk,
     type VaultBootstrapResponse,
   } from '../lib/api.ts';
+  import { setStoredVault } from '../lib/vaultState.ts';
 
   // ── Form state ─────────────────────────────────────────────────────────────
   let vaultName = '';
@@ -118,6 +119,8 @@
     if (isOk(result)) {
       successData = result.data;
       submitState = 'success';
+      // Persist the new vault so Dashboard selects it immediately.
+      setStoredVault(result.data.vault);
     } else {
       errorCode = result.error?.code ?? 'UNKNOWN';
       errorMsg = result.error?.message ?? 'An unexpected error occurred.';
@@ -217,12 +220,12 @@
         {/if}
 
         <p class="text-xs text-emerald-600 mt-3">
-          The Dashboard vault list will update on next visit or refresh.
+          This vault is now selected. Dashboard will load its data immediately.
         </p>
 
         <div class="mt-4 flex flex-wrap gap-3">
           <a
-            href="/app/"
+            href="/app/?vault={successData.vault}"
             class="inline-flex items-center gap-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 hover:text-zinc-100 px-3 py-1.5 rounded transition-colors"
           >
             Go to Dashboard

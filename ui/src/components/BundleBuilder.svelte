@@ -8,6 +8,7 @@
     type ContextBundleResponse,
     type BundleNote,
   } from '../lib/api.ts';
+  import { getStoredVault } from '../lib/vaultState.ts';
 
   // ---------------------------------------------------------------------------
   // Vault state
@@ -87,7 +88,10 @@
     const result = await fetchVaults();
     if (isOk(result)) {
       vaultList = result.data.vaults ?? [];
-      if (vaultList.length > 0) selectedVault = vaultList[0];
+      if (vaultList.length > 0) {
+        const stored = getStoredVault();
+        selectedVault = (stored && vaultList.includes(stored)) ? stored : vaultList[0];
+      }
     } else {
       vaultsError = result.error?.message ?? 'Failed to load vaults';
     }

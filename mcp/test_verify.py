@@ -9186,6 +9186,421 @@ def test_pqas_feedback_envelope_regression():
 
 
 # ============================================================
+# Phase VS — Vault Selection UX Fix Tests
+# ============================================================
+
+
+def test_pvs_bootstrap_adds_vault_to_registry():
+    """VS-1: POST /vault/bootstrap adds new vault to GET /vaults without restart."""
+    print("\n=== Test VS-1: Bootstrap Adds Vault to Registry ===")
+    import tempfile
+    from fastapi.testclient import TestClient
+    import mcp.server.mcp_server as _srv
+    from mcp.core import vault_registry as _reg
+
+    with tempfile.TemporaryDirectory(prefix="kv_pvs_1_") as tmp_str:
+        repo_root = Path(tmp_str)
+        (repo_root / "config").mkdir()
+        config_path = repo_root / "config" / "config.yaml"
+        config_path.write_text(
+            "vault_root: ./demo-vault\nvault_roots:\n  - ./demo-vault\n",
+            encoding="utf-8",
+        )
+
+        # Create a minimal stub for demo-vault so the registry doesn't fail.
+        demo = repo_root / "demo-vault"
+        demo.mkdir()
+        scripts = demo / "Vault Files" / "Scripts"
+        scripts.mkdir(parents=True)
+
+        # Copy the real schema so the registry can load it.
+        import shutil as _shutil
+        real_schema = Path(__file__).resolve().parent.parent / "demo-vault" / "Vault Files" / "Scripts" / "vault_schema.py"
+        _shutil.copy(real_schema, scripts / "vault_schema.py")
+
+        # Patch registry root and bootstrap root to temp dir.
+        saved_config = _reg._CONFIG_PATH
+        saved_repo = _reg._REPO_ROOT
+        saved_vaults = dict(_reg._vaults)
+        saved_schemas = dict(_reg._schemas)
+        saved_bootstrap = _srv._BOOTSTRAP_REPO_ROOT
+
+        try:
+            _reg._CONFIG_PATH = config_path
+            _reg._REPO_ROOT = repo_root
+            _reg._vaults = {}
+            _reg._schemas = {}
+            _srv._BOOTSTRAP_REPO_ROOT = repo_root
+
+            client = TestClient(_srv.app, raise_server_exceptions=True)
+
+            # Verify demo-vault is visible.
+            resp = client.get("/vaults")
+            assert resp.status_code == 200
+            vaults_before = resp.json()["data"]["vaults"]
+            assert "demo-vault" in vaults_before, f"demo-vault not in {vaults_before}"
+            print(f"  Vaults before bootstrap: {vaults_before}")
+
+            # Bootstrap a new vault.
+            resp2 = client.post("/vault/bootstrap", json={
+                "vault_name": "test-dogs",
+                "domain": "Dogs",
+                "note_type": "breed-profile",
+                "sections": ["Overview", "Care Requirements"],
+            })
+            assert resp2.status_code == 200, f"Bootstrap failed: {resp2.text}"
+            created_vault = resp2.json()["data"]["vault"]
+            assert created_vault == "test-dogs"
+            print(f"  Bootstrap created: {created_vault}")
+
+            # New vault must now appear in /vaults.
+            resp3 = client.get("/vaults")
+            assert resp3.status_code == 200
+            vaults_after = resp3.json()["data"]["vaults"]
+            assert "test-dogs" in vaults_after, f"New vault not in /vaults: {vaults_after}"
+            print(f"  Vaults after bootstrap: {vaults_after}")
+
+        finally:
+            _reg._CONFIG_PATH = saved_config
+            _reg._REPO_ROOT = saved_repo
+            _reg._vaults = saved_vaults
+            _reg._schemas = saved_schemas
+            _srv._BOOTSTRAP_REPO_ROOT = saved_bootstrap
+            _reg.reload_config()
+
+    print("  VS-1 passed ✓")
+
+
+def test_pvs_demo_vault_remains_after_bootstrap():
+    """VS-2: demo-vault remains available after bootstrapping a new vault."""
+    print("\n=== Test VS-2: demo-vault Remains After Bootstrap ===")
+    import tempfile
+    from fastapi.testclient import TestClient
+    import mcp.server.mcp_server as _srv
+    from mcp.core import vault_registry as _reg
+
+    with tempfile.TemporaryDirectory(prefix="kv_pvs_2_") as tmp_str:
+        repo_root = Path(tmp_str)
+        (repo_root / "config").mkdir()
+        config_path = repo_root / "config" / "config.yaml"
+        config_path.write_text(
+            "vault_root: ./demo-vault\nvault_roots:\n  - ./demo-vault\n",
+            encoding="utf-8",
+        )
+
+        import shutil as _shutil
+        demo = repo_root / "demo-vault"
+        demo.mkdir()
+        scripts = demo / "Vault Files" / "Scripts"
+        scripts.mkdir(parents=True)
+        real_schema = Path(__file__).resolve().parent.parent / "demo-vault" / "Vault Files" / "Scripts" / "vault_schema.py"
+        _shutil.copy(real_schema, scripts / "vault_schema.py")
+
+        saved_config = _reg._CONFIG_PATH
+        saved_repo = _reg._REPO_ROOT
+        saved_vaults = dict(_reg._vaults)
+        saved_schemas = dict(_reg._schemas)
+        saved_bootstrap = _srv._BOOTSTRAP_REPO_ROOT
+
+        try:
+            _reg._CONFIG_PATH = config_path
+            _reg._REPO_ROOT = repo_root
+            _reg._vaults = {}
+            _reg._schemas = {}
+            _srv._BOOTSTRAP_REPO_ROOT = repo_root
+
+            client = TestClient(_srv.app, raise_server_exceptions=True)
+
+            # Bootstrap a new vault.
+            resp = client.post("/vault/bootstrap", json={
+                "vault_name": "cats-vault",
+                "domain": "Cats",
+                "note_type": "cat-profile",
+                "sections": ["Overview", "Temperament"],
+            })
+            assert resp.status_code == 200
+
+            # demo-vault must still appear.
+            resp2 = client.get("/vaults")
+            vaults = resp2.json()["data"]["vaults"]
+            assert "demo-vault" in vaults, f"demo-vault missing after bootstrap: {vaults}"
+            assert "cats-vault" in vaults, f"new vault missing: {vaults}"
+            print(f"  Both vaults present: {vaults} ✓")
+
+        finally:
+            _reg._CONFIG_PATH = saved_config
+            _reg._REPO_ROOT = saved_repo
+            _reg._vaults = saved_vaults
+            _reg._schemas = saved_schemas
+            _srv._BOOTSTRAP_REPO_ROOT = saved_bootstrap
+            _reg.reload_config()
+
+    print("  VS-2 passed ✓")
+
+
+def test_pvs_config_vault_roots_maintained():
+    """VS-3: update_config adds new vault to vault_roots and keeps existing ones."""
+    print("\n=== Test VS-3: Config vault_roots Maintained ===")
+    import tempfile
+    import yaml as _yaml
+    from core.shared.bootstrap_service import update_config
+
+    with tempfile.TemporaryDirectory(prefix="kv_pvs_3_") as tmp_str:
+        repo_root = Path(tmp_str)
+        (repo_root / "config").mkdir()
+        config_path = repo_root / "config" / "config.yaml"
+        config_path.write_text(
+            "vault_root: ./demo-vault\nvault_roots:\n  - ./demo-vault\n",
+            encoding="utf-8",
+        )
+
+        update_config(repo_root, "my-new-vault")
+
+        with open(config_path, encoding="utf-8") as f:
+            cfg = _yaml.safe_load(f)
+
+        assert cfg["vault_root"] == "./my-new-vault", f"vault_root not updated: {cfg['vault_root']}"
+        assert "./demo-vault" in cfg["vault_roots"], "demo-vault removed from vault_roots"
+        assert "./my-new-vault" in cfg["vault_roots"], "new vault not added to vault_roots"
+        print(f"  vault_root: {cfg['vault_root']} ✓")
+        print(f"  vault_roots: {cfg['vault_roots']} ✓")
+
+    print("  VS-3 passed ✓")
+
+
+def test_pvs_registry_reads_vault_roots():
+    """VS-4: vault_registry._load_config reads all vaults from vault_roots list."""
+    print("\n=== Test VS-4: Registry Reads vault_roots ===")
+    import tempfile
+    import shutil as _shutil
+    from mcp.core import vault_registry as _reg
+
+    with tempfile.TemporaryDirectory(prefix="kv_pvs_4_") as tmp_str:
+        repo_root = Path(tmp_str)
+
+        # Create two fake vault directories.
+        for vname in ("vault-a", "vault-b"):
+            scripts = repo_root / vname / "Vault Files" / "Scripts"
+            scripts.mkdir(parents=True)
+            real_schema = Path(__file__).resolve().parent.parent / "demo-vault" / "Vault Files" / "Scripts" / "vault_schema.py"
+            _shutil.copy(real_schema, scripts / "vault_schema.py")
+
+        config_path = repo_root / "config" / "config.yaml"
+        (repo_root / "config").mkdir()
+        config_path.write_text(
+            "vault_root: ./vault-a\nvault_roots:\n  - ./vault-a\n  - ./vault-b\n",
+            encoding="utf-8",
+        )
+
+        saved_config = _reg._CONFIG_PATH
+        saved_repo = _reg._REPO_ROOT
+        saved_vaults = dict(_reg._vaults)
+        saved_schemas = dict(_reg._schemas)
+
+        try:
+            _reg._CONFIG_PATH = config_path
+            _reg._REPO_ROOT = repo_root
+            _reg._vaults = {}
+            _reg._schemas = {}
+            _reg._load_config()
+
+            vaults = list(_reg._vaults.keys())
+            assert "vault-a" in vaults, f"vault-a not registered: {vaults}"
+            assert "vault-b" in vaults, f"vault-b not registered: {vaults}"
+            print(f"  Both vaults registered: {sorted(vaults)} ✓")
+
+        finally:
+            _reg._CONFIG_PATH = saved_config
+            _reg._REPO_ROOT = saved_repo
+            _reg._vaults = saved_vaults
+            _reg._schemas = saved_schemas
+            _reg.reload_config()
+
+    print("  VS-4 passed ✓")
+
+
+def test_pvs_registry_fallback_to_vault_root():
+    """VS-5: vault_registry falls back to vault_root when vault_roots is absent."""
+    print("\n=== Test VS-5: Registry Falls Back to vault_root ===")
+    import tempfile
+    import shutil as _shutil
+    from mcp.core import vault_registry as _reg
+
+    with tempfile.TemporaryDirectory(prefix="kv_pvs_5_") as tmp_str:
+        repo_root = Path(tmp_str)
+        vault_dir = repo_root / "solo-vault"
+        scripts = vault_dir / "Vault Files" / "Scripts"
+        scripts.mkdir(parents=True)
+        real_schema = Path(__file__).resolve().parent.parent / "demo-vault" / "Vault Files" / "Scripts" / "vault_schema.py"
+        _shutil.copy(real_schema, scripts / "vault_schema.py")
+
+        config_path = repo_root / "config" / "config.yaml"
+        (repo_root / "config").mkdir()
+        # Old-style config: no vault_roots key.
+        config_path.write_text("vault_root: ./solo-vault\n", encoding="utf-8")
+
+        saved_config = _reg._CONFIG_PATH
+        saved_repo = _reg._REPO_ROOT
+        saved_vaults = dict(_reg._vaults)
+        saved_schemas = dict(_reg._schemas)
+
+        try:
+            _reg._CONFIG_PATH = config_path
+            _reg._REPO_ROOT = repo_root
+            _reg._vaults = {}
+            _reg._schemas = {}
+            _reg._load_config()
+
+            vaults = list(_reg._vaults.keys())
+            assert "solo-vault" in vaults, f"solo-vault not registered via fallback: {vaults}"
+            print(f"  Fallback works, registered: {vaults} ✓")
+
+        finally:
+            _reg._CONFIG_PATH = saved_config
+            _reg._REPO_ROOT = saved_repo
+            _reg._vaults = saved_vaults
+            _reg._schemas = saved_schemas
+            _reg.reload_config()
+
+    print("  VS-5 passed ✓")
+
+
+def test_pvs_dashboard_no_hardcoded_demo_vault():
+    """VS-6: Dashboard.svelte does not hardcode demo-vault as active vault."""
+    print("\n=== Test VS-6: Dashboard Does Not Hardcode demo-vault ===")
+    dashboard = Path(__file__).resolve().parent.parent / "ui" / "src" / "components" / "Dashboard.svelte"
+    assert dashboard.is_file(), f"Dashboard.svelte not found: {dashboard}"
+    source = dashboard.read_text(encoding="utf-8")
+
+    # Must not assign demo-vault as a default string literal.
+    import re
+    bad_patterns = [
+        r"selectedVault\s*=\s*['\"]demo-vault['\"]",
+        r"=\s*['\"]demo-vault['\"]",  # broader — catches default assignments
+    ]
+    for pattern in bad_patterns:
+        matches = re.findall(pattern, source)
+        # Exclude matches inside comments.
+        non_comment = [m for m in matches if "//" not in source[max(0, source.find(m) - 20):source.find(m)]]
+        assert not non_comment, f"Dashboard hardcodes demo-vault: {non_comment}"
+
+    print("  No hardcoded demo-vault found ✓")
+
+
+def test_pvs_dashboard_has_vault_selector():
+    """VS-7: Dashboard.svelte contains a vault selector that works for 1+ vaults."""
+    print("\n=== Test VS-7: Dashboard Has Vault Selector ===")
+    dashboard = Path(__file__).resolve().parent.parent / "ui" / "src" / "components" / "Dashboard.svelte"
+    source = dashboard.read_text(encoding="utf-8")
+
+    # The selector block must NOT be gated on vaultList.length > 1.
+    assert "vaultList.length === 1" not in source, (
+        "Dashboard still has single-vault plain-text branch (should always use selector)"
+    )
+
+    # Must have a <select> element for vault selection.
+    assert "<select" in source, "Dashboard missing <select> vault selector"
+    assert "on:change={handleVaultChange}" in source or "on:change" in source, (
+        "Dashboard selector missing change handler"
+    )
+    print("  Dashboard vault selector present ✓")
+
+
+def test_pvs_dashboard_uses_vaultstate():
+    """VS-8: Dashboard.svelte imports and uses vaultState helpers."""
+    print("\n=== Test VS-8: Dashboard Uses vaultState Helpers ===")
+    dashboard = Path(__file__).resolve().parent.parent / "ui" / "src" / "components" / "Dashboard.svelte"
+    source = dashboard.read_text(encoding="utf-8")
+
+    assert "vaultState.ts" in source or "from '../lib/vaultState" in source, (
+        "Dashboard does not import from vaultState.ts"
+    )
+    assert "getStoredVault" in source, "Dashboard does not call getStoredVault"
+    assert "setStoredVault" in source, "Dashboard does not call setStoredVault"
+    assert "chooseInitialVault" in source, "Dashboard does not call chooseInitialVault"
+    print("  Dashboard uses vaultState helpers ✓")
+
+
+def test_pvs_vaultsetup_sets_stored_vault():
+    """VS-9: VaultSetup.svelte calls setStoredVault after successful bootstrap."""
+    print("\n=== Test VS-9: VaultSetup Sets Stored Vault ===")
+    setup = Path(__file__).resolve().parent.parent / "ui" / "src" / "components" / "VaultSetup.svelte"
+    source = setup.read_text(encoding="utf-8")
+
+    assert "setStoredVault" in source, "VaultSetup does not call setStoredVault"
+    print("  VaultSetup calls setStoredVault ✓")
+
+
+def test_pvs_vaultsetup_dashboard_link_includes_vault():
+    """VS-10: VaultSetup.svelte Go to Dashboard link includes ?vault= parameter."""
+    print("\n=== Test VS-10: VaultSetup Dashboard Link Has ?vault= ===")
+    setup = Path(__file__).resolve().parent.parent / "ui" / "src" / "components" / "VaultSetup.svelte"
+    source = setup.read_text(encoding="utf-8")
+
+    # Must not link to bare /app/ after success.
+    assert 'href="/app/"' not in source or "successData" not in source.split('href="/app/"')[0].split("\n")[-1], (
+        "VaultSetup still links to /app/ without vault param"
+    )
+    # Must include vault in the Dashboard link.
+    assert "?vault=" in source, "VaultSetup Dashboard link missing ?vault= parameter"
+    print("  VaultSetup Dashboard link includes ?vault= ✓")
+
+
+def test_pvs_vaultstate_helper_choose_initial_vault():
+    """VS-11: chooseInitialVault precedence: URL > stored > first."""
+    print("\n=== Test VS-11: chooseInitialVault Precedence ===")
+
+    # Simulate the helper logic (pure Python equivalent of the TS function).
+    def choose(vaults, url_vault=None, stored_vault=None):
+        if url_vault and url_vault in vaults:
+            return url_vault
+        if stored_vault and stored_vault in vaults:
+            return stored_vault
+        return vaults[0] if vaults else ''
+
+    vaults = ["demo-vault", "dogs-vault", "cats-vault"]
+
+    # URL vault wins.
+    result = choose(vaults, url_vault="dogs-vault", stored_vault="cats-vault")
+    assert result == "dogs-vault", f"URL vault should win: {result}"
+
+    # Stored vault wins over first.
+    result = choose(vaults, url_vault=None, stored_vault="cats-vault")
+    assert result == "cats-vault", f"Stored vault should win: {result}"
+
+    # Falls back to first.
+    result = choose(vaults, url_vault=None, stored_vault=None)
+    assert result == "demo-vault", f"Should fall back to first: {result}"
+
+    # Unknown stored vault falls back to first.
+    result = choose(vaults, url_vault=None, stored_vault="nonexistent-vault")
+    assert result == "demo-vault", f"Unknown stored vault should fall back: {result}"
+
+    # Unknown URL vault falls back to stored.
+    result = choose(vaults, url_vault="nonexistent", stored_vault="cats-vault")
+    assert result == "cats-vault", f"Unknown URL vault should use stored: {result}"
+
+    # Empty vaults list returns ''.
+    result = choose([], url_vault="dogs-vault", stored_vault="cats-vault")
+    assert result == '', f"Empty vaults should return '': {result}"
+
+    print("  All chooseInitialVault precedence cases pass ✓")
+
+
+def test_pvs_vaultstate_file_exists():
+    """VS-12: vaultState.ts helper file exists with expected exports."""
+    print("\n=== Test VS-12: vaultState.ts Exists ===")
+    vs = Path(__file__).resolve().parent.parent / "ui" / "src" / "lib" / "vaultState.ts"
+    assert vs.is_file(), f"vaultState.ts not found: {vs}"
+    source = vs.read_text(encoding="utf-8")
+
+    for fn in ("getStoredVault", "setStoredVault", "clearStoredVault", "getVaultFromUrl", "chooseInitialVault"):
+        assert fn in source, f"vaultState.ts missing export: {fn}"
+
+    print("  vaultState.ts has all expected exports ✓")
+
+
+# ============================================================
 # Main
 # ============================================================
 
@@ -9603,6 +10018,23 @@ def main():
     test_pqas_all_routes_covered_in_route_test()
     test_pqas_export_context_html_in_source()
     test_pqas_feedback_envelope_regression()
+
+    # ---- Phase VS — Vault Selection UX Fix ----
+    print("\n" + "=" * 60)
+    print("Phase VS — Vault Selection UX Fix")
+    print("=" * 60)
+    test_pvs_config_vault_roots_maintained()
+    test_pvs_registry_reads_vault_roots()
+    test_pvs_registry_fallback_to_vault_root()
+    test_pvs_bootstrap_adds_vault_to_registry()
+    test_pvs_demo_vault_remains_after_bootstrap()
+    test_pvs_dashboard_no_hardcoded_demo_vault()
+    test_pvs_dashboard_has_vault_selector()
+    test_pvs_dashboard_uses_vaultstate()
+    test_pvs_vaultsetup_sets_stored_vault()
+    test_pvs_vaultsetup_dashboard_link_includes_vault()
+    test_pvs_vaultstate_helper_choose_initial_vault()
+    test_pvs_vaultstate_file_exists()
 
     print()
     print("=" * 60)

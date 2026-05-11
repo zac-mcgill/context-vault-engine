@@ -20,9 +20,7 @@
     type Task,
     type NoteUpdateResponse,
   } from '../lib/api.ts';
-
-  // ---------------------------------------------------------------------------
-  // Types
+  import { getStoredVault } from '../lib/vaultState.ts';
   // ---------------------------------------------------------------------------
 
   type LoadState = 'idle' | 'loading' | 'ok' | 'error';
@@ -396,7 +394,8 @@
     if (isOk(result)) {
       vaultList = result.data.vaults;
       if (vaultList.length > 0) {
-        selectedVault = vaultList[0];
+        const stored = getStoredVault();
+        selectedVault = (stored && vaultList.includes(stored)) ? stored : vaultList[0];
         await loadAll();
       }
     } else {

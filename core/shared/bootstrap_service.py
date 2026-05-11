@@ -23,6 +23,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
+import yaml
+
 # ---------------------------------------------------------------------------
 # Validation patterns
 # ---------------------------------------------------------------------------
@@ -61,6 +63,11 @@ def _title_case(text: str) -> str:
 def update_config(repo_root: Path, vault_name: str) -> None:
     """Atomically update config/config.yaml to point to *vault_name*.
 
+    Updates ``vault_root`` (the active/default vault) and maintains
+    ``vault_roots`` (the full list of known vaults).  New vaults are appended
+    to ``vault_roots``; existing entries are preserved so all registered vaults
+    remain accessible after bootstrap.
+
     Uses a temp-file + atomic replace strategy so a partial write never
     corrupts the config file.
 
@@ -73,14 +80,25 @@ def update_config(repo_root: Path, vault_name: str) -> None:
         raise FileNotFoundError(f"config/config.yaml not found: {config_path}")
 
     with open(config_path, encoding="utf-8") as f:
-        content = f.read()
+        data = yaml.safe_load(f) or {}
 
-    updated = re.sub(
-        r"^(vault_root:\s*).*$",
-        rf"\g<1>./{vault_name}",
-        content,
-        flags=re.MULTILINE,
-    )
+    new_root = f"./{vault_name}"
+
+    # Update vault_root to the newly created vault.
+    data["vault_root"] = new_root
+
+    # Maintain vault_roots list: append new vault, keep existing ones.
+    existing: list[str] = data.get("vault_roots") or []
+    if not existing:
+        # Seed from old vault_root if vault_roots was absent.
+        old_root = data.get("vault_root")
+        if old_root and old_root != new_root:
+            existing = [old_root]
+    if new_root not in existing:
+        existing.append(new_root)
+    data["vault_roots"] = existing
+
+    updated = yaml.dump(data, default_flow_style=False, sort_keys=False)
 
     tmp_fd, tmp_path = tempfile.mkstemp(dir=config_path.parent, suffix=".yaml")
     try:

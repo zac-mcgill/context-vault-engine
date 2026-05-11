@@ -2,7 +2,11 @@
 Vault registry — loads config, resolves paths, caches schemas.
 
 Single source of truth for vault name → path → schema mappings.
-Reads the active vault from config/config.yaml (shared with run.py).
+Reads vaults from config/config.yaml (shared with run.py).
+
+Multi-vault support: if ``vault_roots`` (list) is present in config.yaml all
+listed paths are registered.  Falls back to single ``vault_root`` when
+``vault_roots`` is absent or empty, preserving backward compatibility.
 """
 
 import yaml
@@ -19,7 +23,7 @@ _schemas: dict[str, ModuleType] = {}
 
 
 def _load_config() -> None:
-    """Parse config.yaml and resolve the active vault."""
+    """Parse config.yaml and register all configured vaults."""
     global _vaults
 
     if _vaults:
@@ -31,19 +35,31 @@ def _load_config() -> None:
     with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
-    vault_root = data.get("vault_root")
-    if not vault_root:
-        raise ValueError(f"config.yaml missing 'vault_root': {_CONFIG_PATH}")
+    # Multi-vault: prefer vault_roots list; fall back to single vault_root.
+    raw_roots: list[str] = data.get("vault_roots") or []
+    if not raw_roots:
+        single = data.get("vault_root")
+        if not single:
+            raise ValueError(f"config.yaml missing 'vault_root': {_CONFIG_PATH}")
+        raw_roots = [single]
 
-    p = Path(vault_root)
-    if not p.is_absolute():
-        p = (_REPO_ROOT / vault_root).resolve()
+    loaded: dict[str, Path] = {}
+    for raw in raw_roots:
+        p = Path(raw)
+        if not p.is_absolute():
+            p = (_REPO_ROOT / raw).resolve()
+        if not p.is_dir():
+            # Skip missing directories rather than aborting — a vault may have
+            # been deleted manually while remaining in vault_roots.
+            continue
+        loaded[p.name] = p
 
-    if not p.is_dir():
-        raise FileNotFoundError(f"Vault directory not found: {p}")
+    if not loaded:
+        raise FileNotFoundError(
+            f"No vault directories found for configured roots: {raw_roots}"
+        )
 
-    vault_name = p.name
-    _vaults[vault_name] = p
+    _vaults = loaded
 
 
 def list_vaults() -> list[str]:

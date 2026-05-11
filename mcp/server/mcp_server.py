@@ -131,6 +131,12 @@ class _RateLimiter:
                 self._timestamps.popleft()
             return len(self._timestamps)
 
+    def reset(self) -> None:
+        """Reset state — used by the lifespan to isolate test clients."""
+        with self._lock:
+            self._timestamps.clear()
+            self._rejected = 0
+
 
 _rate_limiter = _RateLimiter(max_per_second=50)
 
@@ -229,6 +235,7 @@ async def lifespan(app: FastAPI):
     global _start_time, _shutting_down
     _start_time = time.monotonic()
     _shutting_down = False
+    _rate_limiter.reset()
 
     # Phase 5: validate config before anything else
     logger.info("startup_config_validation")

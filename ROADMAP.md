@@ -92,7 +92,7 @@ The backend is strong. The local UI has reached a usable application baseline. T
 
 ## Current Active Phase
 
-**Phase 20 - MCP Compatibility Layer**
+**Phase 21 - Private Cloud Mode**
 
 ## Phase Status Overview
 
@@ -119,7 +119,7 @@ The backend is strong. The local UI has reached a usable application baseline. T
 | 17    | Distribution and Local App Launcher     | Complete |
 | 18    | CI and Release Hardening                | Complete |
 | 19    | Context Controller Layer                | Complete |
-| 20    | MCP Compatibility Layer                 | Planned  |
+| 20    | MCP Compatibility Layer                 | Complete |
 | 21    | Private Cloud Mode                      | Planned  |
 | 22    | Session and Project State Layer         | Planned  |
 | 23    | Safe Memory Write Queue                 | Planned  |
@@ -368,48 +368,43 @@ feat(context): add context controller layer (Phase 19)
 
 ---
 
-### Phase 20 - MCP Compatibility Layer
+### Phase 20 - MCP Compatibility Layer — **Complete**
 
 #### Purpose
 
-Allow local LLM apps and agent clients to use Context Vault Engine as a tool server.
+Allow local LLM apps and agent clients to use Context Vault Engine as a read-only MCP tool server.
 
-#### Deliver
+#### Delivered
 
-MCP-compatible tools:
+MCP stdio server (`py run.py mcp`) using JSON-RPC 2.0 over stdin/stdout:
 
-- `search_vault`
-- `get_note`
-- `build_context_bundle`
-- `build_context_for_question`
-- `get_tasks`
-- `get_project_state`
-- `add_feedback`
-- `run_validation`
-- `run_security_scan`
+**Tools (10):** `cve.list_vaults`, `cve.get_context_state`, `cve.get_context_plan`, `cve.query_notes`, `cve.get_note`, `cve.validate_vault`, `cve.get_tasks`, `cve.get_missing_concepts`, `cve.security_scan`, `cve.build_context_bundle`
 
-#### Rules
+**Resources (9 URI patterns):** `cve://vaults`, vault summary, state, plan, notes, tasks, missing, security, graph
 
-- Default mode is read-only.
-- Write tools must be explicitly enabled.
-- Note mutation must go through validation.
-- Unsafe paths remain blocked.
-- Tool outputs include source paths.
-- Tool outputs respect context budgets.
+**Prompts (4):** `cve.vault_review`, `cve.security_review`, `cve.context_handoff`, `cve.quality_plan`
 
-#### Acceptance Criteria
+#### Files Created
 
-- MCP client can connect.
-- Client can retrieve bounded context.
-- Client can request project state.
-- Client can add feedback safely.
-- No direct uncontrolled note rewriting.
+- `mcp/core/mcp_protocol.py` — JSON-RPC 2.0 protocol handler
+- `mcp/core/mcp_tools.py` — tool catalogue and dispatch
+- `mcp/core/mcp_resources.py` — resource catalogue and read
+- `mcp/core/mcp_prompts.py` — prompt definitions with safety footer
+- `mcp/server/mcp_stdio_server.py` — main stdio server loop
 
-#### Suggested Commit
+#### Files Modified
 
-```
-feat(mcp): add MCP-compatible tool layer
-```
+- `run.py` — added `mcp` command
+- `mcp/test_verify.py` — 41 Phase 20 tests
+- `README.md`, `QUICKSTART.md`, `API.md`, `TESTING.md`, `ROADMAP.md` — updated docs
+
+#### Rules Met
+
+- All tool calls are read-only and deterministic.
+- No destructive mutation tools exposed.
+- Path traversal blocked for `get_note` and resource URIs.
+- All prompts include safety footer.
+- Logs go to stderr only; stdout is clean JSON-RPC.
 
 ---
 

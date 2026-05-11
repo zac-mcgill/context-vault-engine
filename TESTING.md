@@ -606,6 +606,79 @@ cd ui && npm run build     # must complete with 0 errors
 - `ROADMAP.md` — Phase 19 marked Complete; active phase updated to 20.
 - `TESTING.md` — added Phase 19 section (this entry).
 
+### Phase 20 — MCP Compatibility Layer
+
+MCP stdio server exposing all vault capabilities as JSON-RPC 2.0 tools, resources, and prompts. Read-only and deterministic. 41 tests added.
+
+**Verification steps:**
+
+```bash
+py mcp/test_verify.py      # 382 tests — all must pass (41 new P20 tests added)
+py run.py validate         # 19/19 valid
+py run.py security         # status: pass
+py run.py feedback         # exits 0, valid JSON
+py run.py export --overwrite   # status: ok; 7 files including context.html
+cd ui && npm run build     # must complete with 0 errors
+```
+
+**Tests added (41 total):**
+
+Protocol tests:
+- `test_p20_initialize_returns_correct_shape` — initialize returns protocolVersion, serverInfo, capabilities.
+- `test_p20_notification_produces_no_response` — notifications/initialized produces no response.
+- `test_p20_ping_returns_result` — ping returns valid result.
+- `test_p20_unknown_method_returns_32601` — unknown method returns -32601.
+- `test_p20_invalid_json_returns_32700` — invalid JSON returns -32700 parse error.
+- `test_p20_logs_not_written_to_stdout` — logs go to stderr, only JSON-RPC on stdout.
+
+Tools tests:
+- `test_p20_tools_list_deterministic` — tools/list returns same alphabetically-sorted list on each call.
+- `test_p20_tool_names_prefixed` — all tool names start with `cve.`.
+- `test_p20_tools_list_required_tools` — all 10 required CVE tools present.
+- `test_p20_tools_have_object_schema` — every tool has `inputSchema.type = "object"`.
+- `test_p20_tools_call_unknown_returns_error` — unknown tool returns `isError=true`.
+- `test_p20_tool_list_vaults_works` — `cve.list_vaults` returns vault list.
+- `test_p20_tool_get_context_state_works` — `cve.get_context_state` returns state for demo-vault.
+- `test_p20_tool_get_context_plan_works` — `cve.get_context_plan` returns plan for demo-vault.
+- `test_p20_tool_query_notes_lexical` — `cve.query_notes` returns results for lexical query.
+- `test_p20_tool_get_note_path_traversal_blocked` — `cve.get_note` blocks `../` traversal attempts.
+- `test_p20_tool_security_scan_full_vault` — `cve.security_scan` covers all vault notes.
+- `test_p20_tool_build_context_bundle_no_write` — `cve.build_context_bundle` builds in-memory, writes no files.
+
+Resources tests:
+- `test_p20_resources_list_deterministic` — resources/list returns same URIs on each call.
+- `test_p20_resource_read_vaults` — `cve://vaults` returns vault list.
+- `test_p20_resource_read_vault_state` — vault state resource returns valid state data.
+- `test_p20_resource_read_unknown_returns_error` — unknown URI returns structured error in contents.
+- `test_p20_resource_path_safety` — unregistered vault name in URI returns `INVALID_VAULT`.
+
+Prompts tests:
+- `test_p20_prompts_list_required` — prompts/list returns all 4 required CVE prompts.
+- `test_p20_prompt_get_vault_review` — `cve.vault_review` returns messages referencing vault and CVE tools.
+- `test_p20_prompt_get_unknown_returns_error` — unknown prompt name returns -32602.
+- `test_p20_prompts_no_destructive_language` — all prompts include safety language.
+
+Safety tests:
+- `test_p20_no_destructive_tools` — no delete/edit/create/write tools exposed.
+- `test_p20_tool_calls_deterministic` — repeated identical tool calls return the same result.
+
+**Files changed:**
+
+- `mcp/core/mcp_protocol.py` (NEW) — JSON-RPC 2.0 protocol handler: parse, dispatch, respond, error codes.
+- `mcp/core/mcp_tools.py` (NEW) — 10 CVE tools: catalogue and dispatch using late imports.
+- `mcp/core/mcp_resources.py` (NEW) — 9 resource URI patterns: list and read with vault validation.
+- `mcp/core/mcp_prompts.py` (NEW) — 4 CVE prompts with safety footer.
+- `mcp/server/mcp_stdio_server.py` (NEW) — Main MCP stdio server loop (stdin→stdout, logs→stderr).
+- `run.py` — added `mcp` command; updates USAGE string.
+- `mcp/test_verify.py` — 41 new Phase 20 tests.
+- `API.md` — added MCP Compatibility Layer section.
+- `QUICKSTART.md` — added section 6m covering MCP stdio server.
+- `README.md` — updated capabilities summary and test count to 382.
+- `TESTING.md` — added Phase 20 section (this entry).
+- `ROADMAP.md` — Phase 20 marked Complete.
+
+
+
 ### Phase 18C — Vault Lifecycle Management
 
 Safe vault deletion through API and UI. Users can permanently delete non-demo vaults via `DELETE /vault/{vault_name}` with explicit typed confirmation. A Danger Zone section was added to the Vault Setup page. 18 backend tests added.

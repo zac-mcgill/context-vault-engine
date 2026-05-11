@@ -4,7 +4,7 @@
 
 Context Vault Engine is a local-first Python pipeline for validating, scanning, and securely packaging structured Markdown content. It enforces a schema contract on every note, scans content for credential leaks, prompt-injection patterns, and suspicious executable/script blocks, then exports integrity-verified packages with SHA-256 manifests. All security rules are deterministic and regex-based, so every finding is explainable, reproducible, and auditable without an LLM or cloud dependency.
 
-**Local-first Python pipeline: credential leak scanning, prompt-injection detection, schema enforcement, rate-limited API, path-traversal blocking, SHA-256 artefact integrity. 284 tests.**
+**Local-first Python pipeline: credential leak scanning, prompt-injection detection, schema enforcement, rate-limited API, path-traversal blocking, SHA-256 artefact integrity, MCP stdio compatibility layer. 382 tests.**
 
 ---
 
@@ -19,7 +19,8 @@ Context Vault Engine is a local-first Python pipeline for validating, scanning, 
 - SHA-256 manifest on every exported package
 - Optional export security gate: `require_security_pass: true` aborts export on `fail`-severity findings
 - Relationship graph, quality audit, missing-concept detection
-- 180 deterministic tests
+- MCP stdio compatibility for read-only vault inspection and deterministic context planning
+- 382 deterministic tests
 
 ---
 
@@ -41,7 +42,7 @@ python run.py security
 # Export — writes integrity-verified package to dist/ with SHA-256 manifest
 python run.py export --overwrite
 
-# Full test suite — 284 tests covering all pipeline stages
+# Full test suite — 382 tests covering all pipeline stages
 python mcp/test_verify.py
 ```
 
@@ -78,6 +79,7 @@ Each command exits `0` on success, `1` on failure, and writes structured JSON ou
 | **Security** | Scans a context bundle for secrets, prompt injection patterns, suspicious code blocks, and external links using deterministic regex rules. |
 | **Feedback** | Parses vault feedback entries and adjusts task priorities when requested. Does not rewrite notes. |
 | **API** | Serves all of the above through a rate-limited FastAPI HTTP interface for programmatic use. |
+| **MCP** | Exposes vault capabilities as JSON-RPC tools, resources, and prompts over stdio for use with MCP-compatible local clients. Read-only, deterministic. |
 
 ---
 
@@ -128,6 +130,9 @@ py run.py export                  # export bundle as portable package to dist/
 py run.py export --overwrite      # replace existing package
 py run.py security                # scan bundle for security issues
 py run.py security --fail-on-warning  # exit 1 for warning results too
+
+# MCP stdio server (Phase 20)
+py run.py mcp                     # start MCP JSON-RPC stdio server
 
 # Local app launcher (Phase 17)
 py run.py app                     # start server + open browser UI

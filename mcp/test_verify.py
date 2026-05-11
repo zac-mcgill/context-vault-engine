@@ -11095,10 +11095,610 @@ def main():
     test_p19_controller_nav()
     test_p19_next_best_action_shape()
 
+    # ---- Phase 20: MCP Compatibility Layer ----
+    print("\n" + "=" * 60)
+    print("Phase 20 — MCP Compatibility Layer")
+    print("=" * 60)
+    # Protocol tests
+    test_p20_initialize_returns_correct_shape()
+    test_p20_notification_produces_no_response()
+    test_p20_ping_returns_result()
+    test_p20_unknown_method_returns_32601()
+    test_p20_invalid_json_returns_32700()
+    test_p20_logs_not_written_to_stdout()
+    # Tools tests
+    test_p20_tools_list_deterministic()
+    test_p20_tool_names_prefixed()
+    test_p20_tools_list_required_tools()
+    test_p20_tools_have_object_schema()
+    test_p20_tools_call_unknown_returns_error()
+    test_p20_tool_list_vaults_works()
+    test_p20_tool_get_context_state_works()
+    test_p20_tool_get_context_plan_works()
+    test_p20_tool_query_notes_lexical()
+    test_p20_tool_get_note_path_traversal_blocked()
+    test_p20_tool_security_scan_full_vault()
+    test_p20_tool_build_context_bundle_no_write()
+    # Resources tests
+    test_p20_resources_list_deterministic()
+    test_p20_resource_read_vaults()
+    test_p20_resource_read_vault_state()
+    test_p20_resource_read_unknown_returns_error()
+    test_p20_resource_path_safety()
+    # Prompts tests
+    test_p20_prompts_list_required()
+    test_p20_prompt_get_vault_review()
+    test_p20_prompt_get_unknown_returns_error()
+    test_p20_prompts_no_destructive_language()
+    # Safety tests
+    test_p20_no_destructive_tools()
+    test_p20_tool_calls_deterministic()
+
     print()
     print("=" * 60)
     print("ALL VERIFICATION TESTS PASSED")
     print("=" * 60)
+
+
+# ============================================================
+# Phase 20 — MCP Compatibility Layer Tests
+# ============================================================
+
+def _mcp_call(messages: list) -> list:
+    """Helper: send JSON-RPC messages to the MCP stdio server and return parsed responses."""
+    import subprocess
+    import json as _json
+
+    stdin_data = "\n".join(_json.dumps(m) for m in messages) + "\n"
+    result = subprocess.run(
+        [sys.executable, "run.py", "mcp"],
+        input=stdin_data,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        cwd=str(Path(__file__).resolve().parent.parent),
+    )
+    responses = []
+    for line in result.stdout.strip().splitlines():
+        if line.strip():
+            responses.append(_json.loads(line))
+    return responses, result.stderr
+
+
+def test_p20_initialize_returns_correct_shape():
+    """P20-PR1: initialize returns protocolVersion, serverInfo, and capabilities."""
+    print("\n=== Test P20-PR1: initialize shape ===")
+    import json as _json
+
+    responses, _stderr = _mcp_call([
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+            "protocolVersion": "2025-11-25", "capabilities": {},
+            "clientInfo": {"name": "test", "version": "0.0.1"},
+        }},
+    ])
+    assert len(responses) == 1
+    resp = responses[0]
+    assert resp["jsonrpc"] == "2.0"
+    assert resp["id"] == 1
+    assert "result" in resp
+    result = resp["result"]
+    assert "protocolVersion" in result
+    assert "serverInfo" in result
+    assert "capabilities" in result
+    assert result["serverInfo"]["name"] == "context-vault-engine"
+    assert "tools" in result["capabilities"]
+    assert "resources" in result["capabilities"]
+    assert "prompts" in result["capabilities"]
+    print(f"  protocolVersion={result['protocolVersion']!r}, server={result['serverInfo']['name']!r} ✓")
+
+
+def test_p20_notification_produces_no_response():
+    """P20-PR2: notifications/initialized (no id) produces no response."""
+    print("\n=== Test P20-PR2: notification produces no response ===")
+    responses, _stderr = _mcp_call([
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+            "protocolVersion": "2025-11-25", "capabilities": {},
+            "clientInfo": {"name": "test", "version": "0.0.1"},
+        }},
+        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+        {"jsonrpc": "2.0", "id": 2, "method": "ping"},
+    ])
+    # Should have responses for id=1 (initialize) and id=2 (ping), not for the notification
+    ids = [r.get("id") for r in responses]
+    assert 1 in ids
+    assert 2 in ids
+    assert None not in ids, "Notification must not produce a response"
+    print(f"  Response IDs: {sorted(ids)} — no response for notification ✓")
+
+
+def test_p20_ping_returns_result():
+    """P20-PR3: ping returns a valid result."""
+    print("\n=== Test P20-PR3: ping returns result ===")
+    responses, _stderr = _mcp_call([
+        {"jsonrpc": "2.0", "id": 99, "method": "ping"},
+    ])
+    assert len(responses) == 1
+    resp = responses[0]
+    assert resp["id"] == 99
+    assert "result" in resp
+    print(f"  ping: result={resp['result']!r} ✓")
+
+
+def test_p20_unknown_method_returns_32601():
+    """P20-PR4: Unknown method returns -32601 (Method not found)."""
+    print("\n=== Test P20-PR4: unknown method returns -32601 ===")
+    responses, _stderr = _mcp_call([
+        {"jsonrpc": "2.0", "id": 42, "method": "completely/unknown/method"},
+    ])
+    assert len(responses) == 1
+    resp = responses[0]
+    assert resp["id"] == 42
+    assert "error" in resp
+    assert resp["error"]["code"] == -32601
+    print(f"  Unknown method: error code={resp['error']['code']} ✓")
+
+
+def test_p20_invalid_json_returns_32700():
+    """P20-PR5: Invalid JSON returns -32700 (Parse error)."""
+    print("\n=== Test P20-PR5: invalid JSON returns -32700 ===")
+    import subprocess
+
+    stdin_data = "not valid json\n"
+    result = subprocess.run(
+        [sys.executable, "run.py", "mcp"],
+        input=stdin_data,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        cwd=str(Path(__file__).resolve().parent.parent),
+    )
+    import json as _json
+    responses = []
+    for line in result.stdout.strip().splitlines():
+        if line.strip():
+            responses.append(_json.loads(line))
+
+    assert len(responses) == 1
+    resp = responses[0]
+    assert "error" in resp
+    assert resp["error"]["code"] == -32700
+    print(f"  Invalid JSON: error code={resp['error']['code']} ✓")
+
+
+def test_p20_logs_not_written_to_stdout():
+    """P20-PR6: Startup logs and operational logs go to stderr, not stdout."""
+    print("\n=== Test P20-PR6: logs go to stderr not stdout ===")
+    import subprocess
+    import json as _json
+
+    stdin_data = _json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}) + "\n"
+    result = subprocess.run(
+        [sys.executable, "run.py", "mcp"],
+        input=stdin_data,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        cwd=str(Path(__file__).resolve().parent.parent),
+    )
+
+    # Every line on stdout must be valid JSON-RPC
+    for line in result.stdout.strip().splitlines():
+        if line.strip():
+            try:
+                msg = _json.loads(line)
+                assert "jsonrpc" in msg, f"Non-JSON-RPC line in stdout: {line[:80]}"
+            except _json.JSONDecodeError:
+                raise AssertionError(f"Non-JSON line in stdout: {line[:80]}")
+
+    # stderr should have at least the startup log
+    assert len(result.stderr.strip()) > 0, "Expected startup log on stderr"
+    print(f"  stdout has only JSON-RPC, stderr has logs ✓")
+
+
+def test_p20_tools_list_deterministic():
+    """P20-T1: tools/list returns a deterministic tool list (same order each call)."""
+    print("\n=== Test P20-T1: tools/list deterministic ===")
+    msg = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+    r1, _ = _mcp_call([msg])
+    r2, _ = _mcp_call([msg])
+    tools1 = [t["name"] for t in r1[0]["result"]["tools"]]
+    tools2 = [t["name"] for t in r2[0]["result"]["tools"]]
+    assert tools1 == tools2, "Tool list order must be deterministic"
+    assert tools1 == sorted(tools1), "Tool list must be alphabetically sorted"
+    print(f"  {len(tools1)} tools — deterministic and sorted ✓")
+
+
+def test_p20_tool_names_prefixed():
+    """P20-T2: All tool names are prefixed with 'cve.'."""
+    print("\n=== Test P20-T2: tool names prefixed with cve. ===")
+    responses, _ = _mcp_call([{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}])
+    tools = responses[0]["result"]["tools"]
+    for tool in tools:
+        assert tool["name"].startswith("cve."), f"Tool name not prefixed: {tool['name']!r}"
+    print(f"  All {len(tools)} tools prefixed with 'cve.' ✓")
+
+
+def test_p20_tools_list_required_tools():
+    """P20-T3: tools/list includes all 10 required tools."""
+    print("\n=== Test P20-T3: all required tools present ===")
+    required = {
+        "cve.list_vaults", "cve.get_context_state", "cve.get_context_plan",
+        "cve.query_notes", "cve.get_note", "cve.validate_vault", "cve.get_tasks",
+        "cve.get_missing_concepts", "cve.security_scan", "cve.build_context_bundle",
+    }
+    responses, _ = _mcp_call([{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}])
+    tool_names = {t["name"] for t in responses[0]["result"]["tools"]}
+    missing = required - tool_names
+    assert not missing, f"Missing required tools: {missing}"
+    print(f"  All {len(required)} required tools present ✓")
+
+
+def test_p20_tools_have_object_schema():
+    """P20-T4: Every tool has an inputSchema of type 'object'."""
+    print("\n=== Test P20-T4: all tools have object inputSchema ===")
+    responses, _ = _mcp_call([{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}])
+    tools = responses[0]["result"]["tools"]
+    for tool in tools:
+        schema = tool.get("inputSchema", {})
+        assert isinstance(schema, dict), f"inputSchema not dict for {tool['name']}"
+        assert schema.get("type") == "object", (
+            f"inputSchema.type must be 'object' for {tool['name']}, got {schema.get('type')!r}"
+        )
+    print(f"  All {len(tools)} tools have inputSchema.type='object' ✓")
+
+
+def test_p20_tools_call_unknown_returns_error():
+    """P20-T5: tools/call with unknown tool name returns isError=true."""
+    print("\n=== Test P20-T5: tools/call unknown tool returns error ===")
+    responses, _ = _mcp_call([{
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "cve.__nonexistent_tool__", "arguments": {}},
+    }])
+    assert len(responses) == 1
+    resp = responses[0]
+    assert "result" in resp
+    result = resp["result"]
+    assert result.get("isError") is True, f"Expected isError=true, got: {result}"
+    print(f"  Unknown tool: isError=true ✓")
+
+
+def test_p20_tool_list_vaults_works():
+    """P20-T6: cve.list_vaults returns vaults list."""
+    print("\n=== Test P20-T6: cve.list_vaults works ===")
+    responses, _ = _mcp_call([{
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "cve.list_vaults", "arguments": {}},
+    }])
+    assert len(responses) == 1
+    result = responses[0]["result"]
+    assert result.get("isError") is False
+    data = result["structuredContent"]
+    assert "vaults" in data
+    assert isinstance(data["vaults"], list)
+    assert len(data["vaults"]) > 0
+    print(f"  cve.list_vaults: {data['vaults']} ✓")
+
+
+def test_p20_tool_get_context_state_works():
+    """P20-T7: cve.get_context_state works for demo-vault."""
+    print("\n=== Test P20-T7: cve.get_context_state for demo-vault ===")
+    vault = list_vaults()[0]
+    responses, _ = _mcp_call([{
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "cve.get_context_state", "arguments": {"vault": vault}},
+    }])
+    result = responses[0]["result"]
+    assert result.get("isError") is False
+    data = result["structuredContent"]
+    assert "vault" in data
+    assert "readiness" in data
+    assert data["vault"] == vault
+    print(f"  cve.get_context_state: vault={data['vault']!r}, readiness keys={list(data['readiness'].keys())} ✓")
+
+
+def test_p20_tool_get_context_plan_works():
+    """P20-T8: cve.get_context_plan works for demo-vault."""
+    print("\n=== Test P20-T8: cve.get_context_plan for demo-vault ===")
+    vault = list_vaults()[0]
+    responses, _ = _mcp_call([{
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "cve.get_context_plan", "arguments": {
+            "vault": vault, "intent": "review",
+        }},
+    }])
+    result = responses[0]["result"]
+    assert result.get("isError") is False
+    data = result["structuredContent"]
+    assert "vault" in data
+    assert "intent" in data
+    assert "recommendations" in data
+    assert data["intent"] == "review"
+    print(f"  cve.get_context_plan: vault={data['vault']!r}, intent={data['intent']!r}, "
+          f"recommendations={len(data['recommendations'])} ✓")
+
+
+def test_p20_tool_query_notes_lexical():
+    """P20-T9: cve.query_notes works with a lexical query."""
+    print("\n=== Test P20-T9: cve.query_notes with lexical query ===")
+    vault = list_vaults()[0]
+    responses, _ = _mcp_call([{
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "cve.query_notes", "arguments": {
+            "vault": vault, "q": "algorithm", "limit": 5,
+        }},
+    }])
+    result = responses[0]["result"]
+    assert result.get("isError") is False, f"Query returned error: {result}"
+    data = result["structuredContent"]
+    assert data.get("status") == "ok"
+    assert "results" in data
+    print(f"  cve.query_notes (q=algorithm): {data.get('count', 0)} results ✓")
+
+
+def test_p20_tool_get_note_path_traversal_blocked():
+    """P20-T10: cve.get_note rejects path traversal attempts."""
+    print("\n=== Test P20-T10: cve.get_note path traversal blocked ===")
+    vault = list_vaults()[0]
+    attacks = [
+        "../../../etc/passwd",
+        "..\\..\\..\\Windows\\System32",
+        "subdir/../../outside.md",
+    ]
+    for path in attacks:
+        responses, _ = _mcp_call([{
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "cve.get_note", "arguments": {
+                "vault": vault, "path": path,
+            }},
+        }])
+        result = responses[0]["result"]
+        assert result.get("isError") is True, f"Path traversal not blocked: {path!r}"
+        print(f"  Blocked: {path!r} ✓")
+
+
+def test_p20_tool_security_scan_full_vault():
+    """P20-T11: cve.security_scan uses full-vault scan defaults."""
+    print("\n=== Test P20-T11: cve.security_scan full-vault defaults ===")
+    vault = list_vaults()[0]
+    responses, _ = _mcp_call([{
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "cve.security_scan", "arguments": {"vault": vault}},
+    }])
+    result = responses[0]["result"]
+    assert result.get("isError") is False, f"Security scan returned error: {result}"
+    data = result["structuredContent"]
+    assert "status" in data
+    assert data["status"] in ("pass", "warning", "fail")
+    # Should cover all vault notes (coverage metadata present)
+    assert "coverage" in data or "notes_scanned" in data or "findings" in data, (
+        "Security scan must return meaningful data"
+    )
+    print(f"  cve.security_scan: status={data['status']!r} ✓")
+
+
+def test_p20_tool_build_context_bundle_no_write():
+    """P20-T12: cve.build_context_bundle does not write export packages."""
+    print("\n=== Test P20-T12: cve.build_context_bundle does not write files ===")
+    import os
+    vault = list_vaults()[0]
+
+    dist_dir = Path(__file__).resolve().parent.parent / "dist" / "context-bundles"
+    before_files = set(dist_dir.rglob("*")) if dist_dir.exists() else set()
+
+    responses, _ = _mcp_call([{
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "cve.build_context_bundle", "arguments": {
+            "vault": vault, "allow_partial": True, "max_notes": 5,
+        }},
+    }])
+    result = responses[0]["result"]
+    assert result.get("isError") is False, f"Bundle tool returned error: {result}"
+    data = result["structuredContent"]
+    assert data.get("status") == "ok"
+    assert "notes" in data
+    assert "budget" in data
+
+    # Verify no new export files were written
+    after_files = set(dist_dir.rglob("*")) if dist_dir.exists() else set()
+    new_files = after_files - before_files
+    assert not new_files, f"Bundle tool wrote files: {new_files}"
+    print(f"  Bundle built in memory: notes={len(data['notes'])}, no files written ✓")
+
+
+def test_p20_resources_list_deterministic():
+    """P20-R1: resources/list returns deterministic URIs."""
+    print("\n=== Test P20-R1: resources/list deterministic ===")
+    msg = {"jsonrpc": "2.0", "id": 1, "method": "resources/list"}
+    r1, _ = _mcp_call([msg])
+    r2, _ = _mcp_call([msg])
+    uris1 = [r["uri"] for r in r1[0]["result"]["resources"]]
+    uris2 = [r["uri"] for r in r2[0]["result"]["resources"]]
+    assert uris1 == uris2, "Resource list must be deterministic"
+    assert "cve://vaults" in uris1
+    print(f"  {len(uris1)} resources — deterministic ✓")
+
+
+def test_p20_resource_read_vaults():
+    """P20-R2: resources/read for cve://vaults returns vault list."""
+    print("\n=== Test P20-R2: resources/read cve://vaults ===")
+    responses, _ = _mcp_call([{
+        "jsonrpc": "2.0", "id": 1, "method": "resources/read",
+        "params": {"uri": "cve://vaults"},
+    }])
+    resp = responses[0]
+    assert "result" in resp
+    contents = resp["result"]["contents"]
+    assert len(contents) > 0
+    import json as _json
+    data = _json.loads(contents[0]["text"])
+    assert "vaults" in data
+    assert len(data["vaults"]) > 0
+    print(f"  cve://vaults: {data['vaults']} ✓")
+
+
+def test_p20_resource_read_vault_state():
+    """P20-R3: resources/read for vault state returns valid state."""
+    print("\n=== Test P20-R3: resources/read vault state ===")
+    import json as _json
+    import urllib.parse
+    vault = list_vaults()[0]
+    uri = f"cve://vault/{urllib.parse.quote(vault, safe='')}/state"
+    responses, _ = _mcp_call([{
+        "jsonrpc": "2.0", "id": 1, "method": "resources/read",
+        "params": {"uri": uri},
+    }])
+    resp = responses[0]
+    assert "result" in resp
+    contents = resp["result"]["contents"]
+    data = _json.loads(contents[0]["text"])
+    assert "vault" in data
+    assert data["vault"] == vault
+    print(f"  {uri}: vault={data['vault']!r} ✓")
+
+
+def test_p20_resource_read_unknown_returns_error():
+    """P20-R4: Unknown resource URI returns error in contents text."""
+    print("\n=== Test P20-R4: unknown resource returns error ===")
+    import json as _json
+    responses, _ = _mcp_call([{
+        "jsonrpc": "2.0", "id": 1, "method": "resources/read",
+        "params": {"uri": "cve://totally/unknown/path"},
+    }])
+    resp = responses[0]
+    assert "result" in resp
+    contents = resp["result"]["contents"]
+    data = _json.loads(contents[0]["text"])
+    assert "error" in data
+    print(f"  Unknown resource: error={data['error'][:60]!r} ✓")
+
+
+def test_p20_resource_path_safety():
+    """P20-R5: Resource URIs with invalid vaults return INVALID_VAULT error."""
+    print("\n=== Test P20-R5: resource path safety ===")
+    import json as _json
+    responses, _ = _mcp_call([{
+        "jsonrpc": "2.0", "id": 1, "method": "resources/read",
+        "params": {"uri": "cve://vault/__nonexistent_vault__/state"},
+    }])
+    resp = responses[0]
+    assert "result" in resp
+    contents = resp["result"]["contents"]
+    data = _json.loads(contents[0]["text"])
+    assert "error" in data
+    assert "INVALID_VAULT" in data["error"]
+    print(f"  Invalid vault in URI: error={data['error'][:60]!r} ✓")
+
+
+def test_p20_prompts_list_required():
+    """P20-P1: prompts/list returns all 4 required prompts."""
+    print("\n=== Test P20-P1: prompts/list required prompts ===")
+    required = {
+        "cve.vault_review", "cve.security_review",
+        "cve.context_handoff", "cve.quality_plan",
+    }
+    responses, _ = _mcp_call([{"jsonrpc": "2.0", "id": 1, "method": "prompts/list"}])
+    prompt_names = {p["name"] for p in responses[0]["result"]["prompts"]}
+    missing = required - prompt_names
+    assert not missing, f"Missing required prompts: {missing}"
+    print(f"  All {len(required)} required prompts present ✓")
+
+
+def test_p20_prompt_get_vault_review():
+    """P20-P2: prompts/get for cve.vault_review returns messages."""
+    print("\n=== Test P20-P2: prompts/get cve.vault_review ===")
+    vault = list_vaults()[0]
+    responses, _ = _mcp_call([{
+        "jsonrpc": "2.0", "id": 1, "method": "prompts/get",
+        "params": {"name": "cve.vault_review", "arguments": {"vault": vault}},
+    }])
+    resp = responses[0]
+    assert "result" in resp
+    result = resp["result"]
+    assert "messages" in result
+    assert len(result["messages"]) > 0
+    text = result["messages"][0]["content"]["text"]
+    assert vault in text
+    assert "cve." in text  # references at least one tool
+    print(f"  cve.vault_review: {len(result['messages'])} message(s), vault referenced ✓")
+
+
+def test_p20_prompt_get_unknown_returns_error():
+    """P20-P3: prompts/get with unknown prompt name returns error."""
+    print("\n=== Test P20-P3: prompts/get unknown prompt returns error ===")
+    responses, _ = _mcp_call([{
+        "jsonrpc": "2.0", "id": 1, "method": "prompts/get",
+        "params": {"name": "cve.__nonexistent_prompt__", "arguments": {}},
+    }])
+    resp = responses[0]
+    assert "error" in resp, f"Expected error response, got: {resp}"
+    assert resp["error"]["code"] == -32602
+    print(f"  Unknown prompt: error code={resp['error']['code']} ✓")
+
+
+def test_p20_prompts_no_destructive_language():
+    """P20-P4: Prompts do not instruct agents to edit or delete notes directly."""
+    print("\n=== Test P20-P4: prompts have safety language ===")
+    vault = list_vaults()[0]
+    prompt_names = ["cve.vault_review", "cve.security_review",
+                    "cve.context_handoff", "cve.quality_plan"]
+
+    for name in prompt_names:
+        responses, _ = _mcp_call([{
+            "jsonrpc": "2.0", "id": 1, "method": "prompts/get",
+            "params": {"name": name, "arguments": {"vault": vault}},
+        }])
+        result = responses[0]["result"]
+        all_text = " ".join(
+            m["content"]["text"] for m in result["messages"]
+        )
+        # Must include safety language
+        assert "Do not edit notes" in all_text or "do not edit" in all_text.lower(), (
+            f"Prompt {name!r} missing safety language"
+        )
+        # Must not directly instruct deletion
+        lowered = all_text.lower()
+        assert "delete the note" not in lowered, (
+            f"Prompt {name!r} contains 'delete the note'"
+        )
+        print(f"  {name!r}: safety language present ✓")
+
+
+def test_p20_no_destructive_tools():
+    """P20-S1: MCP server does not expose destructive or mutation tools."""
+    print("\n=== Test P20-S1: no destructive tools exposed ===")
+    responses, _ = _mcp_call([{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}])
+    tool_names = {t["name"] for t in responses[0]["result"]["tools"]}
+
+    forbidden_patterns = [
+        "delete", "edit", "create", "update", "write", "remove", "bootstrap",
+        "export_package", "schema_mutation", "template_mutation",
+    ]
+    for pattern in forbidden_patterns:
+        matching = [n for n in tool_names if pattern in n.lower()
+                    and n not in {"cve.get_context_state", "cve.get_context_plan",
+                                  "cve.get_tasks", "cve.get_note",
+                                  "cve.get_missing_concepts"}]
+        assert not matching, (
+            f"Destructive tool pattern {pattern!r} found in: {matching}"
+        )
+    print(f"  No destructive tools in {len(tool_names)} exposed tools ✓")
+
+
+def test_p20_tool_calls_deterministic():
+    """P20-S2: Repeated identical tool calls return the same result."""
+    print("\n=== Test P20-S2: tool calls are deterministic ===")
+    import json as _json
+    vault = list_vaults()[0]
+    msg = {
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "cve.list_vaults", "arguments": {}},
+    }
+    r1, _ = _mcp_call([msg])
+    r2, _ = _mcp_call([msg])
+    data1 = r1[0]["result"]["structuredContent"]
+    data2 = r2[0]["result"]["structuredContent"]
+    assert data1 == data2, f"Tool call not deterministic: {data1} vs {data2}"
+    print(f"  cve.list_vaults: same result on repeated calls ✓")
 
 
 if __name__ == "__main__":

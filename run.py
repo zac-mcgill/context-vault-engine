@@ -48,7 +48,9 @@ Commands:
   templates      Generate canonical templates from vault schema
                  Use --dry-run to preview without writing
   app            Start local server and open browser UI
-                 Reuses an already-running server automatically"""
+                 Reuses an already-running server automatically
+  mcp            Start MCP stdio server (JSON-RPC over stdin/stdout)
+                 For use with MCP-compatible local clients"""
 
 
 def _init_vault(repo_root: Path) -> None:
@@ -138,6 +140,12 @@ def main():
     if command == "bootstrap":
         from core.bootstrap_vault import main as bootstrap_main
         raise SystemExit(bootstrap_main(repo_root))
+
+    if command == "mcp":
+        sys.path.insert(0, str(repo_root))
+        from mcp.server.mcp_stdio_server import run_server
+        run_server()
+        raise SystemExit(0)
 
     if command == "app":
         from core.app_launcher import main as app_main

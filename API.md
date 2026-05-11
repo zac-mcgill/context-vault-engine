@@ -1091,3 +1091,49 @@ Permanently delete a non-demo vault. Requires explicit typed confirmation. Remov
 | `CONFIRMATION_MISMATCH` | 400 | Delete confirm phrase does not match exactly |
 | `DELETE_FAILED` | 500 | Vault directory deletion failed (filesystem error) |
 | `INTERNAL` | 500 | Unexpected server error |
+
+---
+
+## MCP Compatibility Layer (Phase 20)
+
+Context Vault Engine also exposes its vault capabilities as a **read-only MCP stdio server**. This is separate from the HTTP REST API above.
+
+### Transport
+
+JSON-RPC 2.0 over stdin/stdout (newline-delimited). One request per line, one response per line. Log output goes to stderr.
+
+```bash
+py run.py mcp
+```
+
+### Protocol version
+
+`2025-11-25`
+
+### Supported methods
+
+| Method | Description |
+|--------|-------------|
+| `initialize` | Handshake — returns `protocolVersion`, `serverInfo`, `capabilities` |
+| `notifications/initialized` | Client notification — no response |
+| `ping` | Liveness check — returns `{}` |
+| `tools/list` | List all 10 CVE tools |
+| `tools/call` | Call a named CVE tool |
+| `resources/list` | List all resource URIs |
+| `resources/read` | Read a resource by URI |
+| `prompts/list` | List all 4 CVE prompts |
+| `prompts/get` | Get a rendered prompt |
+
+### JSON-RPC error codes
+
+| Code | Meaning |
+|------|---------|
+| `-32700` | Parse error (invalid JSON) |
+| `-32600` | Invalid request |
+| `-32601` | Method not found |
+| `-32602` | Invalid params (e.g. unknown prompt name) |
+| `-32603` | Internal error |
+
+### Safety
+
+All MCP tools and prompts are **read-only**. No tool can create, edit, or delete notes, feedback entries, or export packages. Vault names in resource URIs are validated against the registry — path traversal attempts return `INVALID_VAULT` errors.

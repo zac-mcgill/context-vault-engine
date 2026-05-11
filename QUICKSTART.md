@@ -1025,6 +1025,68 @@ After editing, adding, or deleting a note file, the next API call automatically 
 
 ---
 
+## 6m. MCP Stdio Server (Phase 20)
+
+Context Vault Engine exposes its vault capabilities as a **read-only MCP stdio server** for use with MCP-compatible local clients (e.g. Claude Desktop, Cursor, custom agent loops).
+
+> The MCP server communicates entirely over **stdin/stdout** using newline-delimited JSON-RPC 2.0. All tool calls are deterministic and read-only — no notes are created, edited, or deleted.
+
+### Start the MCP server
+
+```bash
+py run.py mcp
+```
+
+The server reads JSON-RPC messages from stdin and writes responses to stdout. Log output goes to stderr. Press `Ctrl+C` or close stdin to exit.
+
+### MCP Tools (10 tools, all prefixed `cve.`)
+
+| Tool | Purpose |
+|------|---------|
+| `cve.list_vaults` | List all registered vault names |
+| `cve.get_context_state` | Deterministic readiness snapshot for a vault |
+| `cve.get_context_plan` | Prioritised recommendations for a vault + intent |
+| `cve.query_notes` | Lexical search across vault notes |
+| `cve.get_note` | Read a single note by vault-relative path (path traversal blocked) |
+| `cve.validate_vault` | Schema validation result for a vault |
+| `cve.get_tasks` | Prioritised improvement tasks |
+| `cve.get_missing_concepts` | Concepts expected but absent from the vault |
+| `cve.security_scan` | Full-vault security scan (secrets, injection, suspicious content) |
+| `cve.build_context_bundle` | Generate a context bundle in-memory (no files written) |
+
+### MCP Resources (9 URI patterns)
+
+| URI | Content |
+|-----|---------|
+| `cve://vaults` | List of all registered vaults |
+| `cve://vault/{vault}/summary` | Completion summary |
+| `cve://vault/{vault}/state` | Context state (readiness flags) |
+| `cve://vault/{vault}/plan/review` | Review plan |
+| `cve://vault/{vault}/notes` | All notes with metadata |
+| `cve://vault/{vault}/tasks` | Prioritised tasks |
+| `cve://vault/{vault}/missing` | Missing concepts |
+| `cve://vault/{vault}/security` | Security scan result |
+| `cve://vault/{vault}/graph` | Relationship graph |
+
+### MCP Prompts (4 prompts, all prefixed `cve.`)
+
+| Prompt | Purpose |
+|--------|---------|
+| `cve.vault_review` | Guide an agent through a complete vault review |
+| `cve.security_review` | Focus an agent on security findings and remediation |
+| `cve.context_handoff` | Prepare a context handoff document for another agent |
+| `cve.quality_plan` | Generate a quality improvement plan |
+
+All prompts include a safety footer: agents are reminded that all tool calls in the session are read-only by default.
+
+### Example session
+
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | py run.py mcp
+```
+
+---
+
 ## 8. Run Verification Tests (Optional)
 
 Core tests (requires only `requirements.txt`):

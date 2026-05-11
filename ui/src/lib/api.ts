@@ -276,6 +276,7 @@ export interface MissingData {
   total_actual: number;
   total_missing: number;
   domains_assessed: number;
+  subdomains?: number;
   gaps: Record<string, MissingConcept[]>;
   ranked: MissingConcept[];
 }
@@ -706,4 +707,108 @@ export function updateNote(
   request: NoteUpdateRequest,
 ): Promise<ApiResult<NoteUpdateResponse>> {
   return put<NoteUpdateResponse>('/note', request);
+}
+
+// ---------------------------------------------------------------------------
+// Graph — GET /graph, GET /graph/neighbors, GET /graph/related, GET /graph/missing
+// ---------------------------------------------------------------------------
+
+export interface GraphNode {
+  id: string;
+  type: 'note' | 'domain' | 'subdomain' | 'topic' | 'expected_concept';
+  label: string;
+}
+
+export interface GraphEdge {
+  from: string;
+  to: string;
+  type: 'parent' | 'member_of' | 'expected_coverage';
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export interface GraphNeighborEntry {
+  id: string;
+  type: string;
+  label: string;
+  edge_type: string;
+}
+
+export interface GraphNeighborsData {
+  node_id: string;
+  found: boolean;
+  neighbors: GraphNeighborEntry[];
+}
+
+export interface GraphRelatedEntry {
+  id: string;
+  type: string;
+  label: string;
+  via: string;
+  strength: string;
+}
+
+export interface GraphRelatedData {
+  node_id: string;
+  found: boolean;
+  related: GraphRelatedEntry[];
+}
+
+export interface GraphMissingEntry {
+  id: string;
+  label: string;
+  via: string;
+}
+
+export interface GraphMissingNeighborsData {
+  node_id: string;
+  found: boolean;
+  missing: GraphMissingEntry[];
+}
+
+export interface RankedMissingConcept {
+  rank: number;
+  score: number;
+  subdomain: string;
+  concept: string;
+}
+
+/** GET /graph — deterministic vault relationship graph. */
+export function fetchGraph(vault?: string): Promise<ApiResult<GraphData>> {
+  const qs = vault ? `?vault=${encodeURIComponent(vault)}` : '';
+  return get<GraphData>(`/graph${qs}`);
+}
+
+/** GET /graph/neighbors — directly connected nodes (both directions). */
+export function fetchGraphNeighbors(
+  nodeId: string,
+  vault?: string,
+): Promise<ApiResult<GraphNeighborsData>> {
+  const params = new URLSearchParams({ node: nodeId });
+  if (vault) params.set('vault', vault);
+  return get<GraphNeighborsData>(`/graph/neighbors?${params.toString()}`);
+}
+
+/** GET /graph/related — notes that share a group hub with the given node. */
+export function fetchGraphRelated(
+  nodeId: string,
+  vault?: string,
+  minStrength = 'domain',
+): Promise<ApiResult<GraphRelatedData>> {
+  const params = new URLSearchParams({ node: nodeId, min_strength: minStrength });
+  if (vault) params.set('vault', vault);
+  return get<GraphRelatedData>(`/graph/related?${params.toString()}`);
+}
+
+/** GET /graph/missing — expected concepts missing near a node's group hubs. */
+export function fetchGraphMissing(
+  nodeId: string,
+  vault?: string,
+): Promise<ApiResult<GraphMissingNeighborsData>> {
+  const params = new URLSearchParams({ node: nodeId });
+  if (vault) params.set('vault', vault);
+  return get<GraphMissingNeighborsData>(`/graph/missing?${params.toString()}`);
 }

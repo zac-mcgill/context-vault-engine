@@ -16,6 +16,7 @@ const navItems = [
   { label: 'Security', href: '/app/security', active: false },
   { label: 'Exports', href: '/app/exports', active: false },
   { label: 'Feedback', href: '/app/feedback', active: false },
+  { label: 'Graph', href: '/app/graph', active: false },
   { label: 'API / Raw', href: '/app/raw', active: false },
 ];
 
@@ -72,11 +73,11 @@ const activeItems = navItems.map(item => ({
                       ? 'bg-zinc-800 text-zinc-100 font-medium'
                       : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900',
                     // Placeholder items are visually de-emphasised but still navigable
-                    item.label !== 'Dashboard' && item.label !== 'Vault Setup' && item.label !== 'Notes' && item.label !== 'Bundles' && item.label !== 'Exports' && item.label !== 'Security' && item.label !== 'Feedback' && !item.active ? 'opacity-60' : '',
+                    item.label !== 'Dashboard' && item.label !== 'Vault Setup' && item.label !== 'Notes' && item.label !== 'Bundles' && item.label !== 'Exports' && item.label !== 'Security' && item.label !== 'Feedback' && item.label !== 'Graph' && !item.active ? 'opacity-60' : '',
                   ]}
                 >
                   {item.label}
-                  {item.label !== 'Dashboard' && item.label !== 'Vault Setup' && item.label !== 'Notes' && item.label !== 'Bundles' && item.label !== 'Exports' && item.label !== 'Security' && item.label !== 'Feedback' && (
+                  {item.label !== 'Dashboard' && item.label !== 'Vault Setup' && item.label !== 'Notes' && item.label !== 'Bundles' && item.label !== 'Exports' && item.label !== 'Security' && item.label !== 'Feedback' && item.label !== 'Graph' && (
                     <span class="ml-auto text-xs text-zinc-700 font-mono">soon</span>
                   )}
                 </a>
@@ -87,7 +88,7 @@ const activeItems = navItems.map(item => ({
 
         <!-- Footer: version badge -->
         <div class="px-4 py-3 border-t border-zinc-800">
-        <span class="text-xs text-zinc-600">Phase 15C — Note Editing</span>
+        <span class="text-xs text-zinc-600">Phase 16 — Graph Explorer</span>
         </div>
       </aside>
 

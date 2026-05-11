@@ -47,6 +47,7 @@ Commands:
                  Use --fail-on-warning to exit 1 for warning results
   session        Print current/resumable session summary as JSON
   project-state  Print project state as JSON
+  pending        Print pending change proposals as JSON
   templates      Generate canonical templates from vault schema
                  Use --dry-run to preview without writing
   app            Start local server and open browser UI
@@ -378,6 +379,27 @@ def main():
             error_output = {
                 "status": "error",
                 "error": {"code": "PROJECT_STATE_FAILED", "message": str(exc)},
+            }
+            print(json.dumps(error_output, indent=2, ensure_ascii=False))
+            raise SystemExit(1)
+
+    if command == "pending":
+        import json
+        sys.path.insert(0, str(repo_root))
+        try:
+            from mcp.core.vault_registry import list_vaults
+            from mcp.core import pending_changes as _pending_changes
+
+            vault_name = list_vaults()[0]
+            result = _pending_changes.list_pending_changes(vault_name, status="pending")
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+            raise SystemExit(0)
+        except SystemExit:
+            raise
+        except Exception as exc:
+            error_output = {
+                "status": "error",
+                "error": {"code": "PENDING_FAILED", "message": str(exc)},
             }
             print(json.dumps(error_output, indent=2, ensure_ascii=False))
             raise SystemExit(1)

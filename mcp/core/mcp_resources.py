@@ -56,6 +56,7 @@ _VAULT_RESOURCE_TEMPLATES = [
     ("cve://vault/{vault}/graph", "Vault Graph", "Knowledge graph nodes and edges."),
     ("cve://vault/{vault}/session/current", "Current Session", "Latest active session summary."),
     ("cve://vault/{vault}/project-state", "Project State", "Project phase, tasks, blockers, and decisions."),
+    ("cve://vault/{vault}/pending-changes", "Pending Changes", "Pending change proposals awaiting review."),
 ]
 
 
@@ -205,6 +206,8 @@ def _read_vault_resource(uri: str, vault_name: str, resource_path: str) -> dict:
         return _read_session_current(uri, vault_name)
     if resource_path == "project-state":
         return _read_project_state(uri, vault_name)
+    if resource_path == "pending-changes":
+        return _read_pending_changes(uri, vault_name)
 
     return _resource_error(uri, f"Unknown vault resource path: {resource_path!r}")
 
@@ -304,6 +307,16 @@ def _read_project_state(uri: str, vault_name: str) -> dict:
     """Read the project state for a vault."""
     from mcp.core import session_state as _ss  # noqa: PLC0415
     result = _ss.get_project_state(vault_name)
+    if result.get("status") == "error":
+        err = result["error"]
+        return _resource_error(uri, f"{err['code']}: {err['message']}")
+    return _resource_ok(uri, result)
+
+
+def _read_pending_changes(uri: str, vault_name: str) -> dict:
+    """Read the pending change queue (status=pending) for a vault."""
+    from mcp.core import pending_changes as _pc  # noqa: PLC0415
+    result = _pc.list_pending_changes(vault_name, status="pending", limit=100)
     if result.get("status") == "error":
         err = result["error"]
         return _resource_error(uri, f"{err['code']}: {err['message']}")

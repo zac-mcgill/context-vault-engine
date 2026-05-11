@@ -79,6 +79,7 @@ from mcp.core.private_cloud import (
     verify_token,
 )
 from mcp.core import session_state as _session_state
+from mcp.core import pending_changes as _pending_changes
 
 
 # ---------- Structured Logging (Phase 7) ----------
@@ -321,6 +322,11 @@ _WRITE_PATH_PREFIXES: tuple[tuple[str, str], ...] = (
     ("POST", "/session/attach-note"),
     ("POST", "/session/close"),
     ("PUT", "/project/state"),
+    # Phase 23: safe memory write queue mutating routes
+    ("POST", "/memory/create-note-draft"),
+    ("POST", "/memory/suggest-note-update"),
+    ("POST", "/memory/update-section-draft"),
+    ("POST", "/memory/pending/"),  # covers /memory/pending/{id}/accept and /reject
 )
 
 # Paths always allowed without auth (even when CVE_REQUIRE_AUTH=true).
@@ -2574,6 +2580,361 @@ def endpoint_app(ui_path: str = ""):
     content = candidate.read_bytes()
     media_type, _ = mimetypes.guess_type(str(candidate))
     return Response(content=content, media_type=media_type or "application/octet-stream")
+
+
+# ---------- Phase 23: Safe Memory Write Queue ----------
+
+
+class CreateNoteDraftRequest(BaseModel):
+    """Request body for POST /memory/create-note-draft."""
+
+    vault: str = Field(..., description="Vault name")
+    path: str = Field(..., description="Vault-relative POSIX path for the new note")
+    fields: dict[str, Any] = Field(..., description="Frontmatter fields for the new note")
+    body: str = Field(..., description="Markdown body text (without frontmatter)")
+    reason: str = Field(default="", description="Reason for the proposal")
+    source: str = Field(default="agent", description="Source of the proposal: agent | human | system")
+    session_id: str | None = Field(default=None, description="Optional session ID")
+    project: str | None = Field(default=None, description="Optional project name")
+
+
+class SuggestNoteUpdateRequest(BaseModel):
+    """Request body for POST /memory/suggest-note-update."""
+
+    vault: str = Field(..., description="Vault name")
+    path: str = Field(..., description="Vault-relative POSIX path of the existing note")
+    fields: dict[str, Any] | None = Field(default=None, description="Fields to update (merged with original)")
+    body: str | None = Field(default=None, description="New body text (replaces original body if provided)")
+    reason: str = Field(default="", description="Reason for the proposal")
+    source: str = Field(default="agent", description="Source of the proposal")
+    session_id: str | None = Field(default=None, description="Optional session ID")
+    project: str | None = Field(default=None, description="Optional project name")
+
+
+class UpdateSectionDraftRequest(BaseModel):
+    """Request body for POST /memory/update-section-draft."""
+
+    vault: str = Field(..., description="Vault name")
+    path: str = Field(..., description="Vault-relative POSIX path of the existing note")
+    section: str = Field(..., description="Section name without '## ' prefix")
+    proposed_content: str = Field(..., description="New content for the section body (without header line)")
+    reason: str = Field(default="", description="Reason for the proposal")
+    source: str = Field(default="agent", description="Source of the proposal")
+    session_id: str | None = Field(default=None, description="Optional session ID")
+    project: str | None = Field(default=None, description="Optional project name")
+
+
+class PendingChangeActionRequest(BaseModel):
+    """Request body for POST /memory/pending/{change_id}/accept and /reject."""
+
+    vault: str = Field(..., description="Vault name")
+    reviewer: str | None = Field(default=None, description="Reviewer identifier (optional)")
+    audit_note: str | None = Field(default=None, description="Audit note (optional)")
+
+
+@app.get("/memory/pending")
+def endpoint_memory_pending_list(
+    vault: str = Query(..., description="Vault name"),
+    status: str = Query(default="pending", description="Status filter: pending | accepted | rejected | invalid | all"),
+    limit: int = Query(default=50, ge=1, le=500, description="Maximum results (1–500)"),
+):
+    """List pending changes for a vault.
+
+    Query parameters:
+        vault (str, required): Vault name.
+        status (str): Filter by status. Use 'all' to list all statuses. Default: 'pending'.
+        limit (int): Maximum results (1–500). Default: 50.
+
+    Response data:
+        changes (list): Matching pending change objects.
+        count (int): Number returned.
+        status_filter (str): Status filter applied.
+
+    Error codes:
+        INVALID_VAULT: Vault is not registered (HTTP 404).
+    """
+    err = _validate_vault(vault)
+    if err:
+        return err
+    status_arg = None if status == "all" else status
+    try:
+        result = _pending_changes.list_pending_changes(vault, status=status_arg, limit=limit)
+        if result.get("status") == "error":
+            code = result["error"]["code"]
+            return JSONResponse(status_code=400, content=result)
+        return result
+    except Exception as exc:
+        return _error("PENDING_CHANGES_FAILED", f"Failed to list pending changes: {exc}", 500)
+
+
+@app.post("/memory/create-note-draft")
+def endpoint_memory_create_note_draft(req: CreateNoteDraftRequest):
+    """Propose creation of a new note (stored as a pending change).
+
+    The proposed note is validated against the vault schema.  Nothing is
+    written to the vault until a reviewer explicitly accepts the change
+    via POST /memory/pending/{change_id}/accept.
+
+    Request body:
+        vault, path, fields, body, reason, source, session_id, project.
+
+    Response data:
+        change (dict): The created pending change object.
+
+    Error codes:
+        INVALID_VAULT: Vault not registered (HTTP 404).
+        NOTE_EXISTS: Target path already exists (HTTP 409).
+        INVALID_NOTE_PATH: Path is invalid or inside Vault Files/ (HTTP 400).
+        PATH_TRAVERSAL: Path escapes vault root (HTTP 400).
+        INVALID_PENDING_CHANGE: Fields/body invalid (HTTP 400).
+        WRITE_FAILED: Cannot write pending change file (HTTP 500).
+        REMOTE_READ_ONLY: Server is in remote read-only mode (HTTP 403).
+    """
+    err = _validate_vault(req.vault)
+    if err:
+        return err
+    try:
+        result = _pending_changes.create_note_draft(
+            req.vault, req.path, req.fields, req.body,
+            reason=req.reason, source=req.source,
+            session_id=req.session_id, project=req.project,
+        )
+        if result.get("status") == "error":
+            code = result["error"]["code"]
+            status_code = 404 if code == "INVALID_VAULT" else (409 if code == "NOTE_EXISTS" else 400)
+            return JSONResponse(status_code=status_code, content=result)
+        return result
+    except Exception as exc:
+        return _error("PENDING_CHANGES_FAILED", f"Failed to create note draft: {exc}", 500)
+
+
+@app.post("/memory/suggest-note-update")
+def endpoint_memory_suggest_note_update(req: SuggestNoteUpdateRequest):
+    """Propose an update to an existing note (stored as a pending change).
+
+    Fields and body are merged with the original note.  The proposed update
+    is validated against the vault schema.  Nothing is written to the vault
+    until a reviewer explicitly accepts the change.
+
+    Request body:
+        vault, path, fields (optional), body (optional), reason, source,
+        session_id, project.
+
+    Response data:
+        change (dict): The created pending change object.
+
+    Error codes:
+        INVALID_VAULT: Vault not registered (HTTP 404).
+        NOTE_NOT_FOUND: Target note does not exist (HTTP 404).
+        INVALID_NOTE_PATH: Path is invalid (HTTP 400).
+        PATH_TRAVERSAL: Path escapes vault root (HTTP 400).
+        REMOTE_READ_ONLY: Server is in remote read-only mode (HTTP 403).
+    """
+    err = _validate_vault(req.vault)
+    if err:
+        return err
+    try:
+        result = _pending_changes.suggest_note_update(
+            req.vault, req.path,
+            fields=req.fields,
+            body=req.body,
+            reason=req.reason,
+            source=req.source,
+            session_id=req.session_id,
+            project=req.project,
+        )
+        if result.get("status") == "error":
+            code = result["error"]["code"]
+            status_code = 404 if code in ("INVALID_VAULT", "NOTE_NOT_FOUND") else 400
+            return JSONResponse(status_code=status_code, content=result)
+        return result
+    except Exception as exc:
+        return _error("PENDING_CHANGES_FAILED", f"Failed to create update proposal: {exc}", 500)
+
+
+@app.post("/memory/update-section-draft")
+def endpoint_memory_update_section_draft(req: UpdateSectionDraftRequest):
+    """Propose a targeted section update for an existing note.
+
+    Only the named section is replaced.  All other content is preserved.
+    The proposed change is validated before storage.  Nothing is written to
+    the vault until accepted.
+
+    Request body:
+        vault, path, section, proposed_content, reason, source,
+        session_id, project.
+
+    Response data:
+        change (dict): The created pending change object.
+
+    Error codes:
+        INVALID_VAULT: Vault not registered (HTTP 404).
+        NOTE_NOT_FOUND: Target note does not exist (HTTP 404).
+        INVALID_PENDING_CHANGE: Section not found or serialisation failed (HTTP 400).
+        REMOTE_READ_ONLY: Server is in remote read-only mode (HTTP 403).
+    """
+    err = _validate_vault(req.vault)
+    if err:
+        return err
+    try:
+        result = _pending_changes.update_note_section_draft(
+            req.vault, req.path, req.section, req.proposed_content,
+            reason=req.reason,
+            source=req.source,
+            session_id=req.session_id,
+            project=req.project,
+        )
+        if result.get("status") == "error":
+            code = result["error"]["code"]
+            status_code = 404 if code in ("INVALID_VAULT", "NOTE_NOT_FOUND") else 400
+            return JSONResponse(status_code=status_code, content=result)
+        return result
+    except Exception as exc:
+        return _error("PENDING_CHANGES_FAILED", f"Failed to create section draft: {exc}", 500)
+
+
+@app.get("/memory/pending/{change_id}")
+def endpoint_memory_pending_get(
+    change_id: str,
+    vault: str = Query(..., description="Vault name"),
+):
+    """Retrieve a single pending change by ID.
+
+    Returns the full change object including diff, validation status,
+    and all metadata.  Works for both pending and archived changes.
+
+    Path parameter:
+        change_id (str): Change ID (yyyymmddTHHMMSS-<8hex>).
+
+    Query parameter:
+        vault (str, required): Vault name.
+
+    Response data:
+        change (dict): Full pending change object.
+
+    Error codes:
+        INVALID_VAULT: Vault not registered (HTTP 404).
+        PENDING_CHANGE_NOT_FOUND: Change not found (HTTP 404).
+        INVALID_PENDING_CHANGE: change_id format invalid (HTTP 400).
+    """
+    err = _validate_vault(vault)
+    if err:
+        return err
+    try:
+        result = _pending_changes.review_pending_change(vault, change_id)
+        if result.get("status") == "error":
+            code = result["error"]["code"]
+            status_code = 404 if code in ("PENDING_CHANGE_NOT_FOUND", "INVALID_VAULT") else 400
+            return JSONResponse(status_code=status_code, content=result)
+        return result
+    except Exception as exc:
+        return _error("PENDING_CHANGES_FAILED", f"Failed to retrieve pending change: {exc}", 500)
+
+
+@app.post("/memory/pending/{change_id}/accept")
+def endpoint_memory_pending_accept(change_id: str, req: PendingChangeActionRequest):
+    """Accept and apply a pending change.
+
+    Revalidates the change against the current vault schema before writing.
+    For update proposals, checks that the original note has not changed since
+    the proposal was created (stale protection).
+
+    SAFETY: This is the only way a pending change can mutate vault notes.
+    No auto-accept.  Requires explicit user/reviewer action.
+
+    Path parameter:
+        change_id (str): Change ID.
+
+    Request body:
+        vault (str, required): Vault name.
+        reviewer (str, optional): Reviewer identifier.
+        audit_note (str, optional): Audit note.
+
+    Response data:
+        change (dict): Updated change object (status=accepted).
+
+    Error codes:
+        INVALID_VAULT: Vault not registered (HTTP 404).
+        PENDING_CHANGE_NOT_FOUND: Change not found (HTTP 404).
+        INVALID_PENDING_CHANGE: Change is not pending or ID is invalid (HTTP 400).
+        VALIDATION_FAILED: Revalidation failed (HTTP 400).
+        STALE_PENDING_CHANGE: Note changed since proposal (HTTP 409).
+        NOTE_EXISTS: Target already exists for create_note_draft (HTTP 409).
+        NOTE_NOT_FOUND: Note no longer exists for update proposals (HTTP 404).
+        WRITE_FAILED: Atomic write failed (HTTP 500).
+        REMOTE_READ_ONLY: Server is in remote read-only mode (HTTP 403).
+    """
+    err = _validate_vault(req.vault)
+    if err:
+        return err
+    try:
+        result = _pending_changes.accept_pending_change(
+            req.vault, change_id,
+            reviewer=req.reviewer,
+            audit_note=req.audit_note,
+        )
+        if result.get("status") == "error":
+            code = result["error"]["code"]
+            if code in ("PENDING_CHANGE_NOT_FOUND", "NOTE_NOT_FOUND", "INVALID_VAULT"):
+                status_code = 404
+            elif code in ("NOTE_EXISTS", "STALE_PENDING_CHANGE"):
+                status_code = 409
+            elif code == "WRITE_FAILED":
+                status_code = 500
+            else:
+                status_code = 400
+            return JSONResponse(status_code=status_code, content=result)
+        return result
+    except Exception as exc:
+        return _error("PENDING_CHANGES_FAILED", f"Failed to accept pending change: {exc}", 500)
+
+
+@app.post("/memory/pending/{change_id}/reject")
+def endpoint_memory_pending_reject(change_id: str, req: PendingChangeActionRequest):
+    """Reject a pending change and archive it for audit.
+
+    Rejected changes are never deleted.  They are retained in the archive
+    directory at <vault>/Vault Files/State/pending-changes/archive/.
+
+    Path parameter:
+        change_id (str): Change ID.
+
+    Request body:
+        vault (str, required): Vault name.
+        reviewer (str, optional): Reviewer identifier.
+        audit_note (str, optional): Reason for rejection.
+
+    Response data:
+        change (dict): Updated change object (status=rejected).
+
+    Error codes:
+        INVALID_VAULT: Vault not registered (HTTP 404).
+        PENDING_CHANGE_NOT_FOUND: Change not found (HTTP 404).
+        INVALID_PENDING_CHANGE: Change is not pending/invalid (HTTP 400).
+        WRITE_FAILED: Archive write failed (HTTP 500).
+        REMOTE_READ_ONLY: Server is in remote read-only mode (HTTP 403).
+    """
+    err = _validate_vault(req.vault)
+    if err:
+        return err
+    try:
+        result = _pending_changes.reject_pending_change(
+            req.vault, change_id,
+            reviewer=req.reviewer,
+            audit_note=req.audit_note,
+        )
+        if result.get("status") == "error":
+            code = result["error"]["code"]
+            if code in ("PENDING_CHANGE_NOT_FOUND", "INVALID_VAULT"):
+                status_code = 404
+            elif code == "WRITE_FAILED":
+                status_code = 500
+            else:
+                status_code = 400
+            return JSONResponse(status_code=status_code, content=result)
+        return result
+    except Exception as exc:
+        return _error("PENDING_CHANGES_FAILED", f"Failed to reject pending change: {exc}", 500)
 
 
 # ---------- Phase 22: Session and Project State ----------

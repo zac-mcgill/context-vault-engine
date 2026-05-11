@@ -1361,6 +1361,202 @@ Update one or more project state fields. Only the following fields may be update
 
 ---
 
+## Safe Memory Write Queue (Phase 23)
+
+File-backed pending change queue for LLM-proposed note modifications. All proposals are stored as JSON objects for human review — **nothing is written to vault notes until explicitly accepted**. Writes are atomic (temp-file + replace). Accepted/rejected changes are archived for audit.
+
+Write endpoints are blocked when `CVE_REMOTE_READ_ONLY=true`.
+
+### GET /memory/pending
+
+List pending change proposals.
+
+**Query parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `vault` | string | yes | Registered vault name |
+| `status` | string | no | Filter: `pending` (default), `accepted`, `rejected`, `all` |
+| `limit` | integer | no | Max results (default 50) |
+
+**Success response (HTTP 200):**
+```json
+{
+  "status": "ok",
+  "data": {
+    "vault": "demo-vault",
+    "status": "pending",
+    "count": 1,
+    "changes": [
+      {
+        "id": "20260511T120000-a1b2c3d4",
+        "type": "suggest_note_update",
+        "vault": "demo-vault",
+        "path": "Fundamentals/Algorithms.md",
+        "section": null,
+        "status": "pending",
+        "validation_status": "pass",
+        "reason": "Add missing complexity section",
+        "source": "agent",
+        "created_at": "2026-05-11T12:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### POST /memory/create-note-draft
+
+Propose creating a new vault note. Validates that the target path does not already exist.
+
+**Request body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `vault` | string | yes | Registered vault name |
+| `path` | string | yes | Target note path (relative to vault root) |
+| `fields` | object | yes | YAML frontmatter fields |
+| `body` | string | yes | Note body (Markdown) |
+| `reason` | string | no | Why this change is proposed |
+| `source` | string | no | Who proposed it (default: `agent`) |
+| `session_id` | string | no | Associated session ID |
+| `project` | string | no | Project name |
+
+**Error responses:**
+
+| Code | HTTP Status | Trigger |
+|------|-------------|---------|
+| `INVALID_VAULT` | 404 | Vault name is not registered |
+| `INVALID_NOTE_PATH` | 400 | Path contains `..`, is absolute, or is inside `Vault Files/` |
+| `NOTE_EXISTS` | 409 | A note at that path already exists |
+| `REMOTE_READ_ONLY` | 403 | `CVE_REMOTE_READ_ONLY=true` |
+
+---
+
+### POST /memory/suggest-note-update
+
+Propose an update to an existing vault note. Merges provided fields with the original; replaces body if provided.
+
+**Request body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `vault` | string | yes | Registered vault name |
+| `path` | string | yes | Existing note path |
+| `fields` | object | no | Fields to merge (override originals) |
+| `body` | string | no | New body (replaces original) |
+| `reason` | string | no | Why this change is proposed |
+| `source` | string | no | Who proposed it |
+| `session_id` | string | no | Associated session ID |
+| `project` | string | no | Project name |
+
+**Error responses:**
+
+| Code | HTTP Status | Trigger |
+|------|-------------|---------|
+| `INVALID_VAULT` | 404 | Vault name is not registered |
+| `INVALID_NOTE_PATH` | 400 | Path safety violation |
+| `NOTE_NOT_FOUND` | 404 | Source note does not exist |
+| `REMOTE_READ_ONLY` | 403 | `CVE_REMOTE_READ_ONLY=true` |
+
+---
+
+### POST /memory/update-section-draft
+
+Propose replacing one Markdown section (`## Heading`) in an existing vault note. All other content is preserved.
+
+**Request body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `vault` | string | yes | Registered vault name |
+| `path` | string | yes | Existing note path |
+| `section` | string | yes | Exact section heading (without `## `) |
+| `proposed_content` | string | yes | New section body (without the heading line) |
+| `reason` | string | no | Why this change is proposed |
+| `source` | string | no | Who proposed it |
+
+**Error responses:**
+
+| Code | HTTP Status | Trigger |
+|------|-------------|---------|
+| `INVALID_VAULT` | 404 | Vault name is not registered |
+| `NOTE_NOT_FOUND` | 404 | Source note does not exist |
+| `VALIDATION_FAILED` | 422 | Section heading not found in note |
+| `REMOTE_READ_ONLY` | 403 | `CVE_REMOTE_READ_ONLY=true` |
+
+---
+
+### GET /memory/pending/{change_id}
+
+Get the full detail of a single pending change (active or archived).
+
+**Query parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `vault` | string | yes | Registered vault name |
+
+**Error responses:**
+
+| Code | HTTP Status | Trigger |
+|------|-------------|---------|
+| `PENDING_CHANGE_NOT_FOUND` | 404 | Change ID not found |
+
+---
+
+### POST /memory/pending/{change_id}/accept
+
+Accept a pending change and apply it to the vault. Re-validates the proposal; checks staleness; calls safe note-write path. Change is archived after application.
+
+**Request body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `vault` | string | yes | Registered vault name |
+| `reviewer` | string | no | Name of reviewer |
+| `audit_note` | string | no | Reason for decision |
+
+**Error responses:**
+
+| Code | HTTP Status | Trigger |
+|------|-------------|---------|
+| `INVALID_VAULT` | 404 | Vault name is not registered |
+| `PENDING_CHANGE_NOT_FOUND` | 404 | Change ID not found |
+| `INVALID_PENDING_CHANGE` | 400 | Change status is not `pending` |
+| `VALIDATION_FAILED` | 422 | Schema validation fails at accept time |
+| `STALE_PENDING_CHANGE` | 409 | Source note was modified after proposal |
+| `REMOTE_READ_ONLY` | 403 | `CVE_REMOTE_READ_ONLY=true` |
+| `WRITE_FAILED` | 500 | Note write or archive write failed |
+
+---
+
+### POST /memory/pending/{change_id}/reject
+
+Reject a pending change and archive it. Never deletes; always preserves for audit.
+
+**Request body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `vault` | string | yes | Registered vault name |
+| `reviewer` | string | no | Name of reviewer |
+| `audit_note` | string | no | Reason for rejection |
+
+**Error responses:**
+
+| Code | HTTP Status | Trigger |
+|------|-------------|---------|
+| `INVALID_VAULT` | 404 | Vault name is not registered |
+| `PENDING_CHANGE_NOT_FOUND` | 404 | Change ID not found |
+| `INVALID_PENDING_CHANGE` | 400 | Change status is not `pending` |
+| `REMOTE_READ_ONLY` | 403 | `CVE_REMOTE_READ_ONLY=true` |
+| `WRITE_FAILED` | 500 | Archive write failed |
+
+---
+
 ## Error Reference
 
 | Code | HTTP Status | Meaning |
@@ -1391,8 +1587,13 @@ Update one or more project state fields. Only the following fields may be update
 | `SESSION_NOT_FOUND` | 404 | Session ID not found or no active sessions |
 | `INVALID_NOTE_PATH` | 400 | Note path contains `..` or is absolute |
 | `NOTE_NOT_FOUND` | 404 | Note file does not exist in vault |
+| `NOTE_EXISTS` | 409 | Note file already exists (create_note_draft target) |
 | `INVALID_PROJECT_STATE` | 400 | Project state update contains unknown or forbidden fields |
 | `WRITE_FAILED` | 500 | Atomic session/project-state file write failed |
+| `INVALID_PENDING_CHANGE` | 400 | Pending change JSON is malformed |
+| `PENDING_CHANGE_NOT_FOUND` | 404 | Change ID not found in pending or archive |
+| `VALIDATION_FAILED` | 422 | Schema validation failed for proposed note content |
+| `STALE_PENDING_CHANGE` | 409 | Source note was modified after proposal; re-propose |
 
 ---
 

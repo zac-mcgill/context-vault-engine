@@ -34,6 +34,30 @@ logger = logging.getLogger("mcp.tools")
 
 TOOLS = [
     {
+        "name": "cve.accept_pending_change",
+        "description": (
+            "[WRITE — REQUIRES EXPLICIT REVIEW] Accept and apply a pending change "
+            "proposal to a vault note. "
+            "SAFETY: This is the ONLY way a pending change can mutate vault content. "
+            "Revalidates the change before writing. "
+            "Checks for stale content (hash mismatch) for update proposals. "
+            "Writes only via the existing safe note edit path. "
+            "Never auto-accepts. "
+            "Requires an explicit call by a reviewer."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "vault": {"type": "string"},
+                "change_id": {"type": "string"},
+                "reviewer": {"type": "string"},
+                "audit_note": {"type": "string"},
+            },
+            "required": ["vault", "change_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "cve.attach_note_to_session",
         "description": (
             "[WRITE] Attach a vault note to the current session's recent_notes list. "
@@ -89,6 +113,33 @@ TOOLS = [
                 "session_id": {"type": "string"},
             },
             "required": ["vault", "session_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "cve.create_note_draft",
+        "description": (
+            "[PROPOSAL — writes only to pending queue] "
+            "Propose creation of a new vault note. "
+            "Stores the proposal as a pending change object for human review. "
+            "Nothing is written to vault note files until an explicit "
+            "cve.accept_pending_change call is made by a reviewer. "
+            "The proposal is validated against the vault schema before storage. "
+            "Invalid proposals are stored but cannot be accepted until corrected."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "vault": {"type": "string"},
+                "path": {"type": "string"},
+                "fields": {"type": "object"},
+                "body": {"type": "string"},
+                "reason": {"type": "string"},
+                "source": {"type": "string"},
+                "session_id": {"type": "string"},
+                "project": {"type": "string"},
+            },
+            "required": ["vault", "path", "fields", "body"],
             "additionalProperties": False,
         },
     },
@@ -175,6 +226,27 @@ TOOLS = [
         },
     },
     {
+        "name": "cve.list_pending_changes",
+        "description": (
+            "List pending change proposals for a vault. "
+            "Returns metadata for pending, accepted, rejected, or invalid changes. "
+            "Use to review the queue before calling accept or reject tools."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "vault": {"type": "string"},
+                "status": {
+                    "type": "string",
+                    "enum": ["pending", "accepted", "rejected", "invalid", "all"],
+                },
+                "limit": {"type": "integer", "minimum": 1, "maximum": 500},
+            },
+            "required": ["vault"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "cve.list_vaults",
         "description": "List registered vaults.",
         "inputSchema": {
@@ -205,6 +277,27 @@ TOOLS = [
         },
     },
     {
+        "name": "cve.reject_pending_change",
+        "description": (
+            "[WRITE — archives the change record] "
+            "Reject a pending change proposal. "
+            "The change is archived for audit. Rejected changes are never deleted. "
+            "Does NOT write to vault note files. "
+            "Only pending or invalid changes can be rejected."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "vault": {"type": "string"},
+                "change_id": {"type": "string"},
+                "reviewer": {"type": "string"},
+                "audit_note": {"type": "string"},
+            },
+            "required": ["vault", "change_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "cve.resume_session",
         "description": (
             "Return the most recent active session or a session by explicit ID. "
@@ -217,6 +310,23 @@ TOOLS = [
                 "session_id": {"type": "string"},
             },
             "required": ["vault"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "cve.review_pending_change",
+        "description": (
+            "Retrieve the full details of a single pending change proposal "
+            "including diff, validation status, validation errors, and all metadata. "
+            "Use this before deciding to accept or reject."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "vault": {"type": "string"},
+                "change_id": {"type": "string"},
+            },
+            "required": ["vault", "change_id"],
             "additionalProperties": False,
         },
     },
@@ -253,6 +363,32 @@ TOOLS = [
         },
     },
     {
+        "name": "cve.suggest_note_update",
+        "description": (
+            "[PROPOSAL — writes only to pending queue] "
+            "Propose an update to an existing vault note. "
+            "Stores the proposal as a pending change object for human review. "
+            "Nothing is written to vault note files until accepted. "
+            "Provided fields are merged with original; body replaces the original body "
+            "if provided. The proposal is validated before storage."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "vault": {"type": "string"},
+                "path": {"type": "string"},
+                "fields": {"type": "object"},
+                "body": {"type": "string"},
+                "reason": {"type": "string"},
+                "source": {"type": "string"},
+                "session_id": {"type": "string"},
+                "project": {"type": "string"},
+            },
+            "required": ["vault", "path"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "cve.summarise_session",
         "description": (
             "Return a compact deterministic session summary suitable for LLM context. "
@@ -266,6 +402,32 @@ TOOLS = [
                 "session_id": {"type": "string"},
             },
             "required": ["vault"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "cve.update_note_section_draft",
+        "description": (
+            "[PROPOSAL — writes only to pending queue] "
+            "Propose a targeted update to one section of an existing vault note. "
+            "Only the named section is replaced; all other content is preserved. "
+            "Stores the proposal as a pending change for human review. "
+            "Nothing is written to vault note files until accepted. "
+            "proposed_content is the new section body without the '## Header' line."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "vault": {"type": "string"},
+                "path": {"type": "string"},
+                "section": {"type": "string"},
+                "proposed_content": {"type": "string"},
+                "reason": {"type": "string"},
+                "source": {"type": "string"},
+                "session_id": {"type": "string"},
+                "project": {"type": "string"},
+            },
+            "required": ["vault", "path", "section", "proposed_content"],
             "additionalProperties": False,
         },
     },
@@ -386,21 +548,28 @@ def dispatch_tool_call(tool_name: str, args: dict) -> dict:
 def _execute_tool(tool_name: str, args: dict) -> dict:
     """Execute a named tool with pre-validated args."""
     dispatch = {
+        "cve.accept_pending_change": _tool_accept_pending_change,
         "cve.attach_note_to_session": _tool_attach_note_to_session,
         "cve.build_context_bundle": _tool_build_context_bundle,
         "cve.close_session": _tool_close_session,
+        "cve.create_note_draft": _tool_create_note_draft,
         "cve.get_context_plan": _tool_get_context_plan,
         "cve.get_context_state": _tool_get_context_state,
         "cve.get_missing_concepts": _tool_get_missing_concepts,
         "cve.get_note": _tool_get_note,
         "cve.get_project_state": _tool_get_project_state,
         "cve.get_tasks": _tool_get_tasks,
+        "cve.list_pending_changes": _tool_list_pending_changes,
         "cve.list_vaults": _tool_list_vaults,
         "cve.query_notes": _tool_query_notes,
+        "cve.reject_pending_change": _tool_reject_pending_change,
         "cve.resume_session": _tool_resume_session,
+        "cve.review_pending_change": _tool_review_pending_change,
         "cve.security_scan": _tool_security_scan,
         "cve.start_session": _tool_start_session,
+        "cve.suggest_note_update": _tool_suggest_note_update,
         "cve.summarise_session": _tool_summarise_session,
+        "cve.update_note_section_draft": _tool_update_note_section_draft,
         "cve.update_project_state": _tool_update_project_state,
         "cve.validate_vault": _tool_validate_vault,
     }
@@ -670,3 +839,152 @@ def _tool_update_project_state(args: dict) -> dict:
         err = result["error"]
         return _tool_error(f"{err['code']}: {err['message']}")
     return _tool_ok(result)
+
+
+# ---------------------------------------------------------------------------
+# Phase 23: Pending Changes tool implementations
+# ---------------------------------------------------------------------------
+
+def _tool_list_pending_changes(args: dict) -> dict:
+    from mcp.core import pending_changes as _pc  # noqa: PLC0415
+    vault = args["vault"]
+    status = args.get("status", "pending")
+    limit = args.get("limit", 50)
+    status_arg = None if status == "all" else status
+    result = _pc.list_pending_changes(vault, status=status_arg, limit=limit)
+    if result.get("status") == "error":
+        err = result["error"]
+        return _tool_error(f"{err['code']}: {err['message']}")
+    return _tool_ok(result)
+
+
+def _tool_review_pending_change(args: dict) -> dict:
+    from mcp.core import pending_changes as _pc  # noqa: PLC0415
+    vault = args["vault"]
+    change_id = args["change_id"]
+    result = _pc.review_pending_change(vault, change_id)
+    if result.get("status") == "error":
+        err = result["error"]
+        return _tool_error(f"{err['code']}: {err['message']}")
+    return _tool_ok(result)
+
+
+def _tool_create_note_draft(args: dict) -> dict:
+    guard = _check_remote_read_only()
+    if guard:
+        return guard
+    from mcp.core import pending_changes as _pc  # noqa: PLC0415
+    vault = args["vault"]
+    path = args["path"]
+    fields = args.get("fields", {})
+    body = args.get("body", "")
+    reason = args.get("reason", "")
+    source = args.get("source", "agent")
+    session_id = args.get("session_id")
+    project = args.get("project")
+    result = _pc.create_note_draft(
+        vault, path, fields, body,
+        reason=reason, source=source,
+        session_id=session_id, project=project,
+    )
+    if result.get("status") == "error":
+        err = result["error"]
+        return _tool_error(f"{err['code']}: {err['message']}")
+    change = result["data"]["change"]
+    return _tool_ok(
+        result,
+        f"Draft created: {change['id']} (status={change['status']}, validation={change['validation_status']})",
+    )
+
+
+def _tool_suggest_note_update(args: dict) -> dict:
+    guard = _check_remote_read_only()
+    if guard:
+        return guard
+    from mcp.core import pending_changes as _pc  # noqa: PLC0415
+    vault = args["vault"]
+    path = args["path"]
+    fields = args.get("fields")
+    body = args.get("body")
+    reason = args.get("reason", "")
+    source = args.get("source", "agent")
+    session_id = args.get("session_id")
+    project = args.get("project")
+    result = _pc.suggest_note_update(
+        vault, path, fields=fields, body=body,
+        reason=reason, source=source,
+        session_id=session_id, project=project,
+    )
+    if result.get("status") == "error":
+        err = result["error"]
+        return _tool_error(f"{err['code']}: {err['message']}")
+    change = result["data"]["change"]
+    return _tool_ok(
+        result,
+        f"Update proposal created: {change['id']} (status={change['status']}, validation={change['validation_status']})",
+    )
+
+
+def _tool_update_note_section_draft(args: dict) -> dict:
+    guard = _check_remote_read_only()
+    if guard:
+        return guard
+    from mcp.core import pending_changes as _pc  # noqa: PLC0415
+    vault = args["vault"]
+    path = args["path"]
+    section = args["section"]
+    proposed_content = args["proposed_content"]
+    reason = args.get("reason", "")
+    source = args.get("source", "agent")
+    session_id = args.get("session_id")
+    project = args.get("project")
+    result = _pc.update_note_section_draft(
+        vault, path, section, proposed_content,
+        reason=reason, source=source,
+        session_id=session_id, project=project,
+    )
+    if result.get("status") == "error":
+        err = result["error"]
+        return _tool_error(f"{err['code']}: {err['message']}")
+    change = result["data"]["change"]
+    return _tool_ok(
+        result,
+        f"Section draft created: {change['id']} (section={section!r}, validation={change['validation_status']})",
+    )
+
+
+def _tool_accept_pending_change(args: dict) -> dict:
+    guard = _check_remote_read_only()
+    if guard:
+        return guard
+    from mcp.core import pending_changes as _pc  # noqa: PLC0415
+    vault = args["vault"]
+    change_id = args["change_id"]
+    reviewer = args.get("reviewer")
+    audit_note = args.get("audit_note")
+    result = _pc.accept_pending_change(
+        vault, change_id, reviewer=reviewer, audit_note=audit_note,
+    )
+    if result.get("status") == "error":
+        err = result["error"]
+        return _tool_error(f"{err['code']}: {err['message']}")
+    change = result["data"]["change"]
+    return _tool_ok(result, f"Change accepted and applied: {change_id} → {change['path']}")
+
+
+def _tool_reject_pending_change(args: dict) -> dict:
+    guard = _check_remote_read_only()
+    if guard:
+        return guard
+    from mcp.core import pending_changes as _pc  # noqa: PLC0415
+    vault = args["vault"]
+    change_id = args["change_id"]
+    reviewer = args.get("reviewer")
+    audit_note = args.get("audit_note")
+    result = _pc.reject_pending_change(
+        vault, change_id, reviewer=reviewer, audit_note=audit_note,
+    )
+    if result.get("status") == "error":
+        err = result["error"]
+        return _tool_error(f"{err['code']}: {err['message']}")
+    return _tool_ok(result, f"Change rejected and archived: {change_id}")

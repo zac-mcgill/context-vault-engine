@@ -1180,6 +1180,64 @@ A new `cve.resume_work` prompt guides an LLM through reading the current session
 
 ---
 
+## 6p. Safe Memory Write Queue (Phase 23)
+
+LLM-proposed note changes are stored as **pending change proposals** for human review. Nothing is written to vault notes without explicit acceptance.
+
+### Core principle
+
+> "LLMs may propose changes. They must not directly rewrite notes by default."
+
+A proposal includes:
+- The full proposed note content
+- A unified diff against the original
+- Schema validation status
+- Source (agent / human / system), reason, and session context
+- A SHA-256 content hash for staleness detection
+
+### Change lifecycle
+
+1. LLM calls `cve.create_note_draft`, `cve.suggest_note_update`, or `cve.update_note_section_draft`
+2. Proposal is validated and stored as JSON under `Vault Files/State/pending-changes/`
+3. Human reviews via UI, CLI, API, or MCP
+4. Human explicitly accepts (→ applies to vault, archived) or rejects (→ archived)
+
+### CLI command
+
+```bash
+# List pending proposals
+py run.py pending
+```
+
+### HTTP API (summary)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/memory/pending` | List pending change proposals |
+| POST | `/memory/create-note-draft` | Propose creating a new note |
+| POST | `/memory/suggest-note-update` | Propose updating an existing note |
+| POST | `/memory/update-section-draft` | Propose replacing one section |
+| GET | `/memory/pending/{id}` | Get full change detail |
+| POST | `/memory/pending/{id}/accept` | Accept and apply a change |
+| POST | `/memory/pending/{id}/reject` | Reject and archive a change |
+
+Write routes are blocked when `CVE_REMOTE_READ_ONLY=true`.
+
+### MCP tools
+
+Seven new tools: `cve.create_note_draft`, `cve.suggest_note_update`, `cve.update_note_section_draft`, `cve.list_pending_changes`, `cve.review_pending_change`, `cve.accept_pending_change`, `cve.reject_pending_change`.
+
+A new `cve.review_pending_change` prompt guides a reviewer through examining a diff and deciding to accept or reject.
+
+### Storage
+
+```
+<vault>/Vault Files/State/pending-changes/<YYYYMMDDTHHMMSS-xxxxxxxx>.json
+<vault>/Vault Files/State/pending-changes/archive/<YYYYMMDDTHHMMSS-xxxxxxxx>.json
+```
+
+---
+
 ## 8. Run Verification Tests (Optional)
 
 Core tests (requires only `requirements.txt`):

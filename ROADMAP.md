@@ -92,7 +92,7 @@ The backend is strong. The local UI has reached a usable application baseline. T
 
 ## Current Active Phase
 
-**Phase 22 - Session and Project State Layer**
+**Phase 23 - Safe Memory Write Queue**
 
 ## Phase Status Overview
 
@@ -122,8 +122,8 @@ The backend is strong. The local UI has reached a usable application baseline. T
 | 20    | MCP Compatibility Layer                 | Complete |
 | 21    | Private Cloud Mode                      | Complete |
 | 22    | Session and Project State Layer         | Complete |
-| 23    | Safe Memory Write Queue                 | Active   |
-| 24    | Device Profiles and Context Budgets     | Planned  |
+| 23    | Safe Memory Write Queue                 | Complete |
+| 24    | Device Profiles and Context Budgets     | Active   |
 | 25    | Trust, Staleness, and Evidence Metadata | Planned  |
 | 26    | Import Pipelines                        | Planned  |
 | 27    | Registry and Reuse Layer                | Deferred |
@@ -512,9 +512,57 @@ feat(state): add sessions and project state (Phase 22)
 
 ### Phase 23 - Safe Memory Write Queue
 
+**Status:** Complete
+
+**Backend tests:** 467 (38 new Phase 23 tests; all pass)
+**UI build:** PASS
+
 #### Purpose
 
-Allow local LLMs to propose context changes without directly mutating the vault.
+Allow local LLMs to propose context changes without directly mutating the vault. Core safety rule: "LLMs may propose changes. They must not directly rewrite notes by default."
+
+#### Delivered
+
+- `mcp/core/pending_changes.py` (NEW) — full pending-change service: `create_note_draft`, `suggest_note_update`, `update_note_section_draft`, `list_pending_changes`, `review_pending_change`, `accept_pending_change`, `reject_pending_change`, `validate_pending_change`. Pure stdlib. All writes atomic. All functions accept `_vault_path` for test isolation.
+- Pending change records: `id`, `type`, `vault`, `path`, `section`, `proposed_content`, `reason`, `source`, `created_at`, `updated_at`, `status`, `validation_status`, `validation_errors`, `diff`, `original_content_hash`, `proposed_content_hash`, `session_id`, `project`, `applied_at`, `rejected_at`, `reviewer`, `audit_note`.
+- 7 new HTTP endpoints: `GET /memory/pending`, `POST /memory/create-note-draft`, `POST /memory/suggest-note-update`, `POST /memory/update-section-draft`, `GET /memory/pending/{id}`, `POST /memory/pending/{id}/accept`, `POST /memory/pending/{id}/reject`.
+- 7 new MCP tools: `cve.create_note_draft`, `cve.suggest_note_update`, `cve.update_note_section_draft`, `cve.list_pending_changes`, `cve.review_pending_change`, `cve.accept_pending_change`, `cve.reject_pending_change`.
+- 1 new MCP resource template: `cve://vault/{vault}/pending-changes`.
+- `cve.review_pending_change` MCP prompt for guided review workflow.
+- 1 new CLI command: `py run.py pending`.
+- `ui/src/components/PendingChanges.svelte` — vault selector, change list, detail panel, diff display, accept/reject with confirmation.
+- `ui/src/pages/pending.astro` — Pending Changes page.
+- Write routes blocked when `CVE_REMOTE_READ_ONLY=true`.
+
+#### Storage layout
+
+```
+<vault>/Vault Files/State/pending-changes/<YYYYMMDDTHHMMSS-xxxxxxxx>.json        (active)
+<vault>/Vault Files/State/pending-changes/archive/<YYYYMMDDTHHMMSS-xxxxxxxx>.json (accepted/rejected)
+```
+
+#### Acceptance Criteria — Met
+
+- LLM can propose note changes; proposals are stored, not applied.
+- Human reviews full diff before accepting.
+- Accept validates schema and checks staleness hash before writing.
+- Rejected/accepted proposals archived; nothing deleted.
+- Write routes blocked under `CVE_REMOTE_READ_ONLY=true`.
+- 38 new tests; all 467 tests pass.
+
+#### Suggested Commit
+
+```
+feat(memory): add pending change review queue (Phase 23)
+```
+
+---
+
+### Phase 24 - Device Profiles and Context Budgets
+
+#### Purpose
+
+Make context output usable by different clients, especially small local LLMs on phones.
 
 #### Deliver
 

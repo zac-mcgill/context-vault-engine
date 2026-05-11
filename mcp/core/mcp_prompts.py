@@ -59,6 +59,27 @@ PROMPTS = [
         ],
     },
     {
+        "name": "cve.review_pending_change",
+        "description": (
+            "Guide a reviewer through examining a pending change proposal, "
+            "understanding the diff and validation status, and deciding whether "
+            "to accept or reject. "
+            "Does NOT auto-accept. Requires explicit human decision."
+        ),
+        "arguments": [
+            {
+                "name": "vault",
+                "description": "The vault name to use.",
+                "required": True,
+            },
+            {
+                "name": "change_id",
+                "description": "The pending change ID to review.",
+                "required": True,
+            },
+        ],
+    },
+    {
         "name": "cve.resume_work",
         "description": (
             "Resume work by reading the current session summary and project state. "
@@ -140,6 +161,9 @@ def get_prompt(name: str, arguments: dict | None = None) -> dict | None:
         return _prompt_quality_plan(vault)
     if name == "cve.resume_work":
         return _prompt_resume_work(vault)
+    if name == "cve.review_pending_change":
+        change_id = arguments.get("change_id", "<change_id>")
+        return _prompt_review_pending_change(vault, change_id)
 
     return None
 
@@ -303,6 +327,54 @@ def _prompt_resume_work(vault: str) -> dict:
     )
     return {
         "description": "Resume work from stored session and project state",
+        "messages": [
+            {"role": "user", "content": {"type": "text", "text": text}},
+        ],
+    }
+
+
+def _prompt_review_pending_change(vault: str, change_id: str) -> dict:
+    text = (
+        f"You are reviewing a pending change proposal for vault: {vault!r}\n"
+        f"Change ID: {change_id!r}\n\n"
+        "Follow these steps to review the change:\n\n"
+        "1. Call `cve.review_pending_change` with "
+        f"`vault={vault!r}` and `change_id={change_id!r}` "
+        "to retrieve the full change object.\n\n"
+        "2. Examine the change record:\n"
+        "   - `type`: what kind of change is proposed "
+        "(create_note_draft | suggest_note_update | update_note_section_draft)\n"
+        "   - `path`: which vault note is targeted\n"
+        "   - `section`: which section (if applicable)\n"
+        "   - `reason`: why the change was proposed\n"
+        "   - `source`: who proposed it (agent | human | system)\n"
+        "   - `validation_status`: pass | fail | not_checked\n"
+        "   - `validation_errors`: list of any schema errors\n\n"
+        "3. Review the `diff` field:\n"
+        "   - Each line shows what was added (+) or removed (-)\n"
+        "   - Confirm only the intended content is changing\n"
+        "   - Check for any unexpected or unsafe content\n\n"
+        "4. Check `validation_status`:\n"
+        "   - If `fail`, the change CANNOT be accepted until the errors are resolved\n"
+        "   - Report the validation errors to the user\n\n"
+        "5. If the change looks valid and intentional:\n"
+        "   - Ask the user to confirm they want to accept it\n"
+        "   - Only call `cve.accept_pending_change` AFTER explicit user confirmation\n"
+        "   - Do NOT auto-accept under any circumstances\n\n"
+        "6. If the change should be rejected:\n"
+        "   - Ask the user to confirm rejection\n"
+        "   - Call `cve.reject_pending_change` with an audit_note explaining why\n\n"
+        "AUDIT NOTE: Accepted/rejected changes are archived for audit. "
+        "Rejected changes are never deleted.\n\n"
+        "PRIVACY NOTE: The pending change may contain user or project details. "
+        "Do not share change content outside this conversation without user consent.\n\n"
+        "SAFETY: Do not call cve.accept_pending_change without explicit user "
+        "confirmation. Do not auto-accept based on the validation_status alone. "
+        "The user must make the final decision.\n"
+        f"{_SAFETY_FOOTER}"
+    )
+    return {
+        "description": "Review a pending change proposal (diff, validation, accept/reject)",
         "messages": [
             {"role": "user", "content": {"type": "text", "text": text}},
         ],

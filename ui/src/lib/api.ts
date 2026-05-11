@@ -991,3 +991,167 @@ export function fetchContextPlan(
     });
   }
 }
+
+// ---------------------------------------------------------------------------
+// Pending Changes — Safe Memory Write Queue (Phase 23)
+// ---------------------------------------------------------------------------
+
+export type PendingChangeType =
+  | 'create_note_draft'
+  | 'suggest_note_update'
+  | 'update_note_section_draft';
+
+export type PendingChangeStatus = 'pending' | 'accepted' | 'rejected' | 'invalid';
+
+export type PendingValidationStatus = 'pass' | 'fail' | 'not_checked';
+
+export interface PendingChange {
+  id: string;
+  type: PendingChangeType;
+  vault: string;
+  path: string;
+  section: string | null;
+  proposed_content: string;
+  reason: string;
+  source: string;
+  created_at: string;
+  updated_at: string;
+  status: PendingChangeStatus;
+  validation_status: PendingValidationStatus;
+  validation_errors: string[];
+  diff: string[];
+  original_content_hash: string | null;
+  proposed_content_hash: string;
+  session_id: string | null;
+  project: string | null;
+  applied_at: string | null;
+  rejected_at: string | null;
+  reviewer: string | null;
+  audit_note: string | null;
+}
+
+export interface PendingChangesData {
+  vault: string;
+  status: string | null;
+  count: number;
+  changes: PendingChange[];
+}
+
+export interface PendingChangeData {
+  vault: string;
+  change: PendingChange;
+}
+
+export interface CreateNoteDraftRequest {
+  vault: string;
+  path: string;
+  fields: Record<string, unknown>;
+  body: string;
+  reason?: string;
+  source?: string;
+  session_id?: string;
+  project?: string;
+}
+
+export interface SuggestNoteUpdateRequest {
+  vault: string;
+  path: string;
+  fields?: Record<string, unknown>;
+  body?: string;
+  reason?: string;
+  source?: string;
+  session_id?: string;
+  project?: string;
+}
+
+export interface UpdateSectionDraftRequest {
+  vault: string;
+  path: string;
+  section: string;
+  proposed_content: string;
+  reason?: string;
+  source?: string;
+  session_id?: string;
+  project?: string;
+}
+
+export interface PendingChangeActionRequest {
+  vault: string;
+  reviewer?: string;
+  audit_note?: string;
+}
+
+/** GET /memory/pending?vault=&status=&limit= — list pending change proposals. */
+export function listPendingChanges(
+  vault: string,
+  status?: string,
+  limit = 50,
+): Promise<ApiResult<PendingChangesData>> {
+  const params = new URLSearchParams({ vault });
+  if (status) params.set('status', status);
+  params.set('limit', String(limit));
+  return get<PendingChangesData>(`/memory/pending?${params.toString()}`);
+}
+
+/** GET /memory/pending/{change_id}?vault= — get a single pending change. */
+export function getPendingChange(
+  vault: string,
+  changeId: string,
+): Promise<ApiResult<PendingChangeData>> {
+  return get<PendingChangeData>(
+    `/memory/pending/${encodeURIComponent(changeId)}?vault=${encodeURIComponent(vault)}`,
+  );
+}
+
+/** POST /memory/create-note-draft — propose creating a new vault note. */
+export function createNoteDraft(
+  request: CreateNoteDraftRequest,
+): Promise<ApiResult<PendingChangeData>> {
+  return post<PendingChangeData>('/memory/create-note-draft', request);
+}
+
+/** POST /memory/suggest-note-update — propose updating an existing vault note. */
+export function suggestNoteUpdate(
+  request: SuggestNoteUpdateRequest,
+): Promise<ApiResult<PendingChangeData>> {
+  return post<PendingChangeData>('/memory/suggest-note-update', request);
+}
+
+/** POST /memory/update-section-draft — propose replacing a section in an existing note. */
+export function updateSectionDraft(
+  request: UpdateSectionDraftRequest,
+): Promise<ApiResult<PendingChangeData>> {
+  return post<PendingChangeData>('/memory/update-section-draft', request);
+}
+
+/** POST /memory/pending/{change_id}/accept — accept and apply a pending change. */
+export function acceptPendingChange(
+  vault: string,
+  changeId: string,
+  reviewer?: string,
+  auditNote?: string,
+): Promise<ApiResult<PendingChangeData>> {
+  const body: PendingChangeActionRequest = { vault };
+  if (reviewer) body.reviewer = reviewer;
+  if (auditNote) body.audit_note = auditNote;
+  return post<PendingChangeData>(
+    `/memory/pending/${encodeURIComponent(changeId)}/accept`,
+    body,
+  );
+}
+
+/** POST /memory/pending/{change_id}/reject — reject and archive a pending change. */
+export function rejectPendingChange(
+  vault: string,
+  changeId: string,
+  reviewer?: string,
+  auditNote?: string,
+): Promise<ApiResult<PendingChangeData>> {
+  const body: PendingChangeActionRequest = { vault };
+  if (reviewer) body.reviewer = reviewer;
+  if (auditNote) body.audit_note = auditNote;
+  return post<PendingChangeData>(
+    `/memory/pending/${encodeURIComponent(changeId)}/reject`,
+    body,
+  );
+}

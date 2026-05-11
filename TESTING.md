@@ -1,6 +1,6 @@
 # Context Vault Engine — Testing
 
-All tests live in `mcp/test_verify.py`. There are 429 test functions covering all implemented phases.
+All tests live in `mcp/test_verify.py`. There are 467 test functions covering all implemented phases.
 
 ---
 
@@ -743,7 +743,7 @@ File-backed session tracking and project state layer. Local LLMs can answer "whe
 **Verification steps:**
 
 ```bash
-py mcp/test_verify.py      # 429 tests — all must pass (33 new P22 tests added)
+py mcp/test_verify.py      # 467 tests — all must pass (38 new P23 tests added)
 py run.py validate         # 19/19 valid
 py run.py security         # status: pass
 py run.py session          # prints session summary as JSON
@@ -816,6 +816,95 @@ cd ui && npm run build     # must complete with 0 errors
 - `ROADMAP.md` — Phase 22 marked Complete.
 - `mcp/test_verify.py` — 33 new Phase 22 tests.
 
+---
+
+## Phase 23 — Safe Memory Write Queue
+
+LLM-proposed note changes are stored as pending change proposals in a file-backed queue. Nothing is written to vault notes until a human explicitly accepts. Supports `create_note_draft`, `suggest_note_update`, and `update_note_section_draft`. Proposals carry a unified diff, schema validation, staleness hash protection, and a full audit trail. 38 tests added.
+
+**Verification steps:**
+
+```bash
+py mcp/test_verify.py      # 467 tests — all must pass (38 new P23 tests added)
+py run.py validate         # 19/19 valid
+py run.py security         # status: pass
+py run.py pending          # prints pending changes as JSON
+py run.py feedback         # exits 0, valid JSON
+py run.py export --overwrite   # status: ok
+cd ui && npm run build     # must complete with 0 errors
+```
+
+**Tests added (38 total, P23-1 through P23-38):**
+
+*Service layer (P23-1 to P23-17):*
+- `test_p23_pending_changes_module_imports` — module imports without error; key functions present.
+- `test_p23_pending_root_path` — pending root resolves to `Vault Files/State/pending-changes/`.
+- `test_p23_path_traversal_blocked` — traversal paths return `INVALID_NOTE_PATH`.
+- `test_p23_create_note_draft` — `create_note_draft` creates change JSON on disk.
+- `test_p23_create_note_draft_rejects_existing` — draft for existing note path returns `NOTE_EXISTS`.
+- `test_p23_suggest_note_update_diff` — `suggest_note_update` produces a non-empty diff.
+- `test_p23_update_note_section_draft` — section draft replaces only the named section.
+- `test_p23_missing_section` — missing section heading returns `VALIDATION_FAILED`.
+- `test_p23_list_ordering` — `list_pending_changes` returns changes sorted newest-first.
+- `test_p23_review_full_object` — `review_pending_change` returns all required fields.
+- `test_p23_reject_archives` — `reject_pending_change` moves change to archive directory.
+- `test_p23_accept_applies` — `accept_pending_change` writes note to vault.
+- `test_p23_accept_revalidates` — accept revalidates before write; fails if validation fails.
+- `test_p23_accept_stale_hash` — accept detects stale hash mismatch and returns `STALE_PENDING_CHANGE`.
+- `test_p23_accepted_archived` — accepted change is moved to archive.
+- `test_p23_invalid_cannot_be_accepted` — change with `validation_status=fail` cannot be accepted.
+- `test_p23_json_sorted_keys` — pending change JSON files use sorted keys.
+
+*HTTP layer (P23-18 to P23-27):*
+- `test_p23_http_list_pending` — `GET /memory/pending` returns 200 with correct shape.
+- `test_p23_http_create_note_draft` — `POST /memory/create-note-draft` returns 200 with change_id.
+- `test_p23_http_suggest_note_update` — `POST /memory/suggest-note-update` returns change with diff.
+- `test_p23_http_update_section_draft` — `POST /memory/update-section-draft` returns change.
+- `test_p23_http_get_pending` — `GET /memory/pending/{id}` returns full change object.
+- `test_p23_http_reject` — `POST /memory/pending/{id}/reject` archives the change.
+- `test_p23_http_accept` — `POST /memory/pending/{id}/accept` applies change.
+- `test_p23_http_missing_vault` — missing vault param returns 422/400.
+- `test_p23_http_private_cloud_auth` — unauthenticated requests return 401 in private cloud mode.
+- `test_p23_http_read_only_blocks_write` — mutating routes return 403 `REMOTE_READ_ONLY` in read-only mode.
+
+*MCP layer (P23-28 to P23-31):*
+- `test_p23_mcp_pending_tools_registered` — all 7 pending-change tools listed by `tools/list`.
+- `test_p23_mcp_review_prompt_registered` — `cve.review_pending_change` listed by `prompts/list`.
+- `test_p23_mcp_pending_resource_registered` — `pending-changes` resource URI listed by `resources/list`.
+- `test_p23_mcp_pending_resource_read` — resource returns `status=ok` and `changes` array.
+
+*UI build test (P23-32):*
+- `test_p23_ui_build` — `npm run build` in `ui/` completes without errors.
+
+*Documentation tests (P23-33 to P23-38):*
+- `test_p23_readme_mentions_pending` — `README.md` mentions Safe Memory Write Queue.
+- `test_p23_quickstart_mentions_pending` — `QUICKSTART.md` mentions pending changes.
+- `test_p23_api_md_documents_pending_endpoints` — `API.md` documents pending-change endpoints.
+- `test_p23_testing_md_updated_count` — `TESTING.md` mentions test count 467.
+- `test_p23_roadmap_phase23_complete` — `ROADMAP.md` marks Phase 23 complete.
+- `test_p23_existing_tests_unaffected` — all original tools, prompts, and note_write API remain present.
+
+**Files created:**
+
+- `mcp/core/pending_changes.py` — full pending-change service: `create_note_draft`, `suggest_note_update`, `update_note_section_draft`, `list_pending_changes`, `review_pending_change`, `accept_pending_change`, `reject_pending_change`, `validate_pending_change`. Pure stdlib. All functions accept `_vault_path` for test isolation.
+- `ui/src/components/PendingChanges.svelte` — vault selector, change list, detail panel with diff display, accept/reject with confirmation.
+- `ui/src/pages/pending.astro` — UI page for the Pending Changes view.
+
+**Files modified:**
+
+- `mcp/server/mcp_server.py` — 4 new entries in `_WRITE_PATH_PREFIXES`; 4 Pydantic models; 7 HTTP endpoints.
+- `mcp/core/mcp_tools.py` — 7 new tools; Phase 23 `_tool_*` implementations; dispatch entries.
+- `mcp/core/mcp_resources.py` — 1 new resource template; `_read_pending_changes` handler.
+- `mcp/core/mcp_prompts.py` — `cve.review_pending_change` prompt added.
+- `run.py` — `pending` CLI command; updated USAGE string.
+- `ui/src/lib/api.ts` — `PendingChange` type and all 7 API functions.
+- `ui/src/layouts/AppLayout.astro` — `Pending` nav item added.
+- `README.md` — Safe Memory Write Queue capability bullet; updated test count to 467.
+- `QUICKSTART.md` — Phase 23 section added.
+- `API.md` — Safe Memory Write Queue section with all 7 endpoints.
+- `TESTING.md` — added Phase 23 section (this entry); updated test count to 467.
+- `ROADMAP.md` — Phase 23 marked Complete; Phase 24 set as next.
+- `mcp/test_verify.py` — 38 new Phase 23 tests.
 
 
 Safe vault deletion through API and UI. Users can permanently delete non-demo vaults via `DELETE /vault/{vault_name}` with explicit typed confirmation. A Danger Zone section was added to the Vault Setup page. 18 backend tests added.

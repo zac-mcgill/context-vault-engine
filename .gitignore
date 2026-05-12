@@ -28,6 +28,9 @@ temp/
 mcp/*.log
 mcp/tmp/
 
+# Vault runtime state (pending-change drafts written by tests / HTTP routes)
+**/Vault Files/State/pending-changes/
+
 # Generated context packages (Phase 4 build artefacts)
 dist/
 

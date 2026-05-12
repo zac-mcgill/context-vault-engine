@@ -3,9 +3,57 @@
 import sys
 import concurrent.futures
 import logging
+import shutil
+import subprocess
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+
+def _resolve_npm() -> str:
+    """Locate the npm executable in a cross-platform way.
+
+    On Windows, npm is shipped as ``npm.cmd``; ``shutil.which`` handles PATHEXT.
+    Using the resolved absolute path avoids the need for ``shell=True``.
+    """
+    npm = shutil.which("npm") or shutil.which("npm.cmd")
+    assert npm, "npm executable not found on PATH"
+    return npm
+
+
+def _ensure_ui_dependencies(ui_dir: Path) -> None:
+    """Ensure ``ui/node_modules`` is populated, running ``npm ci`` if needed."""
+    assert ui_dir.is_dir(), f"UI directory not found: {ui_dir}"
+    assert (ui_dir / "package.json").is_file(), "ui/package.json not found"
+    assert (ui_dir / "package-lock.json").is_file(), "ui/package-lock.json not found"
+
+    if not (ui_dir / "node_modules").is_dir():
+        npm = _resolve_npm()
+        install = subprocess.run(
+            [npm, "ci"],
+            cwd=str(ui_dir),
+            text=True,
+            capture_output=True,
+            timeout=600,
+        )
+        assert install.returncode == 0, (
+            f"npm ci failed (exit {install.returncode}):\n"
+            f"stdout: {install.stdout[-2000:]}\n"
+            f"stderr: {install.stderr[-2000:]}"
+        )
+
+
+def _run_ui_build(ui_dir: Path) -> "subprocess.CompletedProcess[str]":
+    """Run ``npm run build`` inside ``ui_dir`` without invoking a shell."""
+    _ensure_ui_dependencies(ui_dir)
+    npm = _resolve_npm()
+    return subprocess.run(
+        [npm, "run", "build"],
+        cwd=str(ui_dir),
+        text=True,
+        capture_output=True,
+        timeout=300,
+    )
 
 from mcp.core.vault_registry import list_vaults, get_vault_path, get_schema
 from mcp.core.note_index import (
@@ -16278,21 +16326,9 @@ def test_p24_32():
 def test_p24_33():
     """P24-33: Bundle Builder UI builds with profile selector (npm run build)."""
     print("\n=== Test P24-33: Bundle Builder UI build ===")
-    import subprocess
-    from pathlib import Path
     _ROOT = Path(__file__).resolve().parent.parent
     ui_dir = _ROOT / "ui"
-    if not (ui_dir / "node_modules").is_dir():
-        print("  (node_modules not present — skipping UI build test)")
-        return
-    result = subprocess.run(
-        ["npm", "run", "build"],
-        cwd=str(ui_dir),
-        capture_output=True,
-        text=True,
-        timeout=120,
-        shell=True,
-    )
+    result = _run_ui_build(ui_dir)
     assert result.returncode == 0, (
         f"UI build failed (exit {result.returncode}):\n"
         f"stdout: {result.stdout[-2000:]}\n"
@@ -17144,26 +17180,16 @@ def test_p23_mcp_pending_resource_read():
 def test_p23_ui_build():
     """P23-32: UI builds without errors after Phase 23 changes."""
     print("\n=== Test P23-32: UI build ===")
-    import subprocess
-    from pathlib import Path
     _ROOT = Path(__file__).resolve().parent.parent
     ui_dir = _ROOT / "ui"
-    if not (ui_dir / "node_modules").is_dir():
-        print("  (node_modules not present — skipping UI build test)")
-        return
-    result = subprocess.run(
-        ["npm", "run", "build"],
-        cwd=str(ui_dir),
-        capture_output=True,
-        text=True,
-        timeout=120,
-        shell=True,
-    )
+    result = _run_ui_build(ui_dir)
     assert result.returncode == 0, (
         f"UI build failed (exit {result.returncode}):\n"
         f"stdout: {result.stdout[-2000:]}\n"
         f"stderr: {result.stderr[-2000:]}"
     )
+    dist_dir = ui_dir / "dist"
+    assert dist_dir.is_dir(), "dist directory not created after build"
     print("  UI build passed ✓")
 
 
@@ -18137,26 +18163,39 @@ def test_p21_write_route_allowed_when_read_only_false():
     _TOKEN = "rw-mode-test-token-p21"
     vault = list_vaults()[0]
 
-    with _p21_env(
-        CVE_PRIVATE_CLOUD_ENABLED="true",
-        CVE_AUTH_TOKEN=_TOKEN,
-        CVE_REQUIRE_AUTH="true",
-        CVE_REMOTE_READ_ONLY="false",
-        CVE_DEPLOYMENT_MODE=None,
-    ):
-        from mcp.server.mcp_server import app
-        with TestClient(app, raise_server_exceptions=True) as client:
-            # POST /feedback is a write route — should NOT be blocked by read-only guard.
-            # It may still return 404/400 from its own validation, but NOT 403 REMOTE_READ_ONLY.
-            resp = client.post(
-                "/feedback",
-                json={
-                    "vault": vault, "path": "Fundamentals/Algorithms.md",
-                    "source": "human", "signal": "unclear",
-                    "severity": "low", "comment": "test-p21-rw",
-                },
-                headers={"Authorization": f"Bearer {_TOKEN}"},
-            )
+    # The POST below appends to the real vault's feedback.md; snapshot and restore
+    # to keep the tracked fixture clean across verification runs.
+    from mcp.core.vault_registry import get_vault_path
+    fb_file = get_vault_path(vault) / "Vault Files" / "feedback.md"
+    _original_feedback = _save_restore_feedback(fb_file)
+
+    try:
+        with _p21_env(
+            CVE_PRIVATE_CLOUD_ENABLED="true",
+            CVE_AUTH_TOKEN=_TOKEN,
+            CVE_REQUIRE_AUTH="true",
+            CVE_REMOTE_READ_ONLY="false",
+            CVE_DEPLOYMENT_MODE=None,
+        ):
+            from mcp.server.mcp_server import app
+            with TestClient(app, raise_server_exceptions=True) as client:
+                # POST /feedback is a write route — should NOT be blocked by read-only guard.
+                # It may still return 404/400 from its own validation, but NOT 403 REMOTE_READ_ONLY.
+                resp = client.post(
+                    "/feedback",
+                    json={
+                        "vault": vault, "path": "Fundamentals/Algorithms.md",
+                        "source": "human", "signal": "unclear",
+                        "severity": "low", "comment": "test-p21-rw",
+                    },
+                    headers={"Authorization": f"Bearer {_TOKEN}"},
+                )
+    finally:
+        # Restore the fixture regardless of test outcome.
+        if _original_feedback is not None:
+            fb_file.write_text(_original_feedback, encoding="utf-8")
+        elif fb_file.is_file():
+            fb_file.unlink()
 
     # Must NOT be 403 REMOTE_READ_ONLY
     assert resp.status_code != 403, (

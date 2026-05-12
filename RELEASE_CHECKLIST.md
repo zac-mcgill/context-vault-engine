@@ -33,8 +33,12 @@ Use this checklist before tagging a release. All steps are local and determinist
 
 ## Versioning
 
-- [ ] Version tag chosen (e.g. `v0.25.0`)
-- [ ] Changelog or release notes drafted
+- [ ] Version tag chosen according to the current release line:
+  - Patch/fix after `v1.0.0`: `v1.0.1`, `v1.0.2`, etc.
+  - Non-breaking feature release after `v1.0.0`: `v1.1.0`, `v1.2.0`, etc.
+  - Breaking API/schema/config change: `v2.0.0`.
+  - Historical baseline tags may remain descriptive, for example `v0.6.0-deterministic-cdlc-baseline`.
+- [ ] Release notes or CHANGELOG entry added for the tag.
 - [ ] Breaking changes documented: API contracts, CLI flags, schema fields
 - [ ] Licence reviewed (`LICENCE.md`)
 

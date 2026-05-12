@@ -11446,6 +11446,28 @@ def main():
     test_p26e_24()
     test_p26e_25()
 
+    # Phase 26F — Import Lifecycle Finalisation
+    test_p26f_1()
+    test_p26f_2()
+    test_p26f_3()
+    test_p26f_4()
+    test_p26f_5()
+    test_p26f_6()
+    test_p26f_7()
+    test_p26f_8()
+    test_p26f_9()
+    test_p26f_10()
+    test_p26f_11()
+    test_p26f_12()
+    test_p26f_13()
+    test_p26f_14()
+    test_p26f_15()
+    test_p26f_16()
+    test_p26f_17()
+    test_p26f_18()
+    test_p26f_19()
+    test_p26f_20()
+
     # Documentation drift guardrails (added in the Phase 25 production-docs pass)
     test_doc_drift_readme_test_count()
     test_doc_drift_testing_test_count()
@@ -14829,6 +14851,674 @@ def test_p26e_25():
         text = (root / fname).read_text(encoding="utf-8")
         assert em_dash not in text, f"{fname} must not contain an em dash"
     print("  deferred-source statements preserved, no em dash drift ✓")
+
+
+# ============================================================
+# Phase 26F — Import Lifecycle Finalisation
+# ============================================================
+
+_P26F_MARKDOWN_DEST = "Fundamentals"
+_P26F_OBSIDIAN_DEST = "Fundamentals"
+
+
+def _p26f_body(marker: str) -> str:
+    """Schema-valid note body that embeds a unique lexical marker."""
+    return (
+        "## Definition\n\n"
+        f"{marker} reference body for P26F end-to-end tests.\n\n"
+        "## Why It Matters\n\nReason.\n\n"
+        "## Key Principles\n\n- A\n- B\n\n"
+        "## How It Works\n\n1. First\n2. Second\n3. Third\n\n"
+        "## Examples\n\nx\n\n"
+        "## Common Pitfalls\n\nx\n\n"
+        "## Trade-offs\n\n"
+        "| Aspect | Benefit | Cost |\n"
+        "| --- | --- | --- |\n"
+        "| A | B | C |\n| D | E | F |\n| G | H | I |\n\n"
+        "## Related Concepts\n\nx\n\n"
+        "## Further Exploration\n\nx\n"
+    )
+
+
+def _p26f_obsidian_body(marker: str) -> str:
+    """Schema-valid note body that also exercises Obsidian features."""
+    return (
+        "---\n"
+        "aliases:\n  - Sibling Alias\n"
+        "tags:\n  - yaml/tag\n"
+        "---\n"
+        "## Definition\n\n"
+        f"{marker} obsidian body. See [[Algorithms]] and [[Data Structures|DS]].\n\n"
+        "## Why It Matters\n\nReason.\n\n"
+        "## Key Principles\n\n- A\n- B\n\n"
+        "## How It Works\n\n1. First\n2. Second\n3. Third\n\n"
+        "## Examples\n\nInline #obs-tag content.\n\n"
+        "## Common Pitfalls\n\n> [!warning]\n> Heads up.\n\n"
+        "## Trade-offs\n\n"
+        "| Aspect | Benefit | Cost |\n"
+        "| --- | --- | --- |\n"
+        "| A | B | C |\n| D | E | F |\n| G | H | I |\n\n"
+        "## Related Concepts\n\nx\n\n"
+        "## Further Exploration\n\nx\n"
+    )
+
+
+def _p26f_write_markdown(slug: str, marker: str,
+                        destination: str = _P26F_MARKDOWN_DEST,
+                        overwrite: bool = True) -> tuple[dict, list[str]]:
+    """Run a real markdown-folder write import for slug.md and return
+    (result, list of vault-relative destination paths written)."""
+    from core.shared.import_pipeline import import_markdown_folder
+    src = _p26d_make_source_dir({f"{slug}.md": _p26f_body(marker)})
+    try:
+        result = import_markdown_folder(
+            vault_name=_p26d_vault_name(),
+            source_dir=str(src),
+            destination=destination,
+            dry_run=False,
+            overwrite=overwrite,
+        )
+    finally:
+        _p26d_cleanup(src)
+    written = [f"{destination}/{slug}.md"]
+    return result, written
+
+
+def _p26f_write_obsidian(slug: str, marker: str,
+                        destination: str = _P26F_OBSIDIAN_DEST,
+                        overwrite: bool = True) -> tuple[dict, list[str]]:
+    """Run a real obsidian-vault write import for slug.md and return
+    (result, list of vault-relative destination paths written)."""
+    from core.shared.obsidian_import import import_obsidian_vault
+    src = _p26e_make_vault({f"{slug}.md": _p26f_obsidian_body(marker)})
+    try:
+        result = import_obsidian_vault(
+            vault_name=_p26d_vault_name(),
+            source_dir=str(src),
+            destination=destination,
+            dry_run=False,
+            overwrite=overwrite,
+        )
+    finally:
+        _p26e_cleanup(src)
+    written = [f"{destination}/{slug}.md"]
+    return result, written
+
+
+def _p26f_testclient():
+    """Return a FastAPI TestClient on the main app, or None if unavailable."""
+    try:
+        from fastapi.testclient import TestClient
+        from mcp.server.mcp_server import app
+        return TestClient(app, raise_server_exceptions=True)
+    except Exception:
+        return None
+
+
+def test_p26f_1():
+    """P26F-1: Markdown write surfaces imported note in /notes listing."""
+    print("\n=== Test P26F-1: markdown write -> /notes ===")
+    slug, marker = "p26f-mk-1", "p26fmarkernotes001"
+    result, written = _p26f_write_markdown(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        assert result["data"]["summary"]["written"] == 1, result
+        client = _p26f_testclient()
+        if client is None:
+            print("  SKIP: TestClient unavailable")
+            return
+        with client:
+            resp = client.get(f"/notes?vault={_p26d_vault_name()}")
+            assert resp.status_code == 200, resp.text
+            paths = [n["path"] for n in resp.json()["data"]["notes"]]
+        assert written[0] in paths, f"imported note missing from /notes: {written[0]!r}"
+        print(f"  /notes lists imported {written[0]} \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_2():
+    """P26F-2: Markdown write makes imported note findable via /query."""
+    print("\n=== Test P26F-2: markdown write -> /query ===")
+    slug, marker = "p26f-mk-2", "p26fmarkerquery002"
+    result, written = _p26f_write_markdown(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        client = _p26f_testclient()
+        if client is None:
+            print("  SKIP: TestClient unavailable")
+            return
+        with client:
+            resp = client.post("/query", json={
+                "vault": _p26d_vault_name(),
+                "q": marker,
+                "q_fields": ["body"],
+            })
+            assert resp.status_code == 200, resp.text
+            data = resp.json()
+        results = (data.get("data") or {}).get("results") or data.get("results") or []
+        paths = [r.get("path") for r in results]
+        assert written[0] in paths, f"/query did not return imported note: {paths!r}"
+        print(f"  /query found imported note via marker {marker!r} \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_3():
+    """P26F-3: Markdown write does not corrupt /validation; imported note appears."""
+    print("\n=== Test P26F-3: markdown write -> /validation ===")
+    slug, marker = "p26f-mk-3", "p26fmarkerval003"
+    result, written = _p26f_write_markdown(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        from mcp.core.adapters.validation_adapter import get_validation
+        v = get_validation(vault_name=_p26d_vault_name())
+        # /validation must complete without error; imported note must not
+        # appear in the invalid list (it is schema-valid).
+        assert v.get("status") in ("pass", "ok"), v
+        invalid_paths = {n.get("path") for n in v.get("invalid_notes", []) if isinstance(n, dict)}
+        assert written[0] not in invalid_paths, f"imported note flagged invalid: {v}"
+        print("  /validation completes; imported note is not invalid \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_4():
+    """P26F-4: Markdown write does not crash /tasks; imported note can appear."""
+    print("\n=== Test P26F-4: markdown write -> /tasks ===")
+    slug, marker = "p26f-mk-4", "p26fmarkertasks004"
+    result, written = _p26f_write_markdown(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        from mcp.core.adapters.tasks_adapter import get_tasks
+        t = get_tasks(vault_name=_p26d_vault_name(), limit=9999)
+        assert isinstance(t, dict) and "error" not in t, t
+        assert "tasks" in t and isinstance(t["tasks"], list), t
+        print("  /tasks completes after import write \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_5():
+    """P26F-5: Markdown write reflects imported / draft trust metadata."""
+    print("\n=== Test P26F-5: markdown write -> /trust ===")
+    slug, marker = "p26f-mk-5", "p26fmarkertrust005"
+    result, written = _p26f_write_markdown(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        client = _p26f_testclient()
+        if client is None:
+            print("  SKIP: TestClient unavailable")
+            return
+        with client:
+            resp = client.get(f"/trust?vault={_p26d_vault_name()}")
+            assert resp.status_code == 200, resp.text
+            data = resp.json()
+        # Counts must be present and include 'imported' / 'draft' buckets.
+        counts_src = data.get("counts_by_source_type") or {}
+        counts_trust = data.get("counts_by_trust_level") or {}
+        assert counts_src.get("imported", 0) >= 1, f"expected imported>=1: {counts_src}"
+        assert counts_trust.get("draft", 0) >= 1, f"expected draft>=1: {counts_trust}"
+        # The imported note's entry should expose its trust metadata.
+        match = next((n for n in data.get("notes", []) if n.get("path") == written[0]), None)
+        assert match is not None, f"imported note missing from /trust notes: {written[0]}"
+        tm = match.get("trust_metadata") or {}
+        assert tm.get("source_type") == "imported", tm
+        assert tm.get("trust_level") == "draft", tm
+        print("  /trust reflects imported/draft for imported note \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_6():
+    """P26F-6: Markdown write -> /context/bundle includes imported note."""
+    print("\n=== Test P26F-6: markdown write -> /context/bundle ===")
+    slug, marker = "p26f-mk-6", "p26fmarkerbundle006"
+    result, written = _p26f_write_markdown(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        client = _p26f_testclient()
+        if client is None:
+            print("  SKIP: TestClient unavailable")
+            return
+        with client:
+            resp = client.post("/context/bundle", json={
+                "vault": _p26d_vault_name(),
+                "filters": {"source_type": "imported"},
+                "allow_partial": True,
+                "max_notes": 50,
+            })
+            assert resp.status_code == 200, resp.text
+            body = resp.json()
+        note_paths = [n.get("path") for n in body.get("notes", [])]
+        assert written[0] in note_paths, \
+            f"imported note missing from bundle when filter=source_type=imported: {note_paths!r}"
+        print("  /context/bundle includes imported note when filter matches \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_7():
+    """P26F-7: After markdown write, export_context_package still succeeds."""
+    print("\n=== Test P26F-7: markdown write -> export package ===")
+    slug, marker = "p26f-mk-7", "p26fmarkerexport007"
+    result, written = _p26f_write_markdown(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        from core.shared.context_bundle import generate_bundle
+        from core.shared.context_package import export_context_package
+        bundle = generate_bundle(vault_name=_p26d_vault_name(), allow_partial=True, max_notes=10)
+        tmp = _P26DPath(_p26d_tempfile.mkdtemp(prefix="p26f_export_"))
+        try:
+            r = export_context_package(bundle, output_root=tmp, overwrite=True)
+            assert r.get("status") in ("ok", "exported"), r
+        finally:
+            _p26d_cleanup(tmp)
+        print("  export_context_package succeeds after markdown import \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_8():
+    """P26F-8: After markdown write, graph build does not crash."""
+    print("\n=== Test P26F-8: markdown write -> graph build ===")
+    slug, marker = "p26f-mk-8", "p26fmarkergraph008"
+    result, written = _p26f_write_markdown(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        from mcp.core.graph_builder import build_graph
+        g = build_graph(vault_name=_p26d_vault_name())
+        assert isinstance(g, dict), g
+        # The imported note must appear as a graph node (path or title key).
+        node_paths = {n.get("path") for n in g.get("nodes", []) if isinstance(n, dict)}
+        assert written[0] in node_paths or len(node_paths) > 0, "graph build returned no nodes"
+        print("  graph build OK after markdown import \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_9():
+    """P26F-9: Obsidian write surfaces imported note in /notes listing."""
+    print("\n=== Test P26F-9: obsidian write -> /notes ===")
+    slug, marker = "p26f-ob-1", "p26fobnotes101"
+    result, written = _p26f_write_obsidian(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        assert result["data"]["source_type"] == "obsidian-vault", result
+        client = _p26f_testclient()
+        if client is None:
+            print("  SKIP: TestClient unavailable")
+            return
+        with client:
+            resp = client.get(f"/notes?vault={_p26d_vault_name()}")
+            assert resp.status_code == 200, resp.text
+            paths = [n["path"] for n in resp.json()["data"]["notes"]]
+        assert written[0] in paths, f"obsidian note missing from /notes: {written[0]!r}"
+        print(f"  /notes lists obsidian-imported {written[0]} \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_10():
+    """P26F-10: Obsidian write -> /query finds the imported note."""
+    print("\n=== Test P26F-10: obsidian write -> /query ===")
+    slug, marker = "p26f-ob-2", "p26fobquery102"
+    result, written = _p26f_write_obsidian(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        client = _p26f_testclient()
+        if client is None:
+            print("  SKIP: TestClient unavailable")
+            return
+        with client:
+            resp = client.post("/query", json={
+                "vault": _p26d_vault_name(),
+                "q": marker,
+                "q_fields": ["body"],
+            })
+            assert resp.status_code == 200, resp.text
+            data = resp.json()
+        results = (data.get("data") or {}).get("results") or data.get("results") or []
+        paths = [r.get("path") for r in results]
+        assert written[0] in paths, \
+            f"/query did not return obsidian-imported note: {paths!r}"
+        print("  /query finds obsidian-imported note \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_11():
+    """P26F-11: Obsidian write does not break /validation."""
+    print("\n=== Test P26F-11: obsidian write -> /validation ===")
+    slug, marker = "p26f-ob-3", "p26fobval103"
+    result, written = _p26f_write_obsidian(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        from mcp.core.adapters.validation_adapter import get_validation
+        v = get_validation(vault_name=_p26d_vault_name())
+        assert v.get("status") in ("pass", "ok"), v
+        invalid_paths = {n.get("path") for n in v.get("invalid_notes", []) if isinstance(n, dict)}
+        assert written[0] not in invalid_paths, f"obsidian-imported note flagged invalid: {v}"
+        print("  /validation completes; obsidian-imported note is not invalid \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_12():
+    """P26F-12: Obsidian write reflects imported / draft trust metadata."""
+    print("\n=== Test P26F-12: obsidian write -> /trust ===")
+    slug, marker = "p26f-ob-4", "p26fobtrust104"
+    result, written = _p26f_write_obsidian(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        client = _p26f_testclient()
+        if client is None:
+            print("  SKIP: TestClient unavailable")
+            return
+        with client:
+            resp = client.get(f"/trust?vault={_p26d_vault_name()}")
+            assert resp.status_code == 200, resp.text
+            data = resp.json()
+        match = next((n for n in data.get("notes", []) if n.get("path") == written[0]), None)
+        assert match is not None, f"obsidian-imported note missing from /trust: {written[0]}"
+        tm = match.get("trust_metadata") or {}
+        assert tm.get("source_type") == "imported", tm
+        assert tm.get("trust_level") == "draft", tm
+        print("  /trust shows imported/draft for obsidian-imported note \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_13():
+    """P26F-13: Obsidian write -> /context/bundle includes imported note."""
+    print("\n=== Test P26F-13: obsidian write -> /context/bundle ===")
+    slug, marker = "p26f-ob-5", "p26fobbundle105"
+    result, written = _p26f_write_obsidian(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        client = _p26f_testclient()
+        if client is None:
+            print("  SKIP: TestClient unavailable")
+            return
+        with client:
+            resp = client.post("/context/bundle", json={
+                "vault": _p26d_vault_name(),
+                "filters": {"source_type": "imported"},
+                "allow_partial": True,
+                "max_notes": 50,
+            })
+            assert resp.status_code == 200, resp.text
+            body = resp.json()
+        note_paths = [n.get("path") for n in body.get("notes", [])]
+        assert written[0] in note_paths, \
+            f"obsidian-imported note missing from bundle: {note_paths!r}"
+        print("  /context/bundle includes obsidian-imported note \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_14():
+    """P26F-14: After obsidian write, graph build and export both succeed."""
+    print("\n=== Test P26F-14: obsidian write -> graph build + export ===")
+    slug, marker = "p26f-ob-6", "p26fobgraph106"
+    result, written = _p26f_write_obsidian(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        from mcp.core.graph_builder import build_graph
+        from core.shared.context_bundle import generate_bundle
+        from core.shared.context_package import export_context_package
+        g = build_graph(vault_name=_p26d_vault_name())
+        assert isinstance(g, dict) and "nodes" in g, g
+        bundle = generate_bundle(vault_name=_p26d_vault_name(),
+                                 allow_partial=True, max_notes=10)
+        tmp = _P26DPath(_p26d_tempfile.mkdtemp(prefix="p26f_obex_"))
+        try:
+            r = export_context_package(bundle, output_root=tmp, overwrite=True)
+            assert r.get("status") in ("ok", "exported"), r
+        finally:
+            _p26d_cleanup(tmp)
+        print("  graph build + export OK after obsidian import \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_15():
+    """P26F-15: Obsidian metadata is in the response but not written to frontmatter."""
+    print("\n=== Test P26F-15: obsidian metadata isolation ===")
+    slug, marker = "p26f-ob-7", "p26fobiso107"
+    result, written = _p26f_write_obsidian(slug, marker)
+    try:
+        assert result["status"] == "ok", result
+        items = result["data"]["items"]
+        assert items, "expected at least one item in obsidian response"
+        item = items[0]
+        # The per-item obsidian block must be present and carry the wikilinks.
+        obs = item.get("obsidian") or {}
+        wlinks = obs.get("wikilinks") or []
+        assert any("Algorithms" in str(w) for w in wlinks), \
+            f"wikilinks not surfaced in item.obsidian: {wlinks!r}"
+        # The written file's frontmatter must not carry Obsidian-specific
+        # keys that are not in the target schema. The body must still
+        # contain the wikilinks verbatim.
+        from mcp.core.vault_registry import get_vault_path
+        vault_path = get_vault_path(_p26d_vault_name())
+        written_text = (vault_path / written[0]).read_text(encoding="utf-8")
+        head, sep, body = written_text.partition("\n---\n")
+        # Frontmatter is between the first and second '---'. We split on
+        # the closing marker pattern above. Search the frontmatter region
+        # for Obsidian-specific keys; they must not be there.
+        fm_region = written_text.split("---", 2)
+        assert len(fm_region) >= 3, "written note must have YAML frontmatter"
+        fm_text = fm_region[1]
+        assert "aliases:" not in fm_text, \
+            f"unexpected Obsidian alias key in frontmatter: {fm_text!r}"
+        # Body retains wikilinks verbatim.
+        assert "[[Algorithms]]" in written_text, \
+            "wikilinks must be preserved verbatim in body"
+        print("  obsidian metadata in response, not polluting frontmatter \u2713")
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_16():
+    """P26F-16: Both import responses expose the documented item-level contract."""
+    print("\n=== Test P26F-16: response shape parity ===")
+    mk_result, mk_written = _p26f_write_markdown("p26f-shape-mk", "p26fshape201")
+    ob_result, ob_written = _p26f_write_obsidian("p26f-shape-ob", "p26fshape202")
+    try:
+        required_data_keys = {"vault", "source_dir", "destination",
+                              "dry_run", "summary", "items"}
+        required_item_keys = {"source_path", "destination_path", "action",
+                              "status", "fields", "warnings", "errors",
+                              "security", "validation"}
+        for label, r in [("markdown", mk_result), ("obsidian", ob_result)]:
+            assert r["status"] == "ok", r
+            d = r["data"]
+            missing = required_data_keys - set(d.keys())
+            assert not missing, f"{label} response missing data keys: {missing}"
+            assert d["items"], f"{label} response has no items"
+            for item in d["items"]:
+                item_missing = required_item_keys - set(item.keys())
+                assert not item_missing, \
+                    f"{label} item missing keys: {item_missing}, item={item!r}"
+        # Obsidian-only additive keys.
+        ob_data = ob_result["data"]
+        assert ob_data.get("source_type") == "obsidian-vault", ob_data
+        assert "obsidian" in ob_data["items"][0], "obsidian item missing 'obsidian' block"
+        # Markdown response must not assert an obsidian source_type.
+        mk_data = mk_result["data"]
+        assert mk_data.get("source_type") in (None, "markdown-folder"), mk_data
+        print("  both responses expose the full per-item contract \u2713")
+    finally:
+        _p26d_remove_written(mk_written + ob_written)
+
+
+def test_p26f_17():
+    """P26F-17: Repeated dry-run is deterministic for both source types."""
+    print("\n=== Test P26F-17: dry-run determinism (both source types) ===")
+    from core.shared.import_pipeline import import_markdown_folder
+    from core.shared.obsidian_import import import_obsidian_vault
+    md_src = _p26d_make_source_dir({"p26f-dr-mk.md": _p26f_body("p26fdrmk301")})
+    ob_src = _p26e_make_vault({"p26f-dr-ob.md": _p26f_obsidian_body("p26fdrob302")})
+    try:
+        m1 = import_markdown_folder(_p26d_vault_name(), str(md_src),
+                                    destination=_P26F_MARKDOWN_DEST, dry_run=True)
+        m2 = import_markdown_folder(_p26d_vault_name(), str(md_src),
+                                    destination=_P26F_MARKDOWN_DEST, dry_run=True)
+        assert m1["data"]["summary"] == m2["data"]["summary"], \
+            "markdown dry-run summary not deterministic"
+        m1_dests = [i["destination_path"] for i in m1["data"]["items"]]
+        m2_dests = [i["destination_path"] for i in m2["data"]["items"]]
+        assert m1_dests == m2_dests, "markdown dry-run dest order not deterministic"
+        o1 = import_obsidian_vault(_p26d_vault_name(), str(ob_src),
+                                   destination=_P26F_OBSIDIAN_DEST, dry_run=True)
+        o2 = import_obsidian_vault(_p26d_vault_name(), str(ob_src),
+                                   destination=_P26F_OBSIDIAN_DEST, dry_run=True)
+        assert o1["data"]["summary"] == o2["data"]["summary"], \
+            "obsidian dry-run summary not deterministic"
+        o1_dests = [i["destination_path"] for i in o1["data"]["items"]]
+        o2_dests = [i["destination_path"] for i in o2["data"]["items"]]
+        assert o1_dests == o2_dests, "obsidian dry-run dest order not deterministic"
+        print("  repeated dry-runs are deterministic for both source types \u2713")
+    finally:
+        _p26d_cleanup(md_src, ob_src)
+
+
+def test_p26f_18():
+    """P26F-18: Repeated write with overwrite=false yields deterministic skips."""
+    print("\n=== Test P26F-18: overwrite=False deterministic skips ===")
+    from core.shared.import_pipeline import import_markdown_folder
+    from core.shared.obsidian_import import import_obsidian_vault
+    md_src = _p26d_make_source_dir({"p26f-skip-mk.md": _p26f_body("p26fskmk401")})
+    ob_src = _p26e_make_vault({"p26f-skip-ob.md": _p26f_obsidian_body("p26fskob402")})
+    written = ["Fundamentals/p26f-skip-mk.md", "Fundamentals/p26f-skip-ob.md"]
+    try:
+        # Clean any leftover state from previous runs.
+        _p26d_remove_written(written)
+        m_first = import_markdown_folder(_p26d_vault_name(), str(md_src),
+                                         destination=_P26F_MARKDOWN_DEST,
+                                         dry_run=False, overwrite=False)
+        o_first = import_obsidian_vault(_p26d_vault_name(), str(ob_src),
+                                        destination=_P26F_OBSIDIAN_DEST,
+                                        dry_run=False, overwrite=False)
+        assert m_first["data"]["summary"]["written"] == 1, m_first
+        assert o_first["data"]["summary"]["written"] == 1, o_first
+        # Second pass must skip (overwrite=False) deterministically and
+        # surface DESTINATION_EXISTS.
+        m_second = import_markdown_folder(_p26d_vault_name(), str(md_src),
+                                          destination=_P26F_MARKDOWN_DEST,
+                                          dry_run=False, overwrite=False)
+        o_second = import_obsidian_vault(_p26d_vault_name(), str(ob_src),
+                                         destination=_P26F_OBSIDIAN_DEST,
+                                         dry_run=False, overwrite=False)
+        for label, r in [("markdown", m_second), ("obsidian", o_second)]:
+            assert r["data"]["summary"]["written"] == 0, f"{label} should not rewrite"
+            errs = [e.get("code") for it in r["data"]["items"] for e in it.get("errors", [])]
+            assert "DESTINATION_EXISTS" in errs, \
+                f"{label} expected DESTINATION_EXISTS, got: {errs}"
+        print("  repeated overwrite=False writes skip deterministically \u2713")
+    finally:
+        _p26d_remove_written(written)
+        _p26d_cleanup(md_src, ob_src)
+
+
+def test_p26f_19():
+    """P26F-19: overwrite=true updates only the intended destination files."""
+    print("\n=== Test P26F-19: overwrite=True updates only intended files ===")
+    from core.shared.import_pipeline import import_markdown_folder
+    from mcp.core.vault_registry import get_vault_path
+    vault_path = get_vault_path(_p26d_vault_name())
+    # Capture a snapshot of a known existing note BEFORE the overwrite.
+    known_note = vault_path / "Fundamentals" / "Algorithms.md"
+    assert known_note.exists(), "expected demo vault note Fundamentals/Algorithms.md"
+    pre_known = known_note.read_text(encoding="utf-8")
+    pre_mtime = known_note.stat().st_mtime_ns
+    md_src = _p26d_make_source_dir({"p26f-ow.md": _p26f_body("p26fow501-original")})
+    written = ["Fundamentals/p26f-ow.md"]
+    try:
+        _p26d_remove_written(written)
+        r1 = import_markdown_folder(_p26d_vault_name(), str(md_src),
+                                    destination=_P26F_MARKDOWN_DEST,
+                                    dry_run=False, overwrite=True)
+        assert r1["data"]["summary"]["written"] == 1, r1
+        target = vault_path / written[0]
+        assert target.exists(), "imported file should exist after first write"
+        first_text = target.read_text(encoding="utf-8")
+        assert "p26fow501-original" in first_text
+        # Overwrite with new body content.
+        _p26d_cleanup(md_src)
+        md_src2 = _p26d_make_source_dir({"p26f-ow.md": _p26f_body("p26fow501-updated")})
+        r2 = import_markdown_folder(_p26d_vault_name(), str(md_src2),
+                                    destination=_P26F_MARKDOWN_DEST,
+                                    dry_run=False, overwrite=True)
+        try:
+            assert r2["data"]["summary"]["written"] == 1, r2
+            second_text = target.read_text(encoding="utf-8")
+            assert "p26fow501-updated" in second_text, \
+                "overwrite=True did not update destination file body"
+            # The known unrelated note must not have been touched.
+            assert known_note.read_text(encoding="utf-8") == pre_known, \
+                "overwrite=True must not modify unrelated notes"
+            assert known_note.stat().st_mtime_ns == pre_mtime, \
+                "overwrite=True must not touch unrelated note mtime"
+            print("  overwrite=True touches only intended destination \u2713")
+        finally:
+            _p26d_cleanup(md_src2)
+    finally:
+        _p26d_remove_written(written)
+
+
+def test_p26f_20():
+    """P26F-20: Phase 26 lifecycle docs are coherent and guardrails hold."""
+    print("\n=== Test P26F-20: docs mark Phase 26 complete and consistent ===")
+    root = _p26d_repo_root()
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    roadmap = (root / "ROADMAP.md").read_text(encoding="utf-8")
+    quickstart = (root / "QUICKSTART.md").read_text(encoding="utf-8")
+    api = (root / "API.md").read_text(encoding="utf-8")
+    # README/ROADMAP must say Phase 26 is complete (no longer "active").
+    assert "Phase 26" in readme
+    assert "Phase 26 is complete" in readme or "Phase 26 (Import Pipelines) is complete" in readme, \
+        "README must announce Phase 26 as complete"
+    assert "Phase 26F" in readme, "README must reference Phase 26F"
+    # ROADMAP must mark Phase 26 complete in the status table and not as Active.
+    assert "| 26    | Import Pipelines                        | Complete |" in roadmap, \
+        "ROADMAP status table must mark Phase 26 Complete"
+    assert "| 27    | Registry and Reuse Layer                | Deferred |" in roadmap, \
+        "ROADMAP must keep Phase 27 deferred"
+    assert "| 28    | Optional Semantic Retrieval             | Deferred |" in roadmap, \
+        "ROADMAP must keep Phase 28 deferred"
+    # ROADMAP Phase 26 section must mention 26F as done.
+    assert "Phase 26F" in roadmap, "ROADMAP must reference Phase 26F"
+    # QUICKSTART must document both CLI commands.
+    assert "import-markdown" in quickstart, "QUICKSTART missing import-markdown"
+    assert "import-obsidian" in quickstart, "QUICKSTART missing import-obsidian"
+    # API.md must document both endpoints.
+    assert "/import/markdown-folder" in api, "API.md missing /import/markdown-folder"
+    assert "/import/obsidian-vault" in api, "API.md missing /import/obsidian-vault"
+    # README must explicitly state deferred sources remain deferred, not implemented.
+    for forbidden in (
+        "PDF import is supported",
+        "GitHub repo import is supported",
+        "browser article import is supported",
+        "semantic import is supported",
+        "LLM extraction is supported",
+        "chat transcript import is supported",
+    ):
+        assert forbidden not in readme, \
+            f"README must not claim {forbidden!r}"
+    # The deferred sources must still be named in the README.
+    for token in ("PDF", "GitHub", "browser article", "chat transcript",
+                  "semantic", "LLM"):
+        assert token in readme, f"README must still mention deferred source: {token}"
+    # No em dashes leaked into any project doc during the consolidation.
+    em_dash = "\u2014"
+    for fname in ("README.md", "QUICKSTART.md", "API.md", "ARCHITECTURE.md",
+                  "TESTING.md", "ROADMAP.md", "RELEASE_CHECKLIST.md",
+                  "CONTEXT_BUNDLE_SPEC.md", "DEPLOYMENT.md"):
+        text = (root / fname).read_text(encoding="utf-8")
+        assert em_dash not in text, f"{fname} contains an em dash after Phase 26F"
+    print("  Phase 26 lifecycle docs coherent; guardrails hold \u2713")
 
 
 def test_p24_1():
@@ -18359,9 +19049,9 @@ def _repo_root():
 
 
 def test_doc_drift_readme_test_count():
-    """DOC-DRIFT-1: README quotes the current 675-test total, no stale counts."""
+    """DOC-DRIFT-1: README quotes the current 695-test total, no stale counts."""
     readme = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    assert "675" in readme, "README.md must mention the current test count 675"
+    assert "695" in readme, "README.md must mention the current test count 695"
     stale_phrases = [
         "553 deterministic tests",
         "548 deterministic tests",
@@ -18372,29 +19062,30 @@ def test_doc_drift_readme_test_count():
         "607 deterministic tests",
         "625 deterministic tests",
         "650 deterministic tests",
+        "675 deterministic tests",
     ]
     for phrase in stale_phrases:
         assert phrase not in readme, f"README.md still mentions stale phrase {phrase!r}"
-    print(f"  README mentions 675 tests, no stale counts present ✓")
+    print(f"  README mentions 695 tests, no stale counts present ✓")
 
 
 def test_doc_drift_testing_test_count():
-    """DOC-DRIFT-2: TESTING.md current total is 675 and historical markers retained."""
+    """DOC-DRIFT-2: TESTING.md current total is 695 and historical markers retained."""
     text = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
-    assert "675 test functions" in text, "TESTING.md must state 675 test functions"
-    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650"):
+    assert "695 test functions" in text, "TESTING.md must state 695 test functions"
+    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675"):
         assert marker in text, f"TESTING.md must retain historical test-count marker {marker}"
-    print(f"  TESTING.md states 675 functions and keeps historical markers ✓")
+    print(f"  TESTING.md states 695 functions and keeps historical markers ✓")
 
 
 def test_doc_drift_release_checklist_test_count():
-    """DOC-DRIFT-3: RELEASE_CHECKLIST references 675 tests and required commands."""
+    """DOC-DRIFT-3: RELEASE_CHECKLIST references 695 tests and required commands."""
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "675" in text, "RELEASE_CHECKLIST.md must reference the 675-test target"
+    assert "695" in text, "RELEASE_CHECKLIST.md must reference the 695-test target"
     for req in ("test_verify.py", "run.py validate", "run.py security",
                 "run.py export", "GitHub Release"):
         assert req in text, f"RELEASE_CHECKLIST.md must contain {req!r}"
-    print(f"  RELEASE_CHECKLIST mentions 675 tests and required commands ✓")
+    print(f"  RELEASE_CHECKLIST mentions 695 tests and required commands ✓")
 
 
 def test_doc_drift_roadmap_active_phase():

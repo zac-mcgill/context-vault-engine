@@ -1561,6 +1561,31 @@ Phase 26E rules:
 - Every safety control from Phase 26A-D applies unchanged: null-byte rejection, oversize rejection (5 MB cap), duplicate YAML key detection, malformed frontmatter detection, security scan before write, schema validation before write, destination safety checks (no `..`, no absolute paths, no writes inside `Vault Files/`), atomic writes, cache and index invalidation, and dry-run by default with no overwrite.
 - The Import Review UI exposes a source-type selector (Markdown folder / Obsidian vault). When Obsidian vault is selected, the default destination becomes `Imported/Obsidian`, the helper text shows the Obsidian rules (`.obsidian/` skipped, binary attachments not imported, wikilinks preserved), and changing the source type after a preview marks the preview stale until it is re-run. Explicit confirmation is still required before writing.
 
+### Import Lifecycle Finalisation (Phase 26F)
+
+Phase 26F is the consolidation phase that closes Phase 26 Import Pipelines. It adds no new import source. It verifies end-to-end that imported content flows cleanly through the wider system and that the documentation set says exactly what Phase 26 ships and what is still deferred.
+
+Verified for both Markdown folder and Obsidian-compatible imports:
+
+- `/notes` lists the imported note.
+- `/query` (lexical) finds the imported note via its body.
+- `/validation` includes the imported note.
+- `/tasks` continues to respond cleanly after the import.
+- `/trust` reflects `source_type: imported` and `trust_level: draft`.
+- `/context/bundle` includes the imported note when `filters.source_type = "imported"`.
+- `export_context_package` still succeeds after the import.
+- Graph build still succeeds after the import.
+
+Response shape parity is enforced: both endpoints return the same per-item contract (`source_path`, `destination_path`, `action`, `status`, `fields`, `warnings`, `errors`, `security`, `validation`). The Obsidian endpoint is strictly additive: `data.source_type = "obsidian-vault"`, an `obsidian` block per item, and summary counters for wikilinks, embeds, and attachment references. The Markdown endpoint never claims an Obsidian source type. Obsidian-specific YAML keys (`aliases:`, `tags:`) do not leak into the written frontmatter; wikilinks are preserved verbatim in the body.
+
+Determinism guarantees:
+
+- Repeated dry-run for both source types yields byte-identical summaries and identical destination ordering.
+- Repeated write with `overwrite=false` skips existing destinations deterministically and surfaces `DESTINATION_EXISTS` per item.
+- `overwrite=true` touches only the targeted destination file and never modifies unrelated notes.
+
+Imported content still requires human review. There is no automatic trust promotion. There is no automatic LLM rewriting. PDF, GitHub repo, browser article, chat transcript, semantic, and LLM-extraction imports remain deferred.
+
 ---
 
 ## 31. Run Verification Tests (Optional)

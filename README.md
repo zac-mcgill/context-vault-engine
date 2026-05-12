@@ -4,18 +4,18 @@
 
 Context Vault Engine is a local-first Python pipeline for validating, scanning, and securely packaging structured Markdown content. It enforces a schema contract on every note, scans content for credential leaks, prompt-injection patterns, and suspicious executable/script blocks, then exports integrity-verified packages with SHA-256 manifests. All security rules are deterministic and regex-based, so every finding is explainable, reproducible, and auditable without an LLM or cloud dependency.
 
-**Local-first Python pipeline: credential leak scanning, prompt-injection detection, schema enforcement, rate-limited API, path-traversal blocking, SHA-256 artefact integrity, MCP stdio compatibility layer, private cloud mode, session and project state, safe memory write queue, trust/staleness/evidence metadata, safe Markdown folder import with browser review UI, post-import review integration, hardened import edge-case handling, and Obsidian-compatible Markdown import. 675 tests.**
+**Local-first Python pipeline: credential leak scanning, prompt-injection detection, schema enforcement, rate-limited API, path-traversal blocking, SHA-256 artefact integrity, MCP stdio compatibility layer, private cloud mode, session and project state, safe memory write queue, trust/staleness/evidence metadata, safe Markdown folder import with browser review UI, post-import review integration, hardened import edge-case handling, Obsidian-compatible Markdown import, and end-to-end import lifecycle finalisation. 695 tests.**
 
 ---
 
 ## Current Status
 
 - Phases 0 to 25 are complete.
-- Phase 26 (Import Pipelines) is the active development phase. Phase 26A (safe Markdown folder import backend), Phase 26B (Import Review UI), Phase 26C (post-import review integration), Phase 26D (import workflow hardening and edge-case QA), and Phase 26E (Obsidian-compatible Markdown import) are implemented; PDF, browser article, GitHub repo, chat transcript, semantic, and LLM-extraction imports remain deferred.
+- Phase 26 (Import Pipelines) is complete. The implemented import sources are Markdown folder import (Phase 26A backend, Phase 26B review UI, Phase 26C post-import review integration, Phase 26D edge-case hardening) and Obsidian-compatible Markdown import (Phase 26E). Phase 26F finalises the import lifecycle with end-to-end cross-feature tests, response-shape parity guardrails, and documentation consolidation. PDF, browser article, GitHub repo, chat transcript, semantic, and LLM-extraction imports remain deferred.
 - Phase 27 (Registry and Reuse Layer) is deferred.
 - Phase 28 (Optional Semantic Retrieval) is deferred.
 - The local app, CLI, HTTP API, and MCP stdio surface are all production-quality for local use.
-- 675 deterministic tests cover phases 0 to 25, the Phase 26A import pipeline, Phase 26B import review UI, Phase 26C post-import review integration, Phase 26D edge-case hardening, and Phase 26E Obsidian-compatible import, plus documentation drift guardrails.
+- 695 deterministic tests cover phases 0 to 25, the Phase 26A import pipeline, Phase 26B import review UI, Phase 26C post-import review integration, Phase 26D edge-case hardening, Phase 26E Obsidian-compatible import, and Phase 26F end-to-end import lifecycle finalisation, plus documentation drift guardrails.
 
 ---
 
@@ -61,7 +61,7 @@ python run.py security
 # Export - writes integrity-verified package to dist/ with SHA-256 manifest
 python run.py export --overwrite
 
-# Full test suite (675 deterministic tests covering phases 0 to 25, Phase 26A backend, Phase 26B UI, Phase 26C post-import review integration, Phase 26D edge-case hardening, and Phase 26E Obsidian-compatible import)
+# Full test suite (695 deterministic tests covering phases 0 to 25, Phase 26A backend, Phase 26B UI, Phase 26C post-import review integration, Phase 26D edge-case hardening, Phase 26E Obsidian-compatible import, and Phase 26F import lifecycle finalisation)
 python mcp/test_verify.py
 ```
 

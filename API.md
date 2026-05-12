@@ -550,6 +550,10 @@ Returns the same error code set as `POST /import/markdown-folder` (`INVALID_VAUL
 
 Phase 26E does not add PDF, GitHub repo, browser article, chat transcript, semantic mapping, or LLM-extraction imports; those remain deferred. There is no automatic trust promotion: imported Obsidian notes still land as `trust_level: draft` and `source_type: imported`.
 
+**Phase 26F response-shape parity:**
+
+Both `POST /import/markdown-folder` and `POST /import/obsidian-vault` return the same top-level envelope (`status`, `data.vault`, `data.source_dir`, `data.destination`, `data.dry_run`, `data.summary`, `data.items`) and the same per-item contract (`source_path`, `destination_path`, `action`, `status`, `fields`, `warnings`, `errors`, `security`, `validation`). The Obsidian endpoint is strictly additive: `data.source_type = "obsidian-vault"`, a per-item `obsidian` metadata block (sorted, de-duplicated `wikilinks`, `embeds`, `tags`, `aliases`, `callouts`, `block_refs`, `attachment_refs`, plus advisory `warnings`), and summary counters for `wikilinks`, `embeds`, and `attachment_refs`. The Markdown endpoint never claims an Obsidian source type and never carries an `obsidian` block. Obsidian-specific YAML keys (`aliases:`, `tags:`) are surfaced in the response but never leak into the written frontmatter; wikilinks remain verbatim in the body. Repeated dry-run is deterministic for both sources, repeated write with `overwrite=false` skips existing destinations deterministically with `DESTINATION_EXISTS`, and `overwrite=true` touches only the targeted destination file.
+
 ---
 
 ### GET /stats

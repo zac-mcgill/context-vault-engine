@@ -4,7 +4,7 @@
 
 Context Vault Engine is moving from a usable local vault application into a private context operating layer for humans, local LLMs, and agent clients.
 
-The current foundation is strong: deterministic Markdown validation, schema enforcement, analysis, improvement tasks, feedback, lexical search, context bundles, export packages, security scanning, FastAPI routes, the local web UI, MCP stdio compatibility, private cloud mode, session and project state, safe memory write queue, device profiles, and trust/staleness/evidence metadata are all implemented. Phases 0 to 25 are complete; the active work is Phase 26 - Import Pipelines. Phases 27 (Registry and Reuse Layer) and 28 (Optional Semantic Retrieval) remain deferred.
+The current foundation is strong: deterministic Markdown validation, schema enforcement, analysis, improvement tasks, feedback, lexical search, context bundles, export packages, security scanning, FastAPI routes, the local web UI, MCP stdio compatibility, private cloud mode, session and project state, safe memory write queue, device profiles, trust/staleness/evidence metadata, safe Markdown folder import, and Obsidian-compatible Markdown import are all implemented. Phases 0 to 26 are complete. Phases 27 (Registry and Reuse Layer) and 28 (Optional Semantic Retrieval) remain deferred.
 
 The next strategic direction should preserve the existing local-first, deterministic-first model while adding a new post-completion target:
 
@@ -92,7 +92,7 @@ The backend is strong. The local UI has reached a usable application baseline. T
 
 ## Current Active Phase
 
-**Phase 26 - Import Pipelines**
+None. Phase 26 (Import Pipelines) is complete. Phases 27 and 28 remain deferred.
 
 ## Phase Status Overview
 
@@ -125,7 +125,7 @@ The backend is strong. The local UI has reached a usable application baseline. T
 | 23    | Safe Memory Write Queue                 | Complete |
 | 24    | Device Profiles and Context Budgets     | Complete |
 | 25    | Trust, Staleness, and Evidence Metadata | Complete |
-| 26    | Import Pipelines                        | Active   |
+| 26    | Import Pipelines                        | Complete |
 | 27    | Registry and Reuse Layer                | Deferred |
 | 28    | Optional Semantic Retrieval             | Deferred |
 
@@ -611,7 +611,7 @@ Optional `trust_level`, `source_type`, `last_reviewed`, `review_after` frontmatt
 
 ### Phase 26 - Import Pipelines
 
-**Status: Active - Phase 26A, Phase 26B, Phase 26C, Phase 26D, and Phase 26E complete. Other import sources remain deferred.**
+**Status: Complete - Phase 26A, Phase 26B, Phase 26C, Phase 26D, Phase 26E, and Phase 26F complete. Other import sources remain deferred.**
 
 #### Purpose
 
@@ -619,7 +619,7 @@ Make it easier to ingest existing knowledge without bypassing schema controls.
 
 #### Import Sources
 
-- Markdown folder (Phase 26A backend, Phase 26B review UI, Phase 26C post-import review integration, Phase 26D edge-case hardening, Phase 26E Obsidian-compatible mode - implemented)
+- Markdown folder (Phase 26A backend, Phase 26B review UI, Phase 26C post-import review integration, Phase 26D edge-case hardening, Phase 26E Obsidian-compatible mode, Phase 26F lifecycle finalisation - implemented)
 - Obsidian vault (deferred)
 - GitHub repo docs (deferred)
 - Copilot/agent reports (deferred)
@@ -653,6 +653,7 @@ Make it easier to ingest existing knowledge without bypassing schema controls.
 - After import, the user can review imported notes in context (filters, trust metadata, validation, tasks) without any automatic trust promotion or LLM rewriting. (Phase 26C - done)
 - The Markdown import pipeline handles real-world edge cases (malformed YAML, duplicate keys, null bytes, oversize files, nested folders, duplicate filenames, Windows backslashes, destination collisions) deterministically and with clear item-level error codes, without crashing the batch and without adding new import sources. (Phase 26D - done)
 - A safe, Obsidian-compatible Markdown import mode imports notes from an Obsidian vault folder, skipping `.obsidian/` config and binary attachments, preserving wikilinks verbatim, surfacing wikilinks, embeds, tags, aliases, callouts, and attachment references as deterministic per-item metadata, and reusing the entire Phase 26A-D safety pipeline. (Phase 26E - done)
+- The full import lifecycle is verified end-to-end across `/notes`, `/query`, `/validation`, `/tasks`, `/trust`, `/context/bundle`, export, and graph build for both Markdown folder and Obsidian-compatible imports, both endpoints expose a single per-item contract (`source_path`, `destination_path`, `action`, `status`, `fields`, `warnings`, `errors`, `security`, `validation`) with Obsidian metadata strictly additive, repeated dry-run / overwrite-false / overwrite-true behaviour is deterministic, and the documentation set names Phase 26 complete without implying any deferred source is implemented. (Phase 26F - done)
 
 #### Phase 26A Summary
 
@@ -696,6 +697,16 @@ Phase 26E adds a safe, Obsidian-compatible Markdown import on top of the hardene
 
 ```
 feat(import): add Obsidian-compatible Markdown import
+```
+
+#### Phase 26F Summary
+
+Phase 26F finalises the Phase 26 Import Pipelines without adding any new import source. It adds 20 end-to-end tests (`test_p26f_1`..`test_p26f_20`) that exercise the full import lifecycle: Markdown folder and Obsidian-compatible writes are verified against `/notes`, `/query`, `/validation`, `/tasks`, `/trust`, `/context/bundle`, `export_context_package`, and graph build; both endpoints share the same per-item contract (`source_path`, `destination_path`, `action`, `status`, `fields`, `warnings`, `errors`, `security`, `validation`) with Obsidian metadata strictly additive (per-item `obsidian` block, `source_type: "obsidian-vault"`, summary wikilink/embed/attachment counters); repeated dry-run, overwrite-false skip, and overwrite-true update behaviour are all deterministic across both source types; Obsidian-specific YAML keys are surfaced in the response but never leak into the written frontmatter while wikilinks are preserved verbatim in the body. The documentation set (`README.md`, `QUICKSTART.md`, `API.md`, `TESTING.md`, `ROADMAP.md`, `RELEASE_CHECKLIST.md`) is consolidated to declare Phase 26 complete, list the implemented (Markdown folder, Obsidian-compatible) and deferred (PDF, GitHub repo, browser article, chat transcript, semantic, LLM-extraction) sources, document the Obsidian limitations (wikilinks preserved not rewritten, binary attachments detected not imported, `.canvas` not imported), and reaffirm that imported content still requires human review with no automatic trust promotion and no automatic LLM rewriting. New doc-drift guardrails (`test_p26f_20`) keep these guarantees in place.
+
+#### Suggested Commit
+
+```
+docs(import): finalise Phase 26 import lifecycle
 ```
 
 ---

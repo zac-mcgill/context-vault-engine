@@ -1,13 +1,13 @@
 # Context Vault Engine - Testing
 
-All tests live in `mcp/test_verify.py`. The suite currently has 675 test functions (659 phase tests plus 16 documentation drift guardrails), all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650) appear later in this document as part of the phase changelog and are not the current total.
+All tests live in `mcp/test_verify.py`. The suite currently has 695 test functions (679 phase tests plus 16 documentation drift guardrails), all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675) appear later in this document as part of the phase changelog and are not the current total.
 
 ## Current Verification Summary
 
 A full local verification consists of:
 
 ```bash
-py mcp/test_verify.py           # 675 tests, all must pass
+py mcp/test_verify.py           # 695 tests, all must pass
 py run.py validate              # vault schema-compliance
 py run.py security              # status: pass (or warning, never fail)
 py run.py feedback              # exits 0, valid JSON
@@ -1791,7 +1791,7 @@ cd ui; npm run build       # zero errors
 **Verification steps:**
 
 ```bash
-py mcp/test_verify.py      # 675 tests, all must pass
+py mcp/test_verify.py      # 695 tests, all must pass
 py run.py validate         # vault still valid
 py run.py security         # status: pass
 py run.py import-markdown <source_dir>            # dry-run by default
@@ -1948,7 +1948,37 @@ Phase 26E adds a safe, Obsidian-compatible Markdown import on top of the hardene
 **Verification steps:**
 
 ```bash
-py mcp/test_verify.py            # 675 tests, all must pass
+py mcp/test_verify.py            # 695 tests, all must pass
+py run.py validate               # vault still valid
+py run.py security               # status: pass
+py run.py feedback               # exits 0, valid JSON
+py run.py export --overwrite     # status: ok
+cd ui; npm run build             # builds the /notes and /import page artefacts
+```
+
+---
+
+## Phase 26F - Import Lifecycle Finalisation
+
+20 new tests (`test_p26f_1` through `test_p26f_20`), bringing the phase-test total to 679. Combined with the 16 documentation drift guardrails, the overall test count is now 695.
+
+Phase 26F finalises the Phase 26 Import Pipelines without adding any new import source. It proves end-to-end that imported content flows cleanly through the rest of the system and that the documentation set says exactly what Phase 26 ships and what is still deferred.
+
+**Highlights:**
+
+- `test_p26f_1`/`test_p26f_2`/`test_p26f_3`/`test_p26f_4`/`test_p26f_5`/`test_p26f_6`/`test_p26f_7`/`test_p26f_8`: after a Markdown folder write, the imported note shows up in `/notes`, is findable via `/query`, appears in `/validation`, does not break `/tasks`, surfaces `imported`/`draft` in `/trust`, can be filtered into `/context/bundle` with `source_type=imported`, and the vault still exports and graph-builds successfully.
+- `test_p26f_9`/`test_p26f_10`/`test_p26f_11`/`test_p26f_12`/`test_p26f_13`/`test_p26f_14`: the same end-to-end coverage for Obsidian-compatible writes, plus an additional check that graph build and export both succeed against the Obsidian-imported state.
+- `test_p26f_15`: Obsidian wikilinks are preserved verbatim in the body but Obsidian-specific YAML keys (`aliases:`, `tags:`) do not leak into the destination frontmatter; the per-item `obsidian` block surfaces the metadata.
+- `test_p26f_16`: both import endpoints expose the documented per-item contract (`source_path`, `destination_path`, `action`, `status`, `fields`, `warnings`, `errors`, `security`, `validation`); the Obsidian endpoint adds `data.source_type: "obsidian-vault"` and a per-item `obsidian` block; the Markdown endpoint never claims an Obsidian source type.
+- `test_p26f_17`: repeated dry-run for both source types yields byte-identical summaries and identical destination ordering.
+- `test_p26f_18`: repeated write with `overwrite=false` skips existing destinations deterministically for both source types and surfaces `DESTINATION_EXISTS` per item.
+- `test_p26f_19`: `overwrite=true` updates only the targeted destination file; unrelated notes are not touched (content and mtime unchanged).
+- `test_p26f_20`: README announces Phase 26 complete, references Phase 26F, and does not claim PDF / GitHub repo / browser article / chat transcript / semantic / LLM imports are implemented; ROADMAP marks Phase 26 Complete in the status table and keeps Phase 27 and Phase 28 deferred; QUICKSTART documents both `import-markdown` and `import-obsidian`; API.md documents both `/import/markdown-folder` and `/import/obsidian-vault`; no em dashes leaked into any project-authored doc.
+
+**Verification steps:**
+
+```bash
+py mcp/test_verify.py            # 695 tests, all must pass
 py run.py validate               # vault still valid
 py run.py security               # status: pass
 py run.py feedback               # exits 0, valid JSON

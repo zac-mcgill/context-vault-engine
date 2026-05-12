@@ -418,3 +418,179 @@ Mobile navigation deliberately remains a slim top bar rather than a full drawer.
 Phase 29 is now complete. Phase 29A produced this audit. Phase 29B grouped the sidebar by intent without renaming or removing any route. Phase 29C introduced the design system tokens and the `cve-*` primitive layer in `ui/src/styles/global.css`. Phase 29D applied those primitives across every existing Svelte component and the placeholder shim. Phase 29E hardened accessibility (disclosure cue, focus-visible coverage, disabled states), pinned raw/table blocks against overflow, refreshed the AppLayout footer, and closed the documentation set.
 
 No React was introduced. The audit's `No React needed` decision from section 9 still holds: every Phase 29 deliverable was achievable with Astro plus Svelte plus Tailwind plus framework-agnostic CSS, without adding a second component framework. No new dependency was added in any sub-phase. No backend route was added, removed, or renamed. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain explicitly deferred and were not started by Phase 29.
+
+
+## 18. Phase 30A Audit Consolidation
+
+Phase 30A is a screenshot-driven audit of the entire `/app` surface delivered on top of the Phase 29 design system. It is documentation only. No UI code, no backend route, no dependency, and no test is added or changed by Phase 30A. The audit consolidates fourteen per-page reports captured under `UIReport1.txt` through `UIReport14.txt` in the repository root.
+
+### 18.1 Purpose
+
+Phase 29 delivered grouped navigation, semantic primitives, and a `cve-*` token layer. It did not deliver a release-quality UI. Phase 30A confirms that observation against real screenshots, identifies the cross-page root causes, and produces an actionable brief that Phase 30B can implement without scope creep. Phase 30A explicitly does not start Phase 27, Phase 28, or any LLM/semantic/SaaS workstream.
+
+### 18.2 Audited Routes
+
+The following routes were audited:
+
+- `/app/` (Dashboard)
+- `/app/notes` (Notes)
+- `/app/vault-setup` (Vault Setup)
+- `/app/import` (Import)
+- `/app/bundles` (Bundles)
+- `/app/exports` (Exports)
+- `/app/graph` (Graph)
+- `/app/controller` (Controller / Context Plan)
+- `/app/validation` (Validation, placeholder)
+- `/app/tasks` (Tasks, placeholder)
+- `/app/security` (Security)
+- `/app/feedback` (Feedback)
+- `/app/pending` (Pending Changes)
+- `/app/trust` (Trust)
+- `/app/raw` (API / Raw, placeholder)
+
+### 18.3 Severity Summary
+
+| Severity | Count of findings across pages | Examples |
+|---|---|---|
+| Critical (structural) | ~10 | Validation/Tasks/Raw are placeholders; Security scan defaults to a scoped bundle request; Exports duplicates Bundles plus adds disk-writing risk; vault delete co-hosted with onboarding; Pending accept friction; Trust page lacks summary/queue. |
+| High | ~60 | Ultrawide space wasted on every page; whole-page scroll instead of internal scroll; raw JSON disclosures everywhere; hard-coded Tailwind dark palette literals; Graph uses tabs instead of split-pane; Notes detail panel stacks full-width sub-panels. |
+| Medium | ~70 | Duplicated information across panels; uniform card weight removing hierarchy; opaque copy ("Controller", "Raw"); footer phase chip leaking into chrome; default checkbox states. |
+| Low | ~20 | Idle illustrations; native control chrome; minor typography drift. |
+
+### 18.4 Cross-Page Root Causes
+
+The audits converge on a small set of foundation gaps. Phase 30B exists to fix these once instead of fixing them fifteen times.
+
+1. **Layout shell does not support workbench pages.** `AppLayout.astro` constrains main content to a single bounded reading column. Workflow pages (Notes, Graph, Pending, Feedback, Bundles, Exports, Security) need a wide or workspace mode with split panes and internal scroll regions.
+2. **No semantic light/dark token layer in use.** Pages still mix `cve-*` primitives with raw `bg-zinc-*` / `text-zinc-*` / `bg-emerald-9xx` / `bg-amber-9xx` Tailwind utilities. Light mode is not real today.
+3. **No shared workbench/split/toolbar/status-strip/table/banner/disclosure/slide-over primitives.** Every page reimplements two-column layouts, sticky toolbars, KPI strips, and raw JSON expanders inline.
+4. **Raw JSON is overexposed.** Workflow pages embed `Show raw JSON` disclosures next to user-facing content. The Developer surface (`/app/raw`) does not exist as a destination yet.
+5. **Whole-page scroll instead of internal scroll.** Long lists (Feedback, Notes list, Graph nodes, Pending queue) push primary actions and adjacent context off-screen.
+6. **Destructive and write-safety affordances are visually weak.** Vault delete, import write, export overwrite, pending accept, and reject all rely on logical gating rather than visual separation.
+7. **Several pages are placeholders, not implementations.** Validation, Tasks, and Raw render the shared `PlaceholderPage.astro` shim with a CLI hint.
+8. **Some pages are structurally wrong, not just unpolished.** Security defaults read like a scoped bundle request; Exports is a 85% duplicate of Bundles; Graph is a label list under a tab named "Graph"; Trust leads with an evidence-builder form; Feedback is a 52-row triage inbox trapped in a narrow two-column grid.
+
+### 18.5 Page-by-Page Verdict Table
+
+| Page | Verdict | Primary issue |
+|---|---|---|
+| Dashboard | Weak. Needs redesign after foundation. | Six uniform cards, triple-shown vault state, raw JSON everywhere, status tiles non-actionable. |
+| Notes | Weak. Needs split-pane workbench. | Fixed 420 px list column; detail stack scrolls the whole page; metadata duplicated. |
+| Vault Setup | Close to release. Structural fix needed. | Danger Zone hosted on onboarding page; per-field cards inflate length; preview tokens render as literal text. |
+| Import | Weak. Write safety logically correct, visually weak. | Preview and Write buttons share a row; mode badge invisible; right column dead pre-preview. |
+| Bundles | Weak. Builder needs hierarchy. | Six identical cards; Generate Preview below the fold; right column empty pre-preview. |
+| Exports | Weak. Plus structural duplication. | ~85% duplicate of Bundles; overwrite and security-pass styled like harmless toggles; security gate defaults to off. |
+| Graph | Weak. Wrong layout model. | Tabbed Graph/Inspector/Missing instead of split-pane; "Graph" tab is a label list; ultrawide unused. |
+| Controller | Weak. Needs command-centre layout. | Single column on wide viewport; readiness polarity wrong on "HAS MISSING CONCEPTS"; recommendation duplicated. |
+| Validation | Placeholder. Not release-quality. | Renders `PlaceholderPage.astro` with a CLI hint. No data, no vault selector. |
+| Tasks | Placeholder. Not release-quality. | Same as Validation. |
+| Security | Weak. Structurally wrong defaults. | Page behaves like a scoped context bundle request; "Max notes" capped at 100; security gate not on by default. |
+| Feedback | Weak. Narrow layout for a triage inbox. | 6-tile KPI strip dominated by zeros; Add Feedback below 52 rows; right pane empty when no tasks. |
+| Pending | Acceptable concept, weak polish. | 320 px fixed rail; empty-state cards twin; provenance limited to "LLM"; accept friction light. |
+| Trust | Weak, placeholder-like in practice. | Summary cards and stale queue not rendered on first view; Evidence Builder dominates a governance page. |
+| Raw / Developer | Placeholder. Not release-quality. | `PlaceholderPage.astro` with a CLI hint; no endpoint catalogue, no JSON viewer. |
+
+### 18.6 Pages Requiring Real Implementation
+
+These pages are not migrations. They must be built. Phase 30D scope:
+
+- `/app/validation` - real validation review backed by `fetchValidation`, severity grouping, invalid-note list, vault selector, last-checked timestamp.
+- `/app/tasks` - real task table backed by `fetchTasks`, priority/sort/filter, source provenance, links to Notes.
+- `/app/raw` - developer endpoint explorer / JSON viewer with vault selector, request form, copy and download affordances, explicit Developer framing.
+
+### 18.7 Pages Requiring Structural Redesign
+
+Not polish. These pages are wrong in shape and need workflow changes within Phase 30D / 30E:
+
+- `/app/security` - default to full-vault scan; demote sampling/filter knobs into an "Advanced scope" disclosure; surface count of notes that will be scanned before run; security gate on by default.
+- `/app/exports` - reconcile with Bundles via a shared form composable or merge into a single workflow with preview/export actions; overwrite and security-pass require visible warning treatment and confirmation.
+- `/app/graph` - rename / restructure to a split-pane relationship browser (node list left, inspector right, missing concepts surfaced inline), drop the misnamed Graph tab.
+- `/app/trust` - lead with summary band + stale/low-trust queue + per-row links to Notes/Pending/Feedback; demote Evidence Builder to a secondary tab or under Developer.
+- `/app/feedback` - full-width filterable table top, Tasks side-panel pinned right, Add Feedback as slide-over from a fixed action, severity-driven sort and grouping.
+- `/app/import` - state-aware layout (setup, preview, write-confirmation) with the Write action physically separated from Preview.
+- `/app/vault-setup` - move vault deletion off the onboarding page (separate `/app/vault-setup/manage` tab or a slide-over launched from the vault switcher); collapse per-field cards into a single grouped form panel.
+- `/app/pending` - widen layout, expose accept/reject provenance and trust impact, raise accept friction in line with the existing typed-confirmation pattern, add internal scroll to the queue.
+- `/app/controller` - two-column command-centre at xl+; correct readiness polarity for negative flags; deep-link recommendations to authoritative pages instead of inventing routes.
+
+### 18.8 Pages Requiring Only Secondary Polish
+
+After the foundation lands and the structural pages are reshaped, these need targeted polish:
+
+- `/app/` Dashboard - canonical status band, demote raw JSON, single CTA per status tile, progress promotion.
+- `/app/notes` - resizable left rail, sticky filters, detail inspector with internal scroll body.
+- `/app/bundles` - sectioned builder with sticky action, state-aware right pane.
+
+### 18.9 Deferred / Non-Goals
+
+Phase 30 does not start, prepare, or imply work on:
+
+- Phase 27 (Registry and Reuse Layer).
+- Phase 28 (Optional Semantic Retrieval).
+- Any LLM-driven UI, RAG layer, embedding workflow, or autonomous note writing.
+- Any cloud, SaaS, or multi-tenant feature.
+- Any React, Vue, or third-party component framework.
+- Any charting or data-visualisation library.
+- Any new icon set or animation library.
+- Any backend route, schema, or contract change.
+- Any page removal or route consolidation.
+
+### 18.10 Acceptance Criteria for Moving to Phase 30B
+
+Phase 30A is closed when:
+
+- This `UI_UX_AUDIT.md` Phase 30A consolidation section exists with the audited route list, severity summary, root causes, verdict table, real-implementation list, structural-redesign list, and deferred items above.
+- `ROADMAP.md` records Phase 30A as Complete, lists Phase 30B through 30F as planned with explicit scope boundaries, and keeps Phase 27 and Phase 28 Deferred.
+- `TESTING.md` documents the planned Phase 30 UI guardrail families (no Tailwind dark literals on migrated pages, light/dark token coverage, placeholder-removal guardrails, write-safety guardrails, deterministic route/deep-link checks).
+- `RELEASE_CHECKLIST.md` no longer implies the UI is release-quality today and lists the UI release-readiness criteria Phase 30 must meet before tagging the next release.
+- The verification suite (`py mcp/test_verify.py`, `py run.py validate`, `py run.py security`, `py run.py feedback`, `py run.py export --overwrite`, `cd ui && npm run build`) still passes unchanged.
+- `git status --short` shows no generated artefacts staged.
+
+---
+
+## 19. Phase 30B Implementation Brief
+
+Phase 30B is foundation-only. It exists to give Phase 30C, 30D, 30E, and 30F a stable substrate so they do not have to re-invent layout, theme, and shared primitives per page. Phase 30B must not redesign any user-facing page beyond the minimum needed to prove the primitives compile and render.
+
+### 19.1 In Scope
+
+1. **App shell layout modes.** `AppLayout.astro` gains a layout-mode contract so individual routes can opt into `standard`, `wide`, `workspace`, or `developer` shells. `standard` keeps the bounded reading column. `wide` removes the max-width cap. `workspace` introduces a split-pane area (list rail + inspector) with internal scroll regions. `developer` marks the surface as a developer / diagnostics page.
+2. **Workflow page max-width opt-out.** Provide a deterministic way for workflow pages (Notes, Graph, Pending, Feedback, Bundles, Exports, Security) to consume the full content width without per-component overrides.
+3. **`cve-workbench` / split-pane primitive.** A two-pane workbench primitive with a resizable or breakpoint-aware list rail (default ~360 px on lg, ~420 px on xl, ~480 px on 2xl) and an inspector pane that grows to fill remaining width.
+4. **`cve-toolbar` / sticky header primitive.** A consistent sticky toolbar primitive that hosts a vault selector slot, page title slot, status pill slot, and trailing action slot. Replaces the per-page header drift surfaced in the audits.
+5. **`cve-status-strip` / metric-strip primitive.** A compact horizontal strip for KPI / readiness rows that scales down to fewer columns at narrower widths and tolerates zero-value tiles without inflating to card grids.
+6. **`cve-table` primitive.** A semantic table with sticky header, internal scroll, hover row state, status column, and a deterministic empty state. Targets Feedback, Validation, Tasks, Pending, and Trust queues in later sub-phases.
+7. **`cve-banner` primitive.** A top-of-page banner with `info`, `warning`, `danger` variants. Used for warnings the audits called out as "too quiet" (Controller missing concepts, Security gate off, Pending stale, Trust stale).
+8. **`cve-details` / disclosure primitive evolution.** Keep the existing `cve-details` but introduce a section-level inspector disclosure that replaces the per-card "Show raw JSON" pattern. Raw JSON belongs on the Developer route once it exists; the disclosure primitive must support a "Open in Developer" deep link.
+9. **`cve-slide-over` primitive.** A right-anchored slide-over for "create" or "destructive" flows: Feedback Add, Vault Setup Manage / Delete (later), Notes Edit (later).
+10. **`cve-diff` primitive stub or design contract.** Either a working coloured diff block for Pending Changes (added, removed, hunk header) or a documented contract that 30E can implement. Phase 30B may ship the contract only; it must not block Pending redesign.
+11. **Semantic colour tokens for dark and light mode.** Extend `global.css` so every `cve-*` token has both a dark-mode and a light-mode value. Add `data-theme="dark"` and `data-theme="light"` selectors and a `color-scheme` declaration on the root.
+12. **`data-theme` support and `color-scheme` declaration.** Add the `data-theme` attribute contract on `<html>`, default to dark to preserve current appearance, and declare `color-scheme: dark light` at the root. No user-facing toggle is required in 30B; the toggle is a 30F deliverable once tokens cover every primitive.
+13. **Tokenised `:focus-visible` rules.** Confirm the Phase 29E focus-visible coverage uses the new tokens and survives in light mode.
+14. **Developer nav group definition.** Confirm `/app/raw` lives under a Developer group with explicit "developer / diagnostics" framing in the sidebar. Phase 30B does not implement the Raw page itself; that work belongs to Phase 30D.
+15. **Route-level layout modes wired in `AppLayout.astro`.** Each page declares its mode via a frontmatter prop or layout slot contract. Phase 30B may default every page to `standard` so existing visuals do not regress; later sub-phases flip pages to `wide` / `workspace` as they migrate.
+
+### 19.2 Out of Scope for Phase 30B
+
+- No Dashboard redesign.
+- No Validation, Tasks, or Raw implementation.
+- No Bundles or Exports refactor.
+- No change to Security scan defaults.
+- No vault-delete relocation.
+- No user-facing light-mode toggle if the token foundation is not yet complete. It is acceptable to land the `data-theme` contract and token sets first and defer the toggle to Phase 30F.
+- No React or third-party UI library.
+- No charting library.
+- No semantic retrieval, registry, LLM, RAG, SaaS, or cloud functionality.
+- No new backend route. No change to existing routes, schema, or MCP contract.
+
+### 19.3 Phase 30B Acceptance Criteria
+
+Phase 30B is complete when:
+
+- `AppLayout.astro` supports `standard`, `wide`, `workspace`, and `developer` modes via a deterministic contract.
+- `global.css` defines a semantic token set with both dark and light values for surfaces, borders, text, accent, status, focus, and raw/code blocks; `data-theme` and `color-scheme` are declared.
+- The new primitives (`cve-workbench`, `cve-toolbar`, `cve-status-strip`, `cve-table`, `cve-banner`, `cve-slide-over`) are defined and render in isolation.
+- Existing pages still render correctly under the `standard` default; no visible regression on Dashboard, Notes, Vault Setup, Import, Bundles, Exports, Graph, Controller, Validation, Tasks, Security, Feedback, Pending, Trust, Raw.
+- `ui/package.json` has no new runtime dependency.
+- Deterministic guardrail tests are added in `mcp/test_verify.py` covering the primitive class definitions, the `data-theme` contract, the layout-mode contract, and the absence of net-new Tailwind dark literals in the primitive layer (per-page literal removal is enforced as later sub-phases migrate each page).
+- `py mcp/test_verify.py`, `py run.py validate`, `py run.py security`, `py run.py feedback`, `py run.py export --overwrite`, and `cd ui && npm run build` all pass.
+- `git status --short` shows no generated artefacts staged.

@@ -25,6 +25,22 @@ Use this checklist before tagging a release. All steps are local and determinist
 
 ---
 
+## UI Release-Readiness
+
+The UI is not release-quality today. Phase 30A (consolidated in `UI_UX_AUDIT.md` sections 18 and 19) confirmed this and scheduled Phase 30B through Phase 30F to close the gap. Until Phase 30 is complete, the following items must all be checked before tagging a release that claims a release-quality UI:
+
+- [ ] Dark mode and light mode both verified; every `--cve-*` semantic token has a value under both `data-theme="dark"` and `data-theme="light"`; `color-scheme: dark light` declared at the root
+- [ ] No placeholder routes remain in primary workflow navigation; `/app/validation`, `/app/tasks`, and `/app/raw` mount real Svelte islands, not `PlaceholderPage.astro`
+- [ ] Destructive actions visually separated and gated: vault delete moved off the onboarding page; Import Write physically separated from Preview; Export overwrite uses the destructive button variant with typed confirmation; Security scan defaults to a full-vault scan with sampling under an explicit Advanced scope disclosure; Pending accept and reject use the shared typed-confirmation primitive
+- [ ] Raw JSON disclosures are available under the Developer route (`/app/raw`); workflow pages do not embed `Show raw JSON` blocks inline
+- [ ] Keyboard pass: every interactive control is reachable; `:focus-visible` renders a tokenised, visible outline in both themes; no keyboard trap on slide-overs, dialogs, or workbench panes
+- [ ] Screen-reader pass: landmarks (`header`, `nav`, `main`, `aside`) present; form fields associated with labels; status badges paired with text or an icon; icon-only buttons carry `aria-label`
+- [ ] Responsive pass at ultrawide (3440+ px), 1440p, 1080p, 1366x768, and narrow (mobile / tablet) breakpoints; workflow pages use internal scroll, not whole-page scroll, on long lists or long detail bodies
+- [ ] No raw Tailwind dark palette literals (`bg-zinc-*`, `text-zinc-*`, `border-zinc-*`, `bg-emerald-9*`, `bg-amber-9*`, `bg-rose-9*`, `bg-sky-9*`) remain on migrated pages
+- [ ] Generated artefact hygiene unchanged: `ui/dist/` and `dist/` remain untracked and are absent from `git status --short`
+
+---
+
 ## Documentation Consistency
 
 - [ ] No obsolete active-phase references outside historical changelog sections

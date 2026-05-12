@@ -92,7 +92,7 @@ The backend is strong. The local UI has reached a usable application baseline. T
 
 ## Current Active Phase
 
-None. Phases 0 to 26 are complete. Phase 29 (UI/UX Quality and Design System) is complete: Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B (Navigation and information architecture redesign), Phase 29C (Global design system and shared UI primitives), Phase 29D (Page-level UX consistency pass), and Phase 29E (Final polish, docs, and release readiness) have all shipped. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain deferred and are not started by Phase 29.
+Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX audit consolidation) is complete. Phase 30B (app shell, theme, layout, and primitive foundation) is the next implementation slice and has not started. Phases 0 to 26 and Phase 29 (UI/UX Quality and Design System) remain complete: Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B, Phase 29C, Phase 29D, and Phase 29E all shipped. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain explicitly deferred and are not started, prepared, or implied by Phase 30.
 
 ## Phase Status Overview
 
@@ -127,6 +127,12 @@ None. Phases 0 to 26 are complete. Phase 29 (UI/UX Quality and Design System) is
 | 25    | Trust, Staleness, and Evidence Metadata | Complete |
 | 26    | Import Pipelines                        | Complete |
 | 29    | UI/UX Quality and Design System         | Complete |
+| 30A   | UI Release Quality Pass - Audit         | Complete |
+| 30B   | UI Foundation (shell, theme, primitives)| Planned  |
+| 30C   | Dashboard Redesign                      | Planned  |
+| 30D   | Core Workflow Page Redesigns            | Planned  |
+| 30E   | Review/Governance/Developer Polish      | Planned  |
+| 30F   | Final QA, A11y, Responsive, Light Mode  | Planned  |
 | 27    | Registry and Reuse Layer                | Deferred |
 | 28    | Optional Semantic Retrieval             | Deferred |
 
@@ -977,6 +983,177 @@ Phase 29 does not supersede or start Phase 27 (Registry and Reuse Layer) or Phas
 
 ---
 
+### Phase 30 - UI Release Quality Pass
+
+#### Purpose
+
+Phase 29 produced grouped navigation, semantic primitives, and a `cve-*` token layer. The screenshot-driven Phase 30A audit (consolidated in `UI_UX_AUDIT.md` sections 18 and 19) confirmed the UI is functional but not release-quality. Most pages waste ultrawide space, many use whole-page scroll where internal scroll is needed, light mode is not real today, raw JSON is overexposed across workflow pages, and several routes (Validation, Tasks, Raw / Developer Diagnostics) are still placeholders. Phase 30 closes that gap in five planned sub-phases (30B to 30F) after the Phase 30A audit.
+
+Phase 30 does not start Phase 27 or Phase 28, does not introduce semantic retrieval, registry, LLM, RAG, SaaS, cloud, React, or charting work, and does not change backend route contracts.
+
+#### Phase 30A - Page-by-Page UX Audit Consolidation
+
+**Status:** Complete (Phase 30A - 2026-05-12)
+
+**Deliver:**
+- A screenshot-driven audit of all 15 `/app` routes captured in `UIReport1.txt` through `UIReport14.txt`.
+- `UI_UX_AUDIT.md` section 18 "Phase 30A Audit Consolidation" with the audited route list, severity summary, cross-page root causes, per-page verdict table, real-implementation list, structural-redesign list, secondary-polish list, deferred items, and Phase 30B acceptance criteria.
+- `UI_UX_AUDIT.md` section 19 "Phase 30B Implementation Brief" defining the exact foundation-only scope, out-of-scope list, and acceptance criteria for the next implementation slice.
+- `ROADMAP.md` Phase 30 entries (this section), status-table rows, and Current Active Phase updated.
+- `TESTING.md` documents planned Phase 30 UI guardrail families.
+- `RELEASE_CHECKLIST.md` UI release-readiness section reflecting that the UI is not release-quality today and listing the criteria Phase 30 must meet.
+
+**Acceptance criteria:**
+- All documentation updates listed above are in place.
+- No UI source file or test file is modified by Phase 30A.
+- Phase 27 and Phase 28 remain Deferred in the status table.
+- The standard verification suite passes unchanged.
+
+**Suggested Commit**
+
+```
+docs(phase30a): consolidate UI/UX audit and brief Phase 30B foundation
+```
+
+#### Phase 30B - App Shell, Theme, Layout, and Primitive Foundation
+
+**Status:** Planned.
+
+Foundation-only slice. Phase 30B exists so Phase 30C, 30D, 30E, and 30F do not have to re-invent layout, theme, or shared primitives per page.
+
+**Scope (per `UI_UX_AUDIT.md` section 19):**
+- Layout-mode contract on `AppLayout.astro`: `standard`, `wide`, `workspace`, `developer`.
+- `cve-workbench` / split-pane primitive (resizable or breakpoint-aware list rail plus inspector pane with internal scroll).
+- `cve-toolbar` / sticky header primitive with vault selector slot, page title slot, status pill slot, trailing action slot.
+- `cve-status-strip` / metric-strip primitive.
+- `cve-table` primitive with sticky header, internal scroll, deterministic empty state.
+- `cve-banner` primitive (info, warning, danger).
+- `cve-details` / disclosure evolution; raw JSON is delegated to the Developer route via a deep-link contract.
+- `cve-slide-over` primitive for create / destructive flows.
+- `cve-diff` primitive stub or design contract for Pending.
+- Semantic colour tokens for dark and light mode; `data-theme="dark"` / `data-theme="light"` and `color-scheme: dark light`.
+- Tokenised `:focus-visible` rules covering all new primitives.
+- Developer nav group definition (no new pages built).
+
+**Explicitly out of scope:**
+- No Dashboard, Validation, Tasks, or Raw implementation.
+- No Bundles / Exports refactor.
+- No Security scan default changes.
+- No vault-delete relocation.
+- No user-facing light-mode toggle if tokens do not yet cover every primitive.
+- No React, no third-party UI library, no charting library.
+- No semantic retrieval, registry, LLM, RAG, SaaS, or cloud functionality.
+- No backend route, schema, or contract change.
+
+**Acceptance criteria:**
+- `AppLayout.astro` supports the four layout modes via a deterministic contract.
+- `global.css` defines both dark and light values for every semantic token.
+- New primitive classes are defined and render in isolation.
+- Existing pages still render under the `standard` default with no visible regression.
+- `ui/package.json` introduces no new runtime dependency.
+- Deterministic guardrail tests cover the primitive class definitions, the `data-theme` contract, and the layout-mode contract.
+- Verification suite passes; no generated artefacts staged.
+
+**Suggested Commit**
+
+```
+feat(ui): app shell layout modes, theme tokens, and foundation primitives (Phase 30B)
+```
+
+#### Phase 30C - Dashboard Redesign
+
+**Status:** Planned.
+
+**Scope:**
+- Promote a canonical vault status band (validation, security, coverage, missing concepts, feedback) as the headline using `cve-status-strip` and `cve-banner`.
+- Demote raw JSON disclosures into the Developer route deep-link contract.
+- Make every status tile actionable with a single CTA and a last-checked timestamp.
+- Resolve Dashboard / Issue Review duplication (Missing Concepts shown twice, feedback severity vs Pass headline).
+- Light-mode token coverage validated on this page.
+
+**Out of scope:** Workflow page redesigns (deferred to 30D); Validation / Tasks / Raw implementation (also 30D); Controller redesign (deferred to 30E).
+
+**Suggested Commit**
+
+```
+feat(ui): dashboard redesign on Phase 30B foundation (Phase 30C)
+```
+
+#### Phase 30D - Core Workflow Page Redesigns
+
+**Status:** Planned.
+
+**Scope:**
+- `/app/notes` migrate to `cve-workbench` (resizable list rail + inspector with internal scroll body).
+- `/app/import` state-aware layout: setup, preview, write-confirmation, with the Write action visually separated from Preview.
+- `/app/bundles` sectioned builder with sticky action and state-aware right pane.
+- `/app/exports` reconciled with Bundles via shared form composable; overwrite and security-pass treated as destructive with visible warning treatment; security gate on by default.
+- `/app/security` defaults to full-vault scan; sampling / filter knobs demoted to "Advanced scope" disclosure; pre-run note count surfaced.
+- `/app/graph` restructured to a split-pane relationship browser (node list, inspector, missing concepts surfaced inline); misnamed Graph tab dropped.
+- `/app/validation` real implementation backed by `fetchValidation`.
+- `/app/tasks` real implementation backed by `fetchTasks`.
+- `/app/raw` real Developer endpoint explorer / JSON viewer with vault selector, request form, copy and download affordances.
+
+**Out of scope:** Review / Governance polish (Pending, Trust, Feedback, Controller) and final QA - deferred to 30E and 30F.
+
+**Suggested Commit**
+
+```
+feat(ui): core workflow page redesigns on Phase 30B foundation (Phase 30D)
+```
+
+#### Phase 30E - Review, Governance, and Developer Polish
+
+**Status:** Planned.
+
+**Scope:**
+- `/app/pending` widened layout, internal scroll on the queue, accept friction in line with the typed-confirmation pattern, accept/reject provenance and trust impact.
+- `/app/trust` summary band + stale / low-trust queue + per-row links to Notes / Pending / Feedback; Evidence Builder demoted to secondary tab.
+- `/app/feedback` full-width filterable table top, Tasks side-panel pinned right, Add Feedback in `cve-slide-over` from a fixed action, severity-driven sort and grouping.
+- `/app/controller` two-column command-centre layout at xl+; readiness polarity corrected for negative flags; recommendations deep-link to authoritative pages.
+- `/app/vault-setup` destructive vault deletion moved off the onboarding page (separate management route or slide-over from the vault switcher); per-field cards collapsed into a single grouped form panel.
+- `cve-diff` primitive implemented for Pending if Phase 30B shipped only the contract.
+
+**Out of scope:** Final QA, a11y, responsive, and light-mode toggle - deferred to 30F.
+
+**Suggested Commit**
+
+```
+feat(ui): review, governance, and developer polish (Phase 30E)
+```
+
+#### Phase 30F - Final QA, Accessibility, Responsive, Light Mode, and Guardrail Tests
+
+**Status:** Planned.
+
+**Scope:**
+- Light-mode toggle wired in once tokens cover every primitive across every migrated page.
+- Verified breakpoints: ultrawide (3440+ px), 1440p, 1080p, 1366x768, narrow (mobile / tablet).
+- Keyboard navigation pass: every interactive control reachable; `:focus-visible` visible in both themes; no keyboard trap.
+- Screen-reader pass: landmarks present, form labels associated, status badges paired with text, dangerous actions announce as such.
+- Deterministic guardrail tests added in `mcp/test_verify.py`:
+  - No raw Tailwind dark palette literal (`bg-zinc-*`, `text-zinc-*`, etc.) remains on migrated pages.
+  - Both `data-theme="dark"` and `data-theme="light"` define every semantic token.
+  - Workflow pages declare a layout mode that is not `standard` where the audit requires `wide` / `workspace`.
+  - `/app/validation`, `/app/tasks`, and `/app/raw` no longer render `PlaceholderPage.astro`.
+  - Destructive actions on Import, Exports, Security, Pending, and Vault Setup are visually separated and gated (banner, slide-over, typed confirmation, distinct button variant).
+  - Deep-link contracts (raw inspection -> `/app/raw`, recommendations -> authoritative pages) resolve to real routes.
+- README, RELEASE_CHECKLIST, and TESTING updated to mark Phase 30 complete.
+
+**Out of scope:** Any new feature, any backend route, any deferred-phase work.
+
+**Suggested Commit**
+
+```
+feat(ui): final UI release-quality QA, accessibility, and light-mode toggle (Phase 30F)
+```
+
+#### Phase 30 Strategic Note
+
+Phase 30 does not supersede or start Phase 27 (Registry and Reuse Layer) or Phase 28 (Optional Semantic Retrieval). Both remain explicitly deferred and are not started, prepared, or implied by any Phase 30 sub-phase. No semantic retrieval, registry, LLM, RAG, SaaS, cloud, React, charting, or third-party UI library work is introduced.
+
+---
+
 ### Phase 27 - Registry and Reuse Layer
 
 **Status: Deferred.**
@@ -1059,7 +1236,8 @@ Recommended sequence:
 24. Device Profiles and Context Budgets
 25. Trust, Staleness, and Evidence Metadata
 26. Import Pipelines
-29. UI/UX Quality and Design System (active, does not start Phase 27 or Phase 28)
+29. UI/UX Quality and Design System (complete)
+30. UI Release Quality Pass (30A complete; 30B to 30F planned; does not start Phase 27 or Phase 28)
 27. Registry and Reuse Layer
 28. Optional Semantic Retrieval
 

@@ -628,3 +628,15 @@ Deferred to later sub-phases:
 - Phase 30D ships the Notes / Import / Bundles / Exports / Security / Graph / Validation / Tasks / Raw redesigns and replaces `PlaceholderPage` on Validation, Tasks, and Raw.
 - Phase 30E ships the Review / Governance / Developer polish, including the full `cve-diff` implementation on Pending.
 - Phase 30F wires the user-facing light-mode toggle, finishes responsive and accessibility passes, and adds the final Tailwind-literal scan across migrated pages.
+
+## 22. Phase 30D1 Implementation Note
+
+Phase 30D1 (2026-05-19) is the first sub-slice of Phase 30D. It replaces the `/app/validation`, `/app/tasks`, and `/app/raw` placeholder pages with real Svelte islands wired through the existing read-only API helpers. Concretely:
+
+- `/app/validation` now mounts `ValidationReview.svelte`. The page uses a `cve-toolbar` header with the vault selector, a single `cve-banner` headline whose severity is derived from `invalid_count`, a three-tile `cve-status-strip` (Status, Invalid notes, Vault), a `cve-table` listing the invalid notes sorted by path with an `Open in Notes` deep-link per row, and a `cve-details--inspector` block whose `cve-details__developer-link` targets `/app/raw?endpoint=validation&vault=<vault>&source=validation`.
+- `/app/tasks` now mounts `TaskReview.svelte`. It consumes `fetchTasks(vault, { include_feedback: true })`, sorts deterministically by priority (descending) and then by path, exposes a type filter, surfaces totals tiles (Total / High >= 7 / Medium 4 to 6 / Low < 4), and renders a `cve-table` of Priority / Type / Note / Action / Source / Open columns. Feedback weighting is displayed as a badge when present. Each row deep-links into `/app/notes?vault=<v>&path=<path>`.
+- `/app/raw` now mounts `RawDeveloperExplorer.svelte`. It exposes a tight catalogue of safe read-only GET helpers (health, vaults, summary, validation, tasks, missing, feedback, notes, graph, graph/missing, context/profiles, trust, stale). Run / Copy / Download (Blob URL) affordances surface the raw envelope in a bounded `cve-raw` viewer with internal scroll. The Developer deep-link contract is honoured: `?vault`, `?endpoint`, `?source`, and `?focus` are tolerated. A persistent warning banner and a Not callable section make explicit that destructive routes (write, delete, import write, security scan, export package, feedback writes) are intentionally not exposed from this surface.
+- `ui/src/styles/global.css` gained a Phase 30D1 primitive block defining `.cve-p30d1-table`, `.cve-p30d1-filters`, `.cve-p30d1-raw-controls`, `.cve-p30d1-provenance`, `.cve-p30d1-raw-actions`, `.cve-p30d1-raw-viewer`, and the bounded `.cve-p30d1-raw-pre` (max-height + overflow: auto). All declarations use `var(--cve-*)` tokens only.
+- `mcp/test_verify.py` adds 24 deterministic guardrail tests; total test count rises from 818 to 842.
+
+Remaining Phase 30D pages (Notes, Import, Bundles, Exports, Security, Graph) ship in Phase 30D2 (Notes and Graph) and Phase 30D3 (Import, Bundles, Exports, Security). Phase 30E and Phase 30F remain planned.

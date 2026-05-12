@@ -1206,4 +1206,63 @@
     outline-offset: 2px;
     border-radius: var(--cve-radius);
   }
+
+  /* ------------------------------------------------------------------
+     Phase 30D1 - Validation, Tasks, Raw Developer primitives
+     ------------------------------------------------------------------
+     Token-only helpers used by the real Validation, Tasks, and Raw /
+     Developer pages introduced in Phase 30D1. No Tailwind dark palette
+     literals; every value resolves through --cve-* tokens so the
+     Phase 30F light-mode toggle can flip themes without touching these
+     pages.
+     ------------------------------------------------------------------ */
+  .cve-p30d1-table {
+    max-height: 36rem;
+  }
+  .cve-p30d1-filters {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--cve-space-3);
+  }
+  @media (min-width: 768px) {
+    .cve-p30d1-filters {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+  }
+  .cve-p30d1-raw-controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-3);
+    background-color: var(--cve-surface);
+    border: 1px solid var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+    padding: var(--cve-space-4);
+  }
+  .cve-p30d1-provenance {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cve-space-2);
+  }
+  .cve-p30d1-raw-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--cve-space-2);
+    margin-top: var(--cve-space-3);
+    margin-bottom: var(--cve-space-3);
+  }
+  /* Bounded raw JSON viewer: cap height so multi-MB payloads cannot
+     force whole-page overflow. The inner <pre> reuses the cve-raw
+     primitive for horizontal scroll. */
+  .cve-p30d1-raw-viewer {
+    max-width: 100%;
+  }
+  .cve-p30d1-raw-pre {
+    max-height: 32rem;
+    overflow: auto;
+    background-color: var(--cve-raw-bg);
+    border: 1px solid var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+    color: var(--cve-text);
+  }
 }

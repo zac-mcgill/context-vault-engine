@@ -1,11 +1,7 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
-import PlaceholderPage from '../components/PlaceholderPage.astro';
+import ValidationReview from '../components/ValidationReview.svelte';
 ---
 <AppLayout title="Validation" layoutMode="wide">
-  <PlaceholderPage
-    pageTitle="Validation"
-    description="Per-note validation detail: view all schema violations, derived-field errors, and missing sections."
-    cliCommand="py run.py validate"
-  />
+  <ValidationReview client:load />
 </AppLayout>

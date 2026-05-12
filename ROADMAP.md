@@ -92,7 +92,7 @@ The backend is strong. The local UI has reached a usable application baseline. T
 
 ## Current Active Phase
 
-Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX audit consolidation) is complete. Phase 30B (app shell, theme, layout, and primitive foundation) is complete. Phase 30C (Dashboard Redesign) is complete. Phase 30D is the next implementation slice and has not started. Phases 0 to 26 and Phase 29 (UI/UX Quality and Design System) remain complete: Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B, Phase 29C, Phase 29D, and Phase 29E all shipped. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain explicitly deferred and are not started, prepared, or implied by Phase 30.
+Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX audit consolidation) is complete. Phase 30B (app shell, theme, layout, and primitive foundation) is complete. Phase 30C (Dashboard Redesign) is complete. Phase 30D1 (Validation, Tasks, and Raw real implementations) is complete. Phase 30D2 (Notes and Graph) and Phase 30D3 (Import, Bundles, Exports, Security) remain planned; the parent Phase 30D is still in progress. Phases 0 to 26 and Phase 29 (UI/UX Quality and Design System) remain complete: Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B, Phase 29C, Phase 29D, and Phase 29E all shipped. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain explicitly deferred and are not started, prepared, or implied by Phase 30.
 
 ## Phase Status Overview
 
@@ -130,7 +130,8 @@ Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX
 | 30A   | UI Release Quality Pass - Audit         | Complete |
 | 30B   | UI Foundation (shell, theme, primitives)| Complete |
 | 30C   | Dashboard Redesign                      | Complete |
-| 30D   | Core Workflow Page Redesigns            | Planned  |
+| 30D   | Core Workflow Page Redesigns            | In Progress |
+| 30D1  | Validation, Tasks, Raw real impls       | Complete |
 | 30E   | Review/Governance/Developer Polish      | Planned  |
 | 30F   | Final QA, A11y, Responsive, Light Mode  | Planned  |
 | 27    | Registry and Reuse Layer                | Deferred |
@@ -1075,7 +1076,7 @@ feat(ui): dashboard redesign on Phase 30B foundation (Phase 30C)
 
 #### Phase 30D - Core Workflow Page Redesigns
 
-**Status:** Planned.
+**Status:** In Progress. Phase 30D1 complete (2026-05-19). Phase 30D2 (Notes and Graph) and Phase 30D3 (Import, Bundles, Exports, Security) remain planned.
 
 **Scope:**
 - `/app/notes` migrate to `cve-workbench` (resizable list rail + inspector with internal scroll body).
@@ -1094,6 +1095,31 @@ feat(ui): dashboard redesign on Phase 30B foundation (Phase 30C)
 
 ```
 feat(ui): core workflow page redesigns on Phase 30B foundation (Phase 30D)
+```
+
+#### Phase 30D1 - Validation, Tasks, and Raw Real Implementations
+
+**Status:** Complete (Phase 30D1 - 2026-05-19).
+
+**Backend tests:** 842 (24 new Phase 30D1 tests; all pass).
+
+**Scope:**
+- Replace the `/app/validation`, `/app/tasks`, and `/app/raw` placeholders with real, fully wired implementations on the Phase 30B foundation.
+- Reuse the existing `fetchValidation`, `fetchTasks`, and read-only API helpers in `ui/src/lib/api.ts`. No backend routes added.
+- Surface a Developer endpoint explorer that exposes only safe read GETs; destructive and write operations are not callable from `/app/raw`.
+
+**Delivered:**
+- `/app/validation` mounts `ValidationReview.svelte` (vault selector, `cve-toolbar`, `cve-banner` severity headline, `cve-status-strip` totals tiles, sortable invalid-notes `cve-table` with `Open in Notes` deep-links, and a `cve-details--inspector` Developer deep-link to `/app/raw?endpoint=validation&vault=...`).
+- `/app/tasks` mounts `TaskReview.svelte` (deterministic priority/type/path sort, type filter, status tiles for Total / High / Medium / Low, feedback weighting badges, Open-in-Notes deep-links, and Developer deep-link to `/app/raw?endpoint=tasks&vault=...`).
+- `/app/raw` mounts `RawDeveloperExplorer.svelte`: a read-only diagnostic surface listing 13 safe GET helpers (health, vaults, summary, validation, tasks, missing, feedback, notes, graph, graph/missing, context/profiles, trust, stale). Run / Copy / Download (Blob URL) affordances, bounded JSON viewer with internal scroll, `?vault`/`?endpoint`/`?source`/`?focus` deep-link contract tolerated, and a visible warning banner documenting that destructive routes are intentionally excluded.
+- New Phase 30D1 primitives in `ui/src/styles/global.css`: `.cve-p30d1-table`, `.cve-p30d1-filters`, `.cve-p30d1-raw-controls`, `.cve-p30d1-provenance`, `.cve-p30d1-raw-actions`, `.cve-p30d1-raw-viewer`, `.cve-p30d1-raw-pre` (bounded `max-height` / internal scroll). All token-only; no Tailwind dark literals.
+
+**Out of scope:** Notes / Graph (Phase 30D2), Import / Bundles / Exports / Security (Phase 30D3), Review and Governance polish (Phase 30E), final QA / a11y / responsive / light-mode pass (Phase 30F).
+
+**Suggested Commit**
+
+```
+feat(ui): real validation, tasks, and raw developer pages (Phase 30D1)
 ```
 
 #### Phase 30E - Review, Governance, and Developer Polish

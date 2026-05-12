@@ -1,13 +1,13 @@
 # Context Vault Engine - Testing
 
-All tests live in `mcp/test_verify.py`. The suite currently has 818 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800) appear later in this document as part of the phase changelog and are not the current total.
+All tests live in `mcp/test_verify.py`. The suite currently has 842 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800, 818) appear later in this document as part of the phase changelog and are not the current total.
 
 ## Current Verification Summary
 
 A full local verification consists of:
 
 ```bash
-py mcp/test_verify.py           # 818 tests, all must pass
+py mcp/test_verify.py           # 842 tests, all must pass
 py run.py validate              # vault schema-compliance
 py run.py security              # status: pass (or warning, never fail)
 py run.py feedback              # exits 0, valid JSON
@@ -2284,7 +2284,7 @@ The Phase 30B work adds 13 deterministic guardrail tests in `mcp/test_verify.py`
 **Verification steps for Phase 30B:**
 
 ```bash
-py mcp/test_verify.py            # 818 tests, all must pass
+py mcp/test_verify.py            # 842 tests, all must pass
 py run.py validate               # vault still valid
 py run.py security               # status: pass
 py run.py feedback               # exits 0, valid JSON
@@ -2298,7 +2298,7 @@ cd ui; npm run build             # builds without errors
 
 Phase 30C is the first page-level redesign on top of the Phase 30B foundation. It rewrites the `/app/` Dashboard around the new primitives: a `cve-toolbar` header, a single `cve-banner` readiness headline, a five-tile `cve-status-strip` (Validation, Security, Coverage, Missing concepts, Feedback) with deep links into the authoritative workflow routes, a two-column `cve-dashboard-grid` with Next best actions and Vault health, and a `cve-details--inspector` block whose `cve-details__developer-link` demotes raw JSON to `/app/raw`. No backend, API, schema, MCP, or dependency change.
 
-The Phase 30C work adds 18 deterministic guardrail tests in `mcp/test_verify.py`, bringing the total to 818.
+The Phase 30C work adds 18 deterministic guardrail tests in `mcp/test_verify.py`, bringing the total to 818 at the time Phase 30C shipped (Phase 30D1 later raised it to 842).
 
 | Test | Purpose |
 |---|---|
@@ -2333,3 +2333,50 @@ cd ui; npm run build             # builds without errors
 ```
 
 ---
+
+## Phase 30D1 - Validation, Tasks, and Raw Real Implementations
+
+Phase 30D1 is the first sub-slice of Phase 30D. It replaces the placeholder pages at `/app/validation`, `/app/tasks`, and `/app/raw` with real, fully wired Svelte islands on top of the Phase 30B foundation and the Phase 30C primitives. It uses only the read-only API helpers already exported from `ui/src/lib/api.ts`. No backend route, schema, MCP, or runtime dependency was added. The parent Phase 30D remains In Progress; Phase 30D2 (Notes and Graph) and Phase 30D3 (Import, Bundles, Exports, Security) remain planned.
+
+The Phase 30D1 work adds 24 deterministic guardrail tests in `mcp/test_verify.py`, bringing the total to 842.
+
+| Test | Purpose |
+|---|---|
+| `test_p30d1_1_validation_page_drops_placeholder` | `/app/validation` no longer imports or renders `PlaceholderPage` |
+| `test_p30d1_2_tasks_page_drops_placeholder` | `/app/tasks` no longer imports or renders `PlaceholderPage` |
+| `test_p30d1_3_raw_page_drops_placeholder` | `/app/raw` no longer imports or renders `PlaceholderPage` |
+| `test_p30d1_4_validation_mounts_real_component` | `validation.astro` mounts `ValidationReview.svelte` with a `client:` directive |
+| `test_p30d1_5_tasks_mounts_real_component` | `tasks.astro` mounts `TaskReview.svelte` with a `client:` directive |
+| `test_p30d1_6_raw_mounts_real_component` | `raw.astro` mounts `RawDeveloperExplorer.svelte` with a `client:` directive |
+| `test_p30d1_7_validation_layout_mode_wide` | `validation.astro` keeps `layoutMode="wide"` |
+| `test_p30d1_8_tasks_layout_mode_wide` | `tasks.astro` keeps `layoutMode="wide"` |
+| `test_p30d1_9_raw_layout_mode_developer` | `raw.astro` keeps `layoutMode="developer"` |
+| `test_p30d1_10_validation_uses_validation_helper` | `ValidationReview` consumes `fetchValidation` from `../lib/api` |
+| `test_p30d1_11_tasks_uses_tasks_helper` | `TaskReview` consumes `fetchTasks` from `../lib/api` |
+| `test_p30d1_12_raw_catalogue_is_safe_read_only` | Raw catalogue references only safe GET helpers; destructive helpers and non-GET methods are absent |
+| `test_p30d1_13_validation_uses_phase30b_primitives` | `ValidationReview` uses `cve-toolbar` / `cve-banner` / `cve-status-strip` / `cve-table` |
+| `test_p30d1_14_tasks_uses_phase30b_primitives` | `TaskReview` uses `cve-toolbar` / `cve-banner` / `cve-status-strip` / `cve-table` |
+| `test_p30d1_15_raw_uses_toolbar_and_bounded_viewer` | `RawDeveloperExplorer` uses `cve-toolbar` and the bounded `cve-p30d1-raw-pre` viewer; `global.css` defines it with `max-height` + `overflow: auto` |
+| `test_p30d1_16_no_tailwind_dark_literals_in_migrated_files` | The three Phase 30D1 pages and components avoid Tailwind dark palette literals |
+| `test_p30d1_17_raw_no_unbounded_full_page_pre` | Every `<pre>` in the Raw component is annotated with `cve-raw` and `cve-p30d1-raw-pre` |
+| `test_p30d1_18_developer_deep_link_contract_tolerated` | Validation/Tasks expose `cve-details__developer-link` to `/app/raw`; Raw tolerates `?vault`, `?endpoint`, `?source`, `?focus` |
+| `test_p30d1_19_roadmap_phase27_still_deferred` | ROADMAP keeps Phase 27 Deferred |
+| `test_p30d1_20_roadmap_phase28_still_deferred` | ROADMAP keeps Phase 28 Deferred |
+| `test_p30d1_21_phase30d_not_marked_complete` | Parent Phase 30D is not marked Complete; 30D1 row added; 30D2 and 30D3 documented |
+| `test_p30d1_22_phase30e_and_30f_planned` | Phase 30E and 30F remain Planned |
+| `test_p30d1_23_no_new_runtime_dependencies` | `ui/package.json` introduces no React/Vue/icon/animation/charting/syntax-highlighter dependency |
+| `test_p30d1_24_no_em_dashes_in_phase30d1_files` | Phase 30D1 files contain no em dashes |
+
+**Verification steps for Phase 30D1:**
+
+```bash
+py mcp/test_verify.py            # 842 tests, all must pass
+py run.py validate               # vault still valid
+py run.py security               # status: pass
+py run.py feedback               # exits 0, valid JSON
+py run.py export --overwrite     # status: ok
+cd ui; npm run build             # builds without errors
+```
+
+---
+

@@ -1,11 +1,7 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
-import PlaceholderPage from '../components/PlaceholderPage.astro';
+import RawDeveloperExplorer from '../components/RawDeveloperExplorer.svelte';
 ---
 <AppLayout title="API / Raw Output" layoutMode="developer">
-  <PlaceholderPage
-    pageTitle="API / Raw Output"
-    description="Explore all FastAPI endpoints directly: send requests, inspect raw JSON responses, and read documentation."
-    cliCommand="# API available at http://127.0.0.1:8000 when the server is running"
-  />
+  <RawDeveloperExplorer client:load />
 </AppLayout>

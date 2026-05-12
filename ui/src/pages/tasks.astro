@@ -1,11 +1,7 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
-import PlaceholderPage from '../components/PlaceholderPage.astro';
+import TaskReview from '../components/TaskReview.svelte';
 ---
 <AppLayout title="Tasks" layoutMode="wide">
-  <PlaceholderPage
-    pageTitle="Tasks"
-    description="Prioritised improvement tasks generated from validation results and feedback signals."
-    cliCommand="py run.py improve"
-  />
+  <TaskReview client:load />
 </AppLayout>

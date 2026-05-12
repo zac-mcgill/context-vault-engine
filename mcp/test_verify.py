@@ -11673,6 +11673,31 @@ def main():
     test_p30c_17_no_new_runtime_dependencies()
     test_p30c_18_no_em_dashes_in_dashboard_files()
 
+    test_p30d1_1_validation_page_drops_placeholder()
+    test_p30d1_2_tasks_page_drops_placeholder()
+    test_p30d1_3_raw_page_drops_placeholder()
+    test_p30d1_4_validation_mounts_real_component()
+    test_p30d1_5_tasks_mounts_real_component()
+    test_p30d1_6_raw_mounts_real_component()
+    test_p30d1_7_validation_layout_mode_wide()
+    test_p30d1_8_tasks_layout_mode_wide()
+    test_p30d1_9_raw_layout_mode_developer()
+    test_p30d1_10_validation_uses_validation_helper()
+    test_p30d1_11_tasks_uses_tasks_helper()
+    test_p30d1_12_raw_catalogue_is_safe_read_only()
+    test_p30d1_13_validation_uses_phase30b_primitives()
+    test_p30d1_14_tasks_uses_phase30b_primitives()
+    test_p30d1_15_raw_uses_toolbar_and_bounded_viewer()
+    test_p30d1_16_no_tailwind_dark_literals_in_migrated_files()
+    test_p30d1_17_raw_no_unbounded_full_page_pre()
+    test_p30d1_18_developer_deep_link_contract_tolerated()
+    test_p30d1_19_roadmap_phase27_still_deferred()
+    test_p30d1_20_roadmap_phase28_still_deferred()
+    test_p30d1_21_phase30d_not_marked_complete()
+    test_p30d1_22_phase30e_and_30f_planned()
+    test_p30d1_23_no_new_runtime_dependencies()
+    test_p30d1_24_no_em_dashes_in_phase30d1_files()
+
     print()
     print("=" * 60)
     print("ALL VERIFICATION TESTS PASSED")
@@ -19287,9 +19312,9 @@ def _repo_root():
 
 
 def test_doc_drift_readme_test_count():
-    """DOC-DRIFT-1: README quotes the current 818-test total, no stale counts."""
+    """DOC-DRIFT-1: README quotes the current 842-test total, no stale counts."""
     readme = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    assert "818" in readme, "README.md must mention the current test count 818"
+    assert "842" in readme, "README.md must mention the current test count 842"
     stale_phrases = [
         "553 deterministic tests",
         "548 deterministic tests",
@@ -19314,29 +19339,31 @@ def test_doc_drift_readme_test_count():
         "787 tests.",
         "800 deterministic tests",
         "800 tests.",
+        "818 deterministic tests",
+        "818 tests.",
     ]
     for phrase in stale_phrases:
         assert phrase not in readme, f"README.md still mentions stale phrase {phrase!r}"
-    print(f"  README mentions 818 tests, no stale counts present ✓")
+    print(f"  README mentions 842 tests, no stale counts present ✓")
 
 
 def test_doc_drift_testing_test_count():
-    """DOC-DRIFT-2: TESTING.md current total is 818 and historical markers retained."""
+    """DOC-DRIFT-2: TESTING.md current total is 842 and historical markers retained."""
     text = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
-    assert "818 test functions" in text, "TESTING.md must state 818 test functions"
-    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763", "787", "800"):
+    assert "842 test functions" in text, "TESTING.md must state 842 test functions"
+    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763", "787", "800", "818"):
         assert marker in text, f"TESTING.md must retain historical test-count marker {marker}"
-    print(f"  TESTING.md states 818 functions and keeps historical markers ✓")
+    print(f"  TESTING.md states 842 functions and keeps historical markers ✓")
 
 
 def test_doc_drift_release_checklist_test_count():
-    """DOC-DRIFT-3: RELEASE_CHECKLIST references 818 tests and required commands."""
+    """DOC-DRIFT-3: RELEASE_CHECKLIST references 842 tests and required commands."""
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "818" in text, "RELEASE_CHECKLIST.md must reference the 818-test target"
+    assert "842" in text, "RELEASE_CHECKLIST.md must reference the 842-test target"
     for req in ("test_verify.py", "run.py validate", "run.py security",
                 "run.py export", "GitHub Release"):
         assert req in text, f"RELEASE_CHECKLIST.md must contain {req!r}"
-    print(f"  RELEASE_CHECKLIST mentions 818 tests and required commands ✓")
+    print(f"  RELEASE_CHECKLIST mentions 842 tests and required commands ✓")
 
 
 def test_doc_drift_roadmap_active_phase():
@@ -20725,10 +20752,10 @@ def test_p29e_19_readme_states_phase29_complete():
 
 def test_p29e_20_release_checklist_test_count_updated():
     """P29E-20: RELEASE_CHECKLIST.md references the current test count.
-    Phase 30C bumped the total from 800 to 818."""
+    Phase 30D1 bumped the total from 818 to 842."""
     print("\n=== Test P29E-20: RELEASE_CHECKLIST test count ===")
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "818" in text, "RELEASE_CHECKLIST.md must reference the current 818-test target"
+    assert "842" in text, "RELEASE_CHECKLIST.md must reference the current 842-test target"
     # The previous counts must not linger in the checklist after this phase.
     assert "all 763 tests green" not in text, \
         "RELEASE_CHECKLIST.md must not still say 'all 763 tests green'"
@@ -20736,7 +20763,9 @@ def test_p29e_20_release_checklist_test_count_updated():
         "RELEASE_CHECKLIST.md must not still say 'all 787 tests green'"
     assert "all 800 tests green" not in text, \
         "RELEASE_CHECKLIST.md must not still say 'all 800 tests green'"
-    print("  RELEASE_CHECKLIST.md references 818 tests ✓")
+    assert "all 818 tests green" not in text, \
+        "RELEASE_CHECKLIST.md must not still say 'all 818 tests green'"
+    print("  RELEASE_CHECKLIST.md references 842 tests ✓")
 
 
 def test_p29e_21_ui_ux_audit_has_phase29e_note():
@@ -21004,16 +21033,22 @@ def test_p30b_11_roadmap_phase28_still_deferred():
 
 
 def test_p30b_12_placeholder_pages_not_removed():
-    """P30B-12: Validation, Tasks, and Raw still mount PlaceholderPage.
-    Real implementations land in Phase 30D, not 30B."""
-    print("\n=== Test P30B-12: placeholders preserved for 30D ===")
-    for path in ("ui/src/pages/validation.astro",
-                 "ui/src/pages/tasks.astro",
-                 "ui/src/pages/raw.astro"):
+    """P30B-12: The Validation / Tasks / Raw pages exist and mount real
+    Phase 30D1 components. Under Phase 30B these still rendered
+    PlaceholderPage; Phase 30D1 superseded that by wiring the real
+    Svelte islands. This test now guards that the pages remain present
+    and mount one of the expected components."""
+    print("\n=== Test P30B-12: validation/tasks/raw pages present ===")
+    expected = {
+        "ui/src/pages/validation.astro": ("PlaceholderPage", "ValidationReview"),
+        "ui/src/pages/tasks.astro": ("PlaceholderPage", "TaskReview"),
+        "ui/src/pages/raw.astro": ("PlaceholderPage", "RawDeveloperExplorer"),
+    }
+    for path, names in expected.items():
         text = _read_text(path)
-        assert "PlaceholderPage" in text, \
-            f"{path} must still use PlaceholderPage in Phase 30B"
-    print("  Placeholder pages preserved for Phase 30D ✓")
+        assert any(n in text for n in names), \
+            f"{path} must mount one of {names}"
+    print("  Validation/Tasks/Raw pages mount real or placeholder components ✓")
 
 
 def test_p30b_13_package_json_no_new_runtime_deps():
@@ -21253,14 +21288,19 @@ def test_p30c_14_no_dashboard_missing_concepts_duplicate_heading():
 
 
 def test_p30c_15_roadmap_phase30c_complete_others_planned():
-    """P30C-15: ROADMAP marks Phase 30C complete and keeps 30D/30E/30F
-    planned; Phase 27 and 28 remain deferred."""
+    """P30C-15: ROADMAP marks Phase 30C complete and keeps the remaining
+    Phase 30 slices honestly tracked: 30D is either Planned or In
+    Progress (Phase 30D1 may have shipped), and 30E/30F stay Planned.
+    Phase 27 and 28 remain deferred."""
     print("\n=== Test P30C-15: ROADMAP phase status ===")
     text = _read_text("ROADMAP.md")
     assert "| 30C   | Dashboard Redesign" in text and "Complete" in text, \
         "ROADMAP.md table must mark Phase 30C as Complete"
-    assert "| 30D   | Core Workflow Page Redesigns            | Planned" in text, \
-        "ROADMAP.md must keep Phase 30D Planned"
+    assert ("| 30D   | Core Workflow Page Redesigns            | Planned" in text
+            or "| 30D   | Core Workflow Page Redesigns            | In Progress" in text), \
+        "ROADMAP.md must keep Phase 30D Planned or In Progress (not Complete)"
+    assert "| 30D   | Core Workflow Page Redesigns            | Complete" not in text, \
+        "ROADMAP.md must not mark parent Phase 30D Complete"
     assert "| 30E   | Review/Governance/Developer Polish      | Planned" in text, \
         "ROADMAP.md must keep Phase 30E Planned"
     assert "| 30F   | Final QA, A11y, Responsive, Light Mode  | Planned" in text, \
@@ -21270,20 +21310,25 @@ def test_p30c_15_roadmap_phase30c_complete_others_planned():
         "ROADMAP.md must keep Phase 27 deferred"
     assert "| 28" in text and "Deferred" in text, \
         "ROADMAP.md must keep Phase 28 deferred"
-    print("  ROADMAP marks 30C complete, others planned/deferred ✓")
+    print("  ROADMAP marks 30C complete, 30D tracked honestly, others planned/deferred ✓")
 
 
 def test_p30c_16_placeholder_pages_not_prematurely_removed():
-    """P30C-16: Validation, Tasks, and Raw pages still use
-    PlaceholderPage. Their real implementations land in Phase 30D."""
-    print("\n=== Test P30C-16: placeholders preserved for 30D ===")
-    for path in ("ui/src/pages/validation.astro",
-                 "ui/src/pages/tasks.astro",
-                 "ui/src/pages/raw.astro"):
+    """P30C-16: The Validation / Tasks / Raw pages exist and have either
+    a Phase 30C placeholder or their Phase 30D1 real implementation.
+    Phase 30D1 superseded the original strict 'PlaceholderPage must be
+    present' check; this test now guards that the pages remain wired."""
+    print("\n=== Test P30C-16: validation/tasks/raw still wired ===")
+    expected = {
+        "ui/src/pages/validation.astro": ("PlaceholderPage", "ValidationReview"),
+        "ui/src/pages/tasks.astro": ("PlaceholderPage", "TaskReview"),
+        "ui/src/pages/raw.astro": ("PlaceholderPage", "RawDeveloperExplorer"),
+    }
+    for path, names in expected.items():
         text = _read_text(path)
-        assert "PlaceholderPage" in text, \
-            f"{path} must still use PlaceholderPage in Phase 30C"
-    print("  Validation/Tasks/Raw placeholders preserved ✓")
+        assert any(n in text for n in names), \
+            f"{path} must mount one of {names}"
+    print("  Validation/Tasks/Raw pages remain wired ✓")
 
 
 def test_p30c_17_no_new_runtime_dependencies():
@@ -21321,6 +21366,363 @@ def test_p30c_18_no_em_dashes_in_dashboard_files():
     assert not offenders, \
         f"Phase 30C files must not contain em dashes; offenders: {offenders}"
     print("  No em dashes in Phase 30C files ✓")
+
+
+# ============================================================
+# Phase 30D1 - Validation, Tasks, and Raw Developer real implementations
+# ============================================================
+
+_P30D1_VALIDATION_PAGE = "ui/src/pages/validation.astro"
+_P30D1_TASKS_PAGE = "ui/src/pages/tasks.astro"
+_P30D1_RAW_PAGE = "ui/src/pages/raw.astro"
+_P30D1_VALIDATION_COMPONENT = "ui/src/components/ValidationReview.svelte"
+_P30D1_TASKS_COMPONENT = "ui/src/components/TaskReview.svelte"
+_P30D1_RAW_COMPONENT = "ui/src/components/RawDeveloperExplorer.svelte"
+
+
+def test_p30d1_1_validation_page_drops_placeholder():
+    """P30D1-1: /app/validation no longer imports or renders PlaceholderPage."""
+    print("\n=== Test P30D1-1: validation.astro drops PlaceholderPage ===")
+    text = _read_text(_P30D1_VALIDATION_PAGE)
+    assert "PlaceholderPage" not in text, \
+        "validation.astro must not import or render PlaceholderPage in Phase 30D1"
+    print("  validation.astro no longer uses PlaceholderPage ✓")
+
+
+def test_p30d1_2_tasks_page_drops_placeholder():
+    """P30D1-2: /app/tasks no longer imports or renders PlaceholderPage."""
+    print("\n=== Test P30D1-2: tasks.astro drops PlaceholderPage ===")
+    text = _read_text(_P30D1_TASKS_PAGE)
+    assert "PlaceholderPage" not in text, \
+        "tasks.astro must not import or render PlaceholderPage in Phase 30D1"
+    print("  tasks.astro no longer uses PlaceholderPage ✓")
+
+
+def test_p30d1_3_raw_page_drops_placeholder():
+    """P30D1-3: /app/raw no longer imports or renders PlaceholderPage."""
+    print("\n=== Test P30D1-3: raw.astro drops PlaceholderPage ===")
+    text = _read_text(_P30D1_RAW_PAGE)
+    assert "PlaceholderPage" not in text, \
+        "raw.astro must not import or render PlaceholderPage in Phase 30D1"
+    print("  raw.astro no longer uses PlaceholderPage ✓")
+
+
+def test_p30d1_4_validation_mounts_real_component():
+    """P30D1-4: validation.astro mounts a real ValidationReview island."""
+    print("\n=== Test P30D1-4: validation.astro mounts ValidationReview ===")
+    text = _read_text(_P30D1_VALIDATION_PAGE)
+    assert "ValidationReview" in text, \
+        "validation.astro must import and render ValidationReview"
+    assert "client:" in text, \
+        "validation.astro must hydrate the ValidationReview island"
+    from pathlib import Path
+    assert (_repo_root() / _P30D1_VALIDATION_COMPONENT).is_file(), \
+        f"{_P30D1_VALIDATION_COMPONENT} must exist"
+    print("  validation.astro mounts ValidationReview ✓")
+
+
+def test_p30d1_5_tasks_mounts_real_component():
+    """P30D1-5: tasks.astro mounts a real TaskReview island."""
+    print("\n=== Test P30D1-5: tasks.astro mounts TaskReview ===")
+    text = _read_text(_P30D1_TASKS_PAGE)
+    assert "TaskReview" in text, \
+        "tasks.astro must import and render TaskReview"
+    assert "client:" in text, \
+        "tasks.astro must hydrate the TaskReview island"
+    assert (_repo_root() / _P30D1_TASKS_COMPONENT).is_file(), \
+        f"{_P30D1_TASKS_COMPONENT} must exist"
+    print("  tasks.astro mounts TaskReview ✓")
+
+
+def test_p30d1_6_raw_mounts_real_component():
+    """P30D1-6: raw.astro mounts a real RawDeveloperExplorer island."""
+    print("\n=== Test P30D1-6: raw.astro mounts RawDeveloperExplorer ===")
+    text = _read_text(_P30D1_RAW_PAGE)
+    assert "RawDeveloperExplorer" in text, \
+        "raw.astro must import and render RawDeveloperExplorer"
+    assert "client:" in text, \
+        "raw.astro must hydrate the RawDeveloperExplorer island"
+    assert (_repo_root() / _P30D1_RAW_COMPONENT).is_file(), \
+        f"{_P30D1_RAW_COMPONENT} must exist"
+    print("  raw.astro mounts RawDeveloperExplorer ✓")
+
+
+def test_p30d1_7_validation_layout_mode_wide():
+    """P30D1-7: validation.astro keeps layoutMode=\"wide\"."""
+    print("\n=== Test P30D1-7: validation.astro layoutMode wide ===")
+    text = _read_text(_P30D1_VALIDATION_PAGE)
+    assert 'layoutMode="wide"' in text, \
+        "validation.astro must keep layoutMode=\"wide\" in Phase 30D1"
+    print("  validation.astro uses layoutMode=\"wide\" ✓")
+
+
+def test_p30d1_8_tasks_layout_mode_wide():
+    """P30D1-8: tasks.astro keeps layoutMode=\"wide\"."""
+    print("\n=== Test P30D1-8: tasks.astro layoutMode wide ===")
+    text = _read_text(_P30D1_TASKS_PAGE)
+    assert 'layoutMode="wide"' in text, \
+        "tasks.astro must keep layoutMode=\"wide\" in Phase 30D1"
+    print("  tasks.astro uses layoutMode=\"wide\" ✓")
+
+
+def test_p30d1_9_raw_layout_mode_developer():
+    """P30D1-9: raw.astro keeps layoutMode=\"developer\"."""
+    print("\n=== Test P30D1-9: raw.astro layoutMode developer ===")
+    text = _read_text(_P30D1_RAW_PAGE)
+    assert 'layoutMode="developer"' in text, \
+        "raw.astro must keep layoutMode=\"developer\" in Phase 30D1"
+    print("  raw.astro uses layoutMode=\"developer\" ✓")
+
+
+def test_p30d1_10_validation_uses_validation_helper():
+    """P30D1-10: ValidationReview consumes the fetchValidation helper."""
+    print("\n=== Test P30D1-10: ValidationReview uses fetchValidation ===")
+    text = _read_text(_P30D1_VALIDATION_COMPONENT)
+    assert "fetchValidation" in text, \
+        "ValidationReview must import and call fetchValidation"
+    assert "from '../lib/api" in text, \
+        "ValidationReview must import from ../lib/api"
+    print("  ValidationReview wires the real /validation helper ✓")
+
+
+def test_p30d1_11_tasks_uses_tasks_helper():
+    """P30D1-11: TaskReview consumes the fetchTasks helper."""
+    print("\n=== Test P30D1-11: TaskReview uses fetchTasks ===")
+    text = _read_text(_P30D1_TASKS_COMPONENT)
+    assert "fetchTasks" in text, \
+        "TaskReview must import and call fetchTasks"
+    assert "from '../lib/api" in text, \
+        "TaskReview must import from ../lib/api"
+    print("  TaskReview wires the real /tasks helper ✓")
+
+
+def test_p30d1_12_raw_catalogue_is_safe_read_only():
+    """P30D1-12: Raw / Developer catalogue exposes only safe read-only
+    helpers from api.ts and does not surface destructive or write
+    routes."""
+    print("\n=== Test P30D1-12: Raw catalogue read-only ===")
+    text = _read_text(_P30D1_RAW_COMPONENT)
+    # The catalogue should call existing GET helpers.
+    expected_helpers = [
+        "fetchHealth", "fetchVaults", "fetchSummary", "fetchValidation",
+        "fetchTasks", "fetchMissing", "fetchFeedback", "fetchNotes",
+        "fetchGraph", "fetchContextProfiles",
+    ]
+    missing = [h for h in expected_helpers if h not in text]
+    assert not missing, \
+        f"RawDeveloperExplorer must reference safe read helpers, missing: {missing}"
+    # Forbidden write / destructive helpers must not be wired in.
+    forbidden_helpers = [
+        "updateNote", "deleteVault", "deleteFeedback", "createFeedback",
+        "updateFeedback", "exportContextPackage", "importMarkdownFolder",
+        "importObsidianVault", "acceptPendingChange", "rejectPendingChange",
+        "createNoteDraft", "suggestNoteUpdate", "normaliseFeedback",
+    ]
+    leaked = [h for h in forbidden_helpers if h in text]
+    assert not leaked, \
+        f"RawDeveloperExplorer must not expose destructive helpers: {leaked}"
+    # Method must be GET only across the catalogue.
+    assert "method: 'POST'" not in text and 'method: "POST"' not in text, \
+        "RawDeveloperExplorer must not declare POST methods in its catalogue"
+    assert "method: 'DELETE'" not in text and 'method: "DELETE"' not in text, \
+        "RawDeveloperExplorer must not declare DELETE methods in its catalogue"
+    assert "method: 'PUT'" not in text and 'method: "PUT"' not in text, \
+        "RawDeveloperExplorer must not declare PUT methods in its catalogue"
+    print("  Raw Developer catalogue is read-only ✓")
+
+
+def test_p30d1_13_validation_uses_phase30b_primitives():
+    """P30D1-13: ValidationReview uses cve-toolbar, cve-banner,
+    cve-status-strip, and cve-table primitives."""
+    print("\n=== Test P30D1-13: ValidationReview primitives ===")
+    text = _read_text(_P30D1_VALIDATION_COMPONENT)
+    for cls in ("cve-toolbar", "cve-banner", "cve-status-strip", "cve-table"):
+        assert cls in text, \
+            f"ValidationReview must use the {cls} primitive"
+    print("  ValidationReview consumes Phase 30B primitives ✓")
+
+
+def test_p30d1_14_tasks_uses_phase30b_primitives():
+    """P30D1-14: TaskReview uses cve-toolbar, cve-banner,
+    cve-status-strip, and cve-table primitives."""
+    print("\n=== Test P30D1-14: TaskReview primitives ===")
+    text = _read_text(_P30D1_TASKS_COMPONENT)
+    for cls in ("cve-toolbar", "cve-banner", "cve-status-strip", "cve-table"):
+        assert cls in text, \
+            f"TaskReview must use the {cls} primitive"
+    print("  TaskReview consumes Phase 30B primitives ✓")
+
+
+def test_p30d1_15_raw_uses_toolbar_and_bounded_viewer():
+    """P30D1-15: RawDeveloperExplorer uses cve-toolbar and a bounded raw
+    JSON viewer contract (max-height + internal scroll)."""
+    print("\n=== Test P30D1-15: Raw viewer bounded ===")
+    text = _read_text(_P30D1_RAW_COMPONENT)
+    assert "cve-toolbar" in text, \
+        "RawDeveloperExplorer must use the cve-toolbar primitive"
+    assert "cve-raw" in text, \
+        "RawDeveloperExplorer must wrap raw JSON in the cve-raw primitive"
+    assert "cve-p30d1-raw-pre" in text, \
+        "RawDeveloperExplorer must use the bounded cve-p30d1-raw-pre viewer"
+    css = _read_text("ui/src/styles/global.css")
+    assert ".cve-p30d1-raw-pre" in css, \
+        "global.css must define the bounded cve-p30d1-raw-pre class"
+    # The bounded viewer must cap height so multi-MB payloads cannot
+    # overflow the page.
+    pre_block_start = css.find(".cve-p30d1-raw-pre")
+    pre_block = css[pre_block_start:pre_block_start + 400]
+    assert "max-height" in pre_block, \
+        "cve-p30d1-raw-pre must cap height for bounded internal scroll"
+    assert "overflow: auto" in pre_block or "overflow:auto" in pre_block, \
+        "cve-p30d1-raw-pre must declare overflow: auto for internal scroll"
+    print("  Raw viewer is bounded with internal scroll ✓")
+
+
+def test_p30d1_16_no_tailwind_dark_literals_in_migrated_files():
+    """P30D1-16: Migrated Phase 30D1 files use semantic tokens, not
+    Tailwind dark palette literals."""
+    print("\n=== Test P30D1-16: no Tailwind dark literals ===")
+    files = [
+        _P30D1_VALIDATION_PAGE, _P30D1_TASKS_PAGE, _P30D1_RAW_PAGE,
+        _P30D1_VALIDATION_COMPONENT, _P30D1_TASKS_COMPONENT, _P30D1_RAW_COMPONENT,
+    ]
+    forbidden = [
+        "bg-zinc-", "text-zinc-", "border-zinc-",
+        "bg-emerald-9", "bg-amber-9", "bg-rose-9", "bg-sky-9",
+        "bg-red-9", "text-red-4", "text-emerald-4", "text-amber-4",
+    ]
+    for path in files:
+        body = _read_text(path)
+        offenders = [f for f in forbidden if f in body]
+        assert not offenders, \
+            f"{path} must not contain Tailwind dark literals: {offenders}"
+    print("  No Tailwind dark literals in Phase 30D1 files ✓")
+
+
+def test_p30d1_17_raw_no_unbounded_full_page_pre():
+    """P30D1-17: Raw JSON is not rendered in an unbounded full-page
+    <pre> block. The viewer must use the bounded cve-p30d1-raw-pre
+    class anchored to cve-raw."""
+    print("\n=== Test P30D1-17: Raw JSON bounded ===")
+    text = _read_text(_P30D1_RAW_COMPONENT)
+    # The single <pre> in this component must declare the bounded class.
+    import re
+    pres = re.findall(r"<pre[^>]*>", text)
+    assert pres, "RawDeveloperExplorer must contain a <pre> raw viewer"
+    for tag in pres:
+        assert "cve-p30d1-raw-pre" in tag and "cve-raw" in tag, \
+            f"Every <pre> in RawDeveloperExplorer must use cve-raw and cve-p30d1-raw-pre; offender: {tag}"
+    print("  Raw JSON viewer uses the bounded primitive only ✓")
+
+
+def test_p30d1_18_developer_deep_link_contract_tolerated():
+    """P30D1-18: Validation and Tasks deep-link into /app/raw via the
+    Developer link contract, and Raw tolerates the deep-link query
+    parameters (vault, endpoint, source, focus)."""
+    print("\n=== Test P30D1-18: Developer deep-link contract ===")
+    val = _read_text(_P30D1_VALIDATION_COMPONENT)
+    tsk = _read_text(_P30D1_TASKS_COMPONENT)
+    raw = _read_text(_P30D1_RAW_COMPONENT)
+    for name, body in (("ValidationReview", val), ("TaskReview", tsk)):
+        assert "cve-details--inspector" in body, \
+            f"{name} must expose the Developer inspector block"
+        assert "cve-details__developer-link" in body, \
+            f"{name} must use the cve-details__developer-link contract"
+        assert "/app/raw" in body, \
+            f"{name} developer link must target /app/raw"
+    # Raw tolerates the deep-link query contract.
+    for param in ("vault", "endpoint", "source", "focus"):
+        assert f"'{param}'" in raw or f'"{param}"' in raw, \
+            f"RawDeveloperExplorer must tolerate the {param!r} query parameter"
+    print("  Developer deep-link contract tolerated on Raw ✓")
+
+
+def test_p30d1_19_roadmap_phase27_still_deferred():
+    """P30D1-19: ROADMAP.md keeps Phase 27 deferred."""
+    print("\n=== Test P30D1-19: Phase 27 deferred ===")
+    text = _read_text("ROADMAP.md")
+    assert "| 27" in text and "Deferred" in text, \
+        "ROADMAP.md must keep Phase 27 deferred"
+    assert "### Phase 27 - Registry and Reuse Layer" in text
+    print("  Phase 27 remains deferred ✓")
+
+
+def test_p30d1_20_roadmap_phase28_still_deferred():
+    """P30D1-20: ROADMAP.md keeps Phase 28 deferred."""
+    print("\n=== Test P30D1-20: Phase 28 deferred ===")
+    text = _read_text("ROADMAP.md")
+    assert "| 28" in text and "Deferred" in text, \
+        "ROADMAP.md must keep Phase 28 deferred"
+    assert "### Phase 28 - Optional Semantic Retrieval" in text
+    print("  Phase 28 remains deferred ✓")
+
+
+def test_p30d1_21_phase30d_not_marked_complete():
+    """P30D1-21: ROADMAP.md does not mark the parent Phase 30D as
+    fully complete. Phase 30D1 is recorded as complete; 30D2 and 30D3
+    remain planned."""
+    print("\n=== Test P30D1-21: Phase 30D not fully complete ===")
+    text = _read_text("ROADMAP.md")
+    # The 30D status-table row must not say Complete.
+    forbidden_rows = (
+        "| 30D   | Core Workflow Page Redesigns            | Complete",
+    )
+    for row in forbidden_rows:
+        assert row not in text, \
+            f"ROADMAP.md must not mark Phase 30D Complete: found {row!r}"
+    # 30D1 must appear in the table.
+    assert "| 30D1" in text, \
+        "ROADMAP.md must add a 30D1 status-table row"
+    # 30D2 and 30D3 are planned.
+    assert "30D2" in text and "30D3" in text, \
+        "ROADMAP.md must document the 30D2 and 30D3 sub-slices"
+    print("  Parent Phase 30D not marked Complete; 30D1 complete; 30D2/30D3 planned ✓")
+
+
+def test_p30d1_22_phase30e_and_30f_planned():
+    """P30D1-22: Phase 30E and 30F remain Planned."""
+    print("\n=== Test P30D1-22: Phase 30E/30F planned ===")
+    text = _read_text("ROADMAP.md")
+    assert "| 30E   | Review/Governance/Developer Polish      | Planned" in text, \
+        "ROADMAP.md must keep Phase 30E Planned"
+    assert "| 30F   | Final QA, A11y, Responsive, Light Mode  | Planned" in text, \
+        "ROADMAP.md must keep Phase 30F Planned"
+    print("  Phase 30E and 30F remain Planned ✓")
+
+
+def test_p30d1_23_no_new_runtime_dependencies():
+    """P30D1-23: ui/package.json does not pick up React/Vue/icon/animation
+    libraries in Phase 30D1."""
+    print("\n=== Test P30D1-23: ui/package.json deps unchanged ===")
+    import json
+    pkg = json.loads(_read_text("ui/package.json"))
+    deps = set((pkg.get("dependencies") or {}).keys())
+    dev_deps = set((pkg.get("devDependencies") or {}).keys())
+    forbidden = {"react", "react-dom", "vue", "lucide-react",
+                 "@heroicons/react", "framer-motion", "react-icons",
+                 "@radix-ui/react-icons", "chart.js", "d3", "recharts",
+                 "highlight.js", "prismjs", "shiki"}
+    sneaked_in = (deps | dev_deps) & forbidden
+    assert not sneaked_in, \
+        f"ui/package.json must not introduce {sorted(sneaked_in)} in Phase 30D1"
+    print("  No new runtime dependencies in Phase 30D1 ✓")
+
+
+def test_p30d1_24_no_em_dashes_in_phase30d1_files():
+    """P30D1-24: Files touched by Phase 30D1 contain no em dashes."""
+    print("\n=== Test P30D1-24: no em dashes in Phase 30D1 files ===")
+    files = [
+        _P30D1_VALIDATION_PAGE, _P30D1_TASKS_PAGE, _P30D1_RAW_PAGE,
+        _P30D1_VALIDATION_COMPONENT, _P30D1_TASKS_COMPONENT,
+        _P30D1_RAW_COMPONENT,
+        "ui/src/styles/global.css",
+        "ROADMAP.md", "UI_UX_AUDIT.md", "TESTING.md",
+        "README.md", "RELEASE_CHECKLIST.md",
+    ]
+    offenders = [f for f in files if "\u2014" in _read_text(f)]
+    assert not offenders, \
+        f"Phase 30D1 files must not contain em dashes; offenders: {offenders}"
+    print("  No em dashes in Phase 30D1 files ✓")
 
 
 if __name__ == "__main__":

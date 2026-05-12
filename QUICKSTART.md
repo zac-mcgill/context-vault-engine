@@ -1463,6 +1463,26 @@ The response includes a `summary` (`discovered`, `planned`, `written`, `skipped`
 
 Phase 26A covers Markdown folder import only. PDF-to-Markdown, browser article import, GitHub repo docs import, and Obsidian-specific import remain deferred. There is no LLM or semantic step; this is a rule-based, deterministic pipeline.
 
+### Import Review UI (Phase 26B)
+
+Phase 26B adds a browser page at `/app/import` that exercises the Phase 26A backend without any new import sources. The workflow is preview-first:
+
+1. Open the local app and click **Import** in the sidebar.
+2. Pick a vault, type a server-local source folder path, and choose a destination (default `Imported`).
+3. Click **Preview Import (dry-run)**. The page calls `POST /import/markdown-folder` with `dry_run: true` and shows the full plan: discovered count, planned/written/skipped/blocked/errors/warnings, every per-item destination path, per-item security and validation status, warnings, and structured errors.
+4. Review each item. Expand any row to see mapped frontmatter fields, the full warning and error lists, security findings, and validation errors.
+5. Tick the confirmation checkbox `I have reviewed the import preview and want to write these files.`
+6. Click **Write Import**. The page calls `POST /import/markdown-folder` with `dry_run: false` and shows the final result with follow-up links to Notes, Validation, Tasks, Security, and Dashboard.
+
+Safety rules enforced by the UI on top of the backend:
+
+- Preview is required before writing. The write button is disabled until a successful preview exists.
+- Changing the vault, source folder, destination, or overwrite flag after a preview marks the preview stale and disables write until the preview is re-run.
+- The write button is also disabled while a preview or write request is in flight.
+- The source folder field is a plain text input with helper text explaining the path is resolved on the backend host (no fake server filesystem browser).
+- The destination field defaults to `Imported` and inherits the backend safety checks (no traversal, no absolute paths, no writes inside `Vault Files/`).
+- The UI mounts only the Markdown folder import workflow. PDF, GitHub repo, browser article, Obsidian-specific, chat transcript, semantic, and LLM-extraction imports are explicitly listed as not implemented yet and are not exposed as buttons or actions.
+
 ---
 
 ## 31. Run Verification Tests (Optional)

@@ -1,13 +1,13 @@
 # Context Vault Engine - Testing
 
-All tests live in `mcp/test_verify.py`. The suite currently has 587 test functions (571 phase tests plus 16 documentation drift guardrails), all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564) appear later in this document as part of the phase changelog and are not the current total.
+All tests live in `mcp/test_verify.py`. The suite currently has 607 test functions (591 phase tests plus 16 documentation drift guardrails), all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587) appear later in this document as part of the phase changelog and are not the current total.
 
 ## Current Verification Summary
 
 A full local verification consists of:
 
 ```bash
-py mcp/test_verify.py           # 587 tests, all must pass
+py mcp/test_verify.py           # 607 tests, all must pass
 py run.py validate              # vault schema-compliance
 py run.py security              # status: pass (or warning, never fail)
 py run.py feedback              # exits 0, valid JSON
@@ -1791,7 +1791,7 @@ cd ui; npm run build       # zero errors
 **Verification steps:**
 
 ```bash
-py mcp/test_verify.py      # 587 tests, all must pass
+py mcp/test_verify.py      # 607 tests, all must pass
 py run.py validate         # vault still valid
 py run.py security         # status: pass
 py run.py import-markdown <source_dir>            # dry-run by default
@@ -1799,6 +1799,48 @@ py run.py import-markdown <source_dir> --write    # actually writes
 py run.py feedback         # exits 0, valid JSON
 py run.py export --overwrite   # status: ok
 cd ui; npm run build       # zero errors
+```
+
+---
+
+## Phase 26B - Import Review UI
+
+20 new tests (`test_p26b_1` through `test_p26b_20`), bringing the phase-test total to 591. Combined with the 16 documentation drift guardrails, the overall test count is now 607.
+
+The Phase 26B suite is mostly static-content verification because the UI runs in a browser and exercises the Phase 26A backend through `POST /import/markdown-folder`. The single dynamic test confirms that `cd ui && npm run build` produces `ui/dist/import/index.html` containing the expected header text.
+
+**Highlights:**
+
+- `test_p26b_1`: `ui/src/pages/import.astro` exists, uses `AppLayout`, and hydrates `ImportReview`.
+- `test_p26b_2`: `ui/src/components/ImportReview.svelte` exists with the page header.
+- `test_p26b_3`: the app sidebar in `AppLayout.astro` lists an `Import` nav item at `/app/import`.
+- `test_p26b_4`: `api.ts` exports an `importMarkdownFolder` helper that posts to `/import/markdown-folder`.
+- `test_p26b_5`: `ImportMarkdownFolderRequest` declares `vault`, `source_dir`, `destination`, `dry_run`, `overwrite`.
+- `test_p26b_6`: response types include `summary` and `items[]`, with `discovered`, `planned`, `written`, `skipped`, `errors`, `warnings`.
+- `test_p26b_7`: the component defaults destination to `Imported`.
+- `test_p26b_8`: the preview action posts `dry_run: true`.
+- `test_p26b_9`: the write action posts `dry_run: false`.
+- `test_p26b_10`: write is gated by both a successful preview and an explicit confirmation flag.
+- `test_p26b_11`: preview is marked stale when vault, source folder, destination, or overwrite changes.
+- `test_p26b_12`: the summary panel renders Discovered, Planned, Written, Skipped, Errors, Warnings.
+- `test_p26b_13`: source folder and destination folder paths are surfaced in the summary panel.
+- `test_p26b_14`: per-item view lists warnings and errors with counts.
+- `test_p26b_15`: per-item view exposes security and validation status badges.
+- `test_p26b_16`: write requires an explicit confirmation checkbox with the documented phrase.
+- `test_p26b_17`: the form helper text explains that the source path is server-local.
+- `test_p26b_18`: the page header states Markdown folder import only.
+- `test_p26b_19`: deferred import sources (PDF, GitHub, browser article, semantic, LLM) are not advertised as buttons or actions.
+- `test_p26b_20`: `ui/dist/import/index.html` exists after `npm run build` and contains the expected header.
+
+**Verification steps:**
+
+```bash
+py mcp/test_verify.py            # 607 tests, all must pass
+py run.py validate               # vault still valid
+py run.py security               # status: pass
+py run.py feedback               # exits 0, valid JSON
+py run.py export --overwrite     # status: ok
+cd ui; npm run build             # builds the /import page artefact
 ```
 
 ---

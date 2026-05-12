@@ -1307,3 +1307,100 @@ export function fetchStaleSummary(vault: string): Promise<ApiResult<StaleSummary
 export function buildEvidence(request: EvidenceRequest): Promise<ApiResult<EvidenceData>> {
   return post<EvidenceData>('/evidence', request);
 }
+
+// ---------------------------------------------------------------------------
+// Phase 26B — Markdown folder import (POST /import/markdown-folder)
+// ---------------------------------------------------------------------------
+
+/**
+ * Request body for POST /import/markdown-folder.
+ *
+ * `source_dir` is resolved on the backend host (server-local path).
+ * `destination` is vault-relative; absolute paths, traversal, and
+ * any path inside `Vault Files/` are rejected by the backend.
+ */
+export interface ImportMarkdownFolderRequest {
+  vault: string;
+  source_dir: string;
+  destination: string;
+  dry_run: boolean;
+  overwrite: boolean;
+}
+
+export interface ImportMarkdownSecurityFinding {
+  rule?: string;
+  severity?: string;
+  field?: string;
+  detail?: string;
+  path?: string;
+}
+
+export interface ImportMarkdownSecurityResult {
+  status: 'pass' | 'warning' | 'fail';
+  findings: ImportMarkdownSecurityFinding[];
+}
+
+export interface ImportMarkdownValidationResult {
+  status: 'pass' | 'fail';
+  errors: string[];
+}
+
+export interface ImportMarkdownItemError {
+  code: string;
+  message: string;
+}
+
+export type ImportItemStatus =
+  | 'planned'
+  | 'written'
+  | 'skipped'
+  | 'blocked'
+  | 'error';
+
+export type ImportItemAction = 'create' | 'overwrite' | 'skip';
+
+export interface ImportMarkdownItem {
+  source_path: string;
+  destination_path: string;
+  action: ImportItemAction | string;
+  status: ImportItemStatus | string;
+  fields: Record<string, unknown>;
+  warnings: string[];
+  errors: ImportMarkdownItemError[];
+  security: ImportMarkdownSecurityResult;
+  validation: ImportMarkdownValidationResult;
+}
+
+export interface ImportMarkdownSummary {
+  discovered: number;
+  planned: number;
+  written: number;
+  skipped: number;
+  errors: number;
+  warnings: number;
+  blocked?: number;
+}
+
+export interface ImportMarkdownFolderResponse {
+  vault: string;
+  source_dir: string;
+  destination: string;
+  dry_run: boolean;
+  overwrite: boolean;
+  summary: ImportMarkdownSummary;
+  items: ImportMarkdownItem[];
+}
+
+/**
+ * POST /import/markdown-folder — plan or execute a Markdown folder import.
+ *
+ * Pass `dry_run: true` for the preview call (default workflow) and
+ * `dry_run: false` for the explicit write call after the user has
+ * reviewed the preview.
+ */
+export function importMarkdownFolder(
+  request: ImportMarkdownFolderRequest,
+): Promise<ApiResult<ImportMarkdownFolderResponse>> {
+  return post<ImportMarkdownFolderResponse>('/import/markdown-folder', request);
+}
+

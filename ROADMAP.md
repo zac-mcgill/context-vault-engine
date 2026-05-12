@@ -611,7 +611,7 @@ Optional `trust_level`, `source_type`, `last_reviewed`, `review_after` frontmatt
 
 ### Phase 26 - Import Pipelines
 
-**Status: Active - Phase 26A complete.**
+**Status: Active - Phase 26A and Phase 26B complete.**
 
 #### Purpose
 
@@ -619,7 +619,7 @@ Make it easier to ingest existing knowledge without bypassing schema controls.
 
 #### Import Sources
 
-- Markdown folder (Phase 26A - implemented)
+- Markdown folder (Phase 26A backend, Phase 26B review UI - implemented)
 - Obsidian vault (deferred)
 - GitHub repo docs (deferred)
 - Copilot/agent reports (deferred)
@@ -649,15 +649,20 @@ Make it easier to ingest existing knowledge without bypassing schema controls.
 - Imported files are schema-mapped. (Phase 26A - done)
 - Invalid imports produce actionable tasks. (Phase 26A - done)
 - No unsafe path writes. (Phase 26A - done)
+- User can preview and confirm imports through the browser before writing. (Phase 26B - done)
 
 #### Phase 26A Summary
 
 Phase 26A delivers `core/shared/import_pipeline.py`, the `POST /import/markdown-folder` API endpoint, and the `py run.py import-markdown` CLI command. The pipeline discovers Markdown files deterministically, scans each source body via the project security scanner, drops unknown source frontmatter, recomputes section booleans from body content, marks imports with `trust_level: draft` and `source_type: imported`, serialises candidate notes, validates them through the existing `validate_file` engine, and writes only when validation passes. Default destination is `Imported/`, default mode is dry-run, no overwrite, no writes inside `Vault Files/`, and the note index plus result cache are invalidated after any successful write so imported notes appear immediately in `/notes`, `/query`, `/validation`, and `/tasks`. Other import sources remain deferred.
 
+#### Phase 26B Summary
+
+Phase 26B adds the Import Review UI without changing the Phase 26A backend. It introduces a new browser page at `/app/import`, a Svelte `ImportReview` component, and an `Import` nav item in the app sidebar. The component talks to the existing `POST /import/markdown-folder` endpoint via a new typed `importMarkdownFolder` helper in `ui/src/lib/api.ts`. Preview/dry-run is the default first action; the write button is disabled until a successful preview exists, the user has ticked an explicit confirmation checkbox, and the form values still match the previewed values. Any change to vault, source folder, destination, or overwrite marks the preview stale. The page surfaces every summary field (`discovered`, `planned`, `written`, `skipped`, `blocked`, `errors`, `warnings`), every per-item destination path, action, status, security and validation state, and full warning and error lists. Errors are mapped to non-developer language. The source folder field is a plain text input with helper text explaining that the path is resolved on the backend host. Markdown folder import only; PDF, GitHub repo, browser article, Obsidian-specific, chat transcript, semantic, and LLM-extraction imports remain deferred and are not exposed as buttons or actions in the UI.
+
 #### Suggested Commit
 
 ```
-feat(import): add markdown import pipeline
+feat(ui): add markdown import review workflow
 ```
 
 ---

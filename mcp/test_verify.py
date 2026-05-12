@@ -11350,6 +11350,28 @@ def main():
     test_p26a_22()
     test_p26a_23()
 
+    # Phase 26B — Import Review UI
+    test_p26b_1()
+    test_p26b_2()
+    test_p26b_3()
+    test_p26b_4()
+    test_p26b_5()
+    test_p26b_6()
+    test_p26b_7()
+    test_p26b_8()
+    test_p26b_9()
+    test_p26b_10()
+    test_p26b_11()
+    test_p26b_12()
+    test_p26b_13()
+    test_p26b_14()
+    test_p26b_15()
+    test_p26b_16()
+    test_p26b_17()
+    test_p26b_18()
+    test_p26b_19()
+    test_p26b_20()
+
     # Documentation drift guardrails (added in the Phase 25 production-docs pass)
     test_doc_drift_readme_test_count()
     test_doc_drift_testing_test_count()
@@ -12908,6 +12930,254 @@ def test_p26a_23():
         print("  response shape matches spec ✓")
     finally:
         _p26a_cleanup(src)
+
+
+# ============================================================
+# Phase 26B — Import Review UI
+# ============================================================
+
+def _p26b_repo_root():
+    from pathlib import Path
+    return Path(__file__).resolve().parent.parent
+
+
+def _p26b_read(relpath: str) -> str:
+    return (_p26b_repo_root() / relpath).read_text(encoding="utf-8")
+
+
+_P26B_COMPONENT = "ui/src/components/ImportReview.svelte"
+_P26B_PAGE = "ui/src/pages/import.astro"
+_P26B_LAYOUT = "ui/src/layouts/AppLayout.astro"
+_P26B_API = "ui/src/lib/api.ts"
+
+
+def test_p26b_1():
+    """P26B-1: Import page exists at ui/src/pages/import.astro and renders the component."""
+    print("\n=== Test P26B-1: import.astro page exists ===")
+    text = _p26b_read(_P26B_PAGE)
+    assert "AppLayout" in text, "import.astro must use AppLayout"
+    assert "ImportReview" in text, "import.astro must mount the ImportReview component"
+    assert "client:load" in text, "ImportReview should be hydrated client-side"
+    print("  import.astro present and wired ✓")
+
+
+def test_p26b_2():
+    """P26B-2: ImportReview component file exists."""
+    print("\n=== Test P26B-2: ImportReview.svelte exists ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    assert "<script" in text and "lang=\"ts\"" in text, "component must be a TS Svelte file"
+    assert "Import Markdown Folder" in text, "component must include the page header"
+    print("  ImportReview.svelte present ✓")
+
+
+def test_p26b_3():
+    """P26B-3: App sidebar includes an Import nav item pointing at /app/import."""
+    print("\n=== Test P26B-3: sidebar has Import nav item ===")
+    text = _p26b_read(_P26B_LAYOUT)
+    assert "/app/import" in text, "sidebar must include /app/import"
+    assert "label: 'Import'" in text or "label: \"Import\"" in text, \
+        "sidebar must label the Import nav item"
+    print("  Import nav item registered in sidebar ✓")
+
+
+def test_p26b_4():
+    """P26B-4: api.ts exposes an importMarkdownFolder helper hitting the right path."""
+    print("\n=== Test P26B-4: api.ts importMarkdownFolder helper ===")
+    text = _p26b_read(_P26B_API)
+    assert "export function importMarkdownFolder" in text, \
+        "api.ts must export importMarkdownFolder"
+    assert "/import/markdown-folder" in text, \
+        "api.ts must call POST /import/markdown-folder"
+    print("  importMarkdownFolder helper present and routed ✓")
+
+
+def test_p26b_5():
+    """P26B-5: api.ts request type includes vault, source_dir, destination, dry_run, overwrite."""
+    print("\n=== Test P26B-5: ImportMarkdownFolderRequest fields ===")
+    text = _p26b_read(_P26B_API)
+    assert "interface ImportMarkdownFolderRequest" in text
+    for field in ("vault:", "source_dir:", "destination:", "dry_run:", "overwrite:"):
+        assert field in text, f"request type missing field {field}"
+    print("  request type carries all required fields ✓")
+
+
+def test_p26b_6():
+    """P26B-6: api.ts response types include summary and items shapes."""
+    print("\n=== Test P26B-6: response types include summary + items ===")
+    text = _p26b_read(_P26B_API)
+    assert "interface ImportMarkdownFolderResponse" in text
+    assert "interface ImportMarkdownSummary" in text
+    assert "interface ImportMarkdownItem" in text
+    assert "summary: ImportMarkdownSummary" in text
+    assert "items: ImportMarkdownItem[]" in text
+    # Summary numeric fields
+    for f in ("discovered:", "planned:", "written:", "skipped:", "errors:", "warnings:"):
+        assert f in text, f"summary missing field {f}"
+    print("  response shape declares summary and items ✓")
+
+
+def test_p26b_7():
+    """P26B-7: Component defaults destination to 'Imported'."""
+    print("\n=== Test P26B-7: default destination 'Imported' ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    assert "let destination = 'Imported'" in text or 'destination = "Imported"' in text, \
+        "destination must default to 'Imported'"
+    print("  destination defaults to 'Imported' ✓")
+
+
+def test_p26b_8():
+    """P26B-8: Preview action uses dry_run: true."""
+    print("\n=== Test P26B-8: preview uses dry_run: true ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    assert "handlePreview" in text, "must define handlePreview"
+    assert "buildRequest(true)" in text, "preview must pass dry_run=true"
+    print("  preview call uses dry_run: true ✓")
+
+
+def test_p26b_9():
+    """P26B-9: Write action uses dry_run: false."""
+    print("\n=== Test P26B-9: write uses dry_run: false ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    assert "handleWrite" in text, "must define handleWrite"
+    assert "buildRequest(false)" in text, "write must pass dry_run=false"
+    print("  write call uses dry_run: false ✓")
+
+
+def test_p26b_10():
+    """P26B-10: Write button is gated by a successful preview and explicit confirmation."""
+    print("\n=== Test P26B-10: write disabled until preview + confirm ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    assert "canWrite" in text, "must expose a canWrite gate"
+    # canWrite must depend on preview existence and confirm checkbox.
+    assert "preview !== null" in text, "canWrite must require a preview"
+    assert "confirmReviewed" in text, "canWrite must require explicit confirmation"
+    print("  write gated on preview and confirmation ✓")
+
+
+def test_p26b_11():
+    """P26B-11: Preview is marked stale when source, vault, destination, or overwrite changes."""
+    print("\n=== Test P26B-11: stale preview detection ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    assert "previewStale" in text, "must compute previewStale"
+    for snap in ("previewedVault", "previewedSourceDir", "previewedDestination", "previewedOverwrite"):
+        assert snap in text, f"missing snapshot variable {snap}"
+    print("  previewStale watches all four inputs ✓")
+
+
+def test_p26b_12():
+    """P26B-12: Component renders every required summary field."""
+    print("\n=== Test P26B-12: summary fields rendered ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    for label in ("Discovered", "Planned", "Written", "Skipped", "Errors", "Warnings"):
+        assert label in text, f"summary panel must show {label}"
+    print("  summary panel exposes discovered/planned/written/skipped/errors/warnings ✓")
+
+
+def test_p26b_13():
+    """P26B-13: Component displays the source folder and destination folder."""
+    print("\n=== Test P26B-13: source and destination paths shown ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    assert "Source folder" in text, "must show 'Source folder' label"
+    assert "Destination folder" in text, "must show 'Destination folder' label"
+    assert "display?.source_dir" in text, "must render source_dir"
+    assert "display?.destination" in text, "must render destination"
+    print("  source + destination paths shown ✓")
+
+
+def test_p26b_14():
+    """P26B-14: Per-item view displays warnings and errors with counts and details."""
+    print("\n=== Test P26B-14: item warnings + errors surfaced ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    assert "item.warnings.length" in text, "must count item warnings"
+    assert "item.errors.length" in text, "must count item errors"
+    # Expanded view iterates over each warning/error.
+    assert "each item.warnings as" in text, "must list each warning"
+    assert "each item.errors as" in text, "must list each error"
+    print("  per-item warnings and errors are listed with counts ✓")
+
+
+def test_p26b_15():
+    """P26B-15: Per-item view exposes security and validation states."""
+    print("\n=== Test P26B-15: security + validation badges ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    assert "item.security?.status" in text, "must surface item.security.status"
+    assert "item.validation?.status" in text, "must surface item.validation.status"
+    assert "securityClass" in text, "should style security status"
+    assert "validationClass" in text, "should style validation status"
+    print("  security + validation states rendered per item ✓")
+
+
+def test_p26b_16():
+    """P26B-16: Write is gated behind an explicit confirmation checkbox."""
+    print("\n=== Test P26B-16: explicit write confirmation ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    assert "bind:checked={confirmReviewed}" in text, \
+        "must bind a confirmation checkbox to confirmReviewed"
+    assert "I have reviewed the import preview and want to write these files." in text, \
+        "must include the explicit confirmation phrase"
+    print("  explicit confirmation checkbox present with required phrase ✓")
+
+
+def test_p26b_17():
+    """P26B-17: UI explains that the source path is server-local."""
+    print("\n=== Test P26B-17: server-local constraint mentioned ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    assert "server-local" in text or "resolved on the backend host" in text, \
+        "component must explain the server-local path constraint"
+    print("  server-local constraint communicated to users ✓")
+
+
+def test_p26b_18():
+    """P26B-18: UI states the import is Markdown-only."""
+    print("\n=== Test P26B-18: Markdown-only scope stated ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    assert "Markdown folder import only" in text, \
+        "component header must state Markdown folder import only"
+    print("  Markdown-only scope communicated ✓")
+
+
+def test_p26b_19():
+    """P26B-19: UI does not advertise PDF/GitHub/article/semantic/LLM as implemented."""
+    print("\n=== Test P26B-19: deferred sources not advertised as available ===")
+    text = _p26b_read(_P26B_COMPONENT)
+    # The component is allowed to mention these tokens only in a "not yet"/"no ... yet" sentence.
+    # Defensive check: ensure every mention of these terms appears in the deferred sentence,
+    # and no separate import action references them.
+    import re as _re
+    body = text.lower()
+    deferred_sentence_present = (
+        "no pdf" in body
+        and "github" in body
+        and "browser article" in body
+        and "semantic" in body
+    )
+    assert deferred_sentence_present, \
+        "component must explicitly state PDF/GitHub/article/semantic imports are not implemented yet"
+    # Disallow misleading button labels.
+    forbidden_labels = [
+        "Import PDF", "Import GitHub", "Import Article",
+        "Semantic Import", "LLM Extract",
+    ]
+    for label in forbidden_labels:
+        assert label not in text, f"component must not advertise {label!r}"
+    # Ensure forbidden tokens never appear as a button/action.
+    assert not _re.search(r"<button[^>]*>\s*(PDF|GitHub|Article|Semantic|LLM)\b", text), \
+        "component must not expose a button for a deferred import source"
+    print("  deferred import sources only appear in the not-implemented note ✓")
+
+
+def test_p26b_20():
+    """P26B-20: UI build artefact exists for the new /import page after npm run build."""
+    print("\n=== Test P26B-20: built /import page artefact present ===")
+    dist_html = _p26b_repo_root() / "ui" / "dist" / "import" / "index.html"
+    # Allow either a pre-existing build or a fresh build to be sufficient.
+    assert dist_html.is_file(), (
+        f"missing built import page at {dist_html}. "
+        "Run `cd ui && npm run build` before verification."
+    )
+    text = dist_html.read_text(encoding="utf-8")
+    assert "Import Markdown Folder" in text, "built page must contain header text"
+    print("  /import page built and contains expected header ✓")
 
 
 def test_p24_1():
@@ -16438,38 +16708,39 @@ def _repo_root():
 
 
 def test_doc_drift_readme_test_count():
-    """DOC-DRIFT-1: README quotes the current 587-test total, no stale counts."""
+    """DOC-DRIFT-1: README quotes the current 607-test total, no stale counts."""
     readme = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    assert "587" in readme, "README.md must mention the current test count 587"
+    assert "607" in readme, "README.md must mention the current test count 607"
     stale_phrases = [
         "553 deterministic tests",
         "548 deterministic tests",
         "507 deterministic tests",
         "382 tests",
         "272 tests",
+        "587 deterministic tests",
     ]
     for phrase in stale_phrases:
         assert phrase not in readme, f"README.md still mentions stale phrase {phrase!r}"
-    print(f"  README mentions 587 tests, no stale counts present ✓")
+    print(f"  README mentions 607 tests, no stale counts present ✓")
 
 
 def test_doc_drift_testing_test_count():
-    """DOC-DRIFT-2: TESTING.md current total is 587 and historical markers retained."""
+    """DOC-DRIFT-2: TESTING.md current total is 607 and historical markers retained."""
     text = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
-    assert "587 test functions" in text, "TESTING.md must state 587 test functions"
-    for marker in ("429", "467", "507", "548", "564"):
+    assert "607 test functions" in text, "TESTING.md must state 607 test functions"
+    for marker in ("429", "467", "507", "548", "564", "587"):
         assert marker in text, f"TESTING.md must retain historical test-count marker {marker}"
-    print(f"  TESTING.md states 587 functions and keeps 429/467/507/548/564 markers ✓")
+    print(f"  TESTING.md states 607 functions and keeps 429/467/507/548/564/587 markers ✓")
 
 
 def test_doc_drift_release_checklist_test_count():
-    """DOC-DRIFT-3: RELEASE_CHECKLIST references 587 tests and required commands."""
+    """DOC-DRIFT-3: RELEASE_CHECKLIST references 607 tests and required commands."""
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "587" in text, "RELEASE_CHECKLIST.md must reference the 587-test target"
+    assert "607" in text, "RELEASE_CHECKLIST.md must reference the 607-test target"
     for req in ("test_verify.py", "run.py validate", "run.py security",
                 "run.py export", "GitHub Release"):
         assert req in text, f"RELEASE_CHECKLIST.md must contain {req!r}"
-    print(f"  RELEASE_CHECKLIST mentions 587 tests and required commands ✓")
+    print(f"  RELEASE_CHECKLIST mentions 607 tests and required commands ✓")
 
 
 def test_doc_drift_roadmap_active_phase():

@@ -253,13 +253,13 @@
      Dashboard
      ========================================================= -->
 
-<div class="space-y-6">
+<div class="cve-page space-y-6">
 
   <!-- ── Header: title + vault selector + refresh ── -->
-  <div class="flex flex-wrap items-center justify-between gap-4">
+  <div class="cve-page-header flex flex-wrap items-center justify-between gap-4">
     <div>
-      <h1 class="text-xl font-semibold text-zinc-100">Dashboard</h1>
-      <p class="text-sm text-zinc-500 mt-0.5">Live vault health from the Context Vault Engine API.</p>
+      <h1 class="cve-page-title text-xl font-semibold text-zinc-100">Dashboard</h1>
+      <p class="cve-body text-sm text-zinc-500 mt-0.5">Live vault health from the Context Vault Engine API.</p>
     </div>
     <div class="flex items-center gap-3 flex-wrap">
 
@@ -278,7 +278,7 @@
             id="vault-select"
             value={selectedVault}
             on:change={handleVaultChange}
-            class="bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            class="cve-select bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-sky-500"
           >
             {#each vaultList as v}
               <option value={v}>{v}</option>
@@ -290,7 +290,7 @@
       <button
         on:click={refresh}
         disabled={isLoading}
-        class="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed border border-zinc-700 text-zinc-300 hover:text-zinc-100 text-sm px-3 py-1.5 rounded transition-colors"
+        class="cve-btn cve-btn-secondary flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed border border-zinc-700 text-zinc-300 hover:text-zinc-100 text-sm px-3 py-1.5 rounded transition-colors"
         title="Refresh all dashboard data"
       >
         <svg
@@ -309,7 +309,7 @@
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
 
     <!-- API health -->
-    <div class="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 flex items-center justify-between gap-2">
+    <div class="cve-card bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 flex items-center justify-between gap-2">
       <div class="min-w-0">
         <div class="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-1">API</div>
         {#if healthState === 'loading'}
@@ -457,12 +457,12 @@
             <span class="text-zinc-200 font-mono">{healthData.rate_limit_status.max_per_second}/s</span>
           </div>
         </div>
-        <details class="mt-3">
-          <summary class="text-xs text-zinc-600 hover:text-zinc-400 cursor-pointer select-none">Raw JSON</summary>
-          <pre class="mt-2 text-xs text-zinc-400 bg-zinc-950 border border-zinc-800 rounded p-2 overflow-x-auto whitespace-pre-wrap">{JSON.stringify(healthData, null, 2)}</pre>
+        <details class="cve-details mt-3">
+          <summary class="text-xs text-zinc-600 hover:text-zinc-400 cursor-pointer select-none">Show raw JSON</summary>
+          <pre class="cve-raw mt-2 text-xs text-zinc-400 bg-zinc-950 border border-zinc-800 rounded p-2 overflow-x-auto whitespace-pre-wrap">{JSON.stringify(healthData, null, 2)}</pre>
         </details>
       {:else}
-        <p class="text-sm text-red-400">{healthError || 'Backend unavailable — is the server running?'}</p>
+        <p class="cve-error text-sm text-red-400">{healthError || 'Backend unavailable, is the server running?'}</p>
         <p class="text-xs text-zinc-600 mt-1">Start: py mcp/server/mcp_server.py</p>
       {/if}
     </div>

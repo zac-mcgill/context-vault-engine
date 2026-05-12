@@ -303,8 +303,9 @@
 <!-- =========================================================
      Page header
      ========================================================= -->
-<div class="mb-5">
-  <h1 class="text-xl font-semibold text-zinc-100">Security Scan</h1>
+<div class="cve-page">
+<div class="cve-page-header mb-5">
+  <h1 class="cve-page-title text-xl font-semibold text-zinc-100">Security Scan</h1>
   <p class="text-sm text-zinc-500 mt-0.5">
     Scan vault notes for credential leaks, injection patterns, and policy violations.
   </p>
@@ -839,3 +840,4 @@
   <!-- end grid -->
 
 {/if}
+</div>

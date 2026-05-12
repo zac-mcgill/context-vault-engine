@@ -37,9 +37,9 @@
   $: notesImportedDraftLink = buildNotesLink({ vault, filter: 'imported-draft' });
 </script>
 
-<section class="bg-zinc-900 border border-zinc-800 rounded-lg p-4" data-testid="imported-review-summary">
+<section class="cve-card" data-testid="imported-review-summary">
   <div class="flex items-center justify-between mb-3">
-    <h2 class="text-sm font-semibold text-zinc-200">Imported content review</h2>
+    <h2 class="cve-card-title">Imported content review</h2>
     {#if vault}
       <span class="text-[11px] text-zinc-500 font-mono">vault: {vault}</span>
     {/if}

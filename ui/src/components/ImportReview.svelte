@@ -370,8 +370,9 @@
 </script>
 
 <!-- ── Page header ─────────────────────────────────────────────────────────── -->
-<div class="mb-5">
-  <h1 class="text-xl font-semibold text-zinc-100">Import Markdown Folder or Obsidian Vault</h1>
+<div class="cve-page">
+<div class="cve-page-header mb-5">
+  <h1 class="cve-page-title text-xl font-semibold text-zinc-100">Import Markdown Folder or Obsidian Vault</h1>
   <p class="text-sm text-zinc-500 mt-0.5">
     Imports Markdown notes from a server-local folder into an existing vault.
     Preview is required before writing. Choose Markdown folder for a plain
@@ -531,8 +532,8 @@
 
     <!-- ── Write confirmation ───────────────────────────────────────────── -->
     {#if preview !== null}
-      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-        <h2 class="text-sm font-semibold text-zinc-200 mb-3">Confirm write</h2>
+      <div class="cve-warning-block bg-zinc-900 border border-zinc-800 rounded-lg p-5">
+        <h2 class="cve-card-title text-sm font-semibold text-zinc-200 mb-3">Confirm write</h2>
         <label class="flex items-start gap-2 text-sm text-zinc-300">
           <input
             type="checkbox"
@@ -830,3 +831,4 @@
   </div>
 </div>
 {/if}
+</div>

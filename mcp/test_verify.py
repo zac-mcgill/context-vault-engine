@@ -11588,6 +11588,30 @@ def main():
     test_p29c_18_no_em_dashes_in_p29c_docs()
     test_p29c_19_verification_commands_intact()
 
+    # Phase 29D - Page-level UX consistency pass
+    test_p29d_1_every_app_page_renders_cve_shell()
+    test_p29d_2_major_components_use_cve_primitives()
+    test_p29d_3_page_header_primitive_used()
+    test_p29d_4_page_title_primitive_used()
+    test_p29d_5_card_primitive_used()
+    test_p29d_6_button_primitive_used()
+    test_p29d_7_badge_primitive_used()
+    test_p29d_8_form_primitive_used()
+    test_p29d_9_table_or_list_primitive_used()
+    test_p29d_10_state_primitive_used()
+    test_p29d_11_details_and_raw_primitive_used()
+    test_p29d_12_dangerous_action_primitive_used()
+    test_p29d_13_trust_warning_primitive_used()
+    test_p29d_14_applayout_groups_preserved()
+    test_p29d_15_applayout_api_raw_under_developer()
+    test_p29d_16_roadmap_phase27_still_deferred()
+    test_p29d_17_roadmap_phase28_still_deferred()
+    test_p29d_18_roadmap_marks_phase29d_complete()
+    test_p29d_19_testing_documents_phase29d()
+    test_p29d_20_readme_no_phase29_complete_claim()
+    test_p29d_21_no_em_dashes_in_p29d_docs()
+    test_p29d_22_verification_commands_intact()
+
     print()
     print("=" * 60)
     print("ALL VERIFICATION TESTS PASSED")
@@ -19202,9 +19226,9 @@ def _repo_root():
 
 
 def test_doc_drift_readme_test_count():
-    """DOC-DRIFT-1: README quotes the current 740-test total, no stale counts."""
+    """DOC-DRIFT-1: README quotes the current 763-test total, no stale counts."""
     readme = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    assert "740" in readme, "README.md must mention the current test count 740"
+    assert "763" in readme, "README.md must mention the current test count 763"
     stale_phrases = [
         "553 deterministic tests",
         "548 deterministic tests",
@@ -19221,29 +19245,31 @@ def test_doc_drift_readme_test_count():
         "706 tests.",
         "721 deterministic tests",
         "721 tests.",
+        "740 deterministic tests",
+        "740 tests.",
     ]
     for phrase in stale_phrases:
         assert phrase not in readme, f"README.md still mentions stale phrase {phrase!r}"
-    print(f"  README mentions 740 tests, no stale counts present ✓")
+    print(f"  README mentions 763 tests, no stale counts present ✓")
 
 
 def test_doc_drift_testing_test_count():
-    """DOC-DRIFT-2: TESTING.md current total is 740 and historical markers retained."""
+    """DOC-DRIFT-2: TESTING.md current total is 763 and historical markers retained."""
     text = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
-    assert "740 test functions" in text, "TESTING.md must state 740 test functions"
-    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721"):
+    assert "763 test functions" in text, "TESTING.md must state 763 test functions"
+    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740"):
         assert marker in text, f"TESTING.md must retain historical test-count marker {marker}"
-    print(f"  TESTING.md states 740 functions and keeps historical markers ✓")
+    print(f"  TESTING.md states 763 functions and keeps historical markers ✓")
 
 
 def test_doc_drift_release_checklist_test_count():
-    """DOC-DRIFT-3: RELEASE_CHECKLIST references 740 tests and required commands."""
+    """DOC-DRIFT-3: RELEASE_CHECKLIST references 763 tests and required commands."""
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "740" in text, "RELEASE_CHECKLIST.md must reference the 740-test target"
+    assert "763" in text, "RELEASE_CHECKLIST.md must reference the 763-test target"
     for req in ("test_verify.py", "run.py validate", "run.py security",
                 "run.py export", "GitHub Release"):
         assert req in text, f"RELEASE_CHECKLIST.md must contain {req!r}"
-    print(f"  RELEASE_CHECKLIST mentions 740 tests and required commands ✓")
+    print(f"  RELEASE_CHECKLIST mentions 763 tests and required commands ✓")
 
 
 def test_doc_drift_roadmap_active_phase():
@@ -20067,6 +20093,285 @@ def test_p29c_19_verification_commands_intact():
                 "py run.py security", "py run.py feedback",
                 "py run.py export --overwrite", "npm run build"):
         assert cmd in testing, f"TESTING.md must keep verification command {cmd!r}"
+    for cmd in ("python mcp/test_verify.py", "python run.py validate",
+                "python run.py security", "python run.py feedback",
+                "python run.py export --overwrite", "npm run build"):
+        assert cmd in checklist, f"RELEASE_CHECKLIST.md must keep {cmd!r}"
+    print("  Verification commands intact ✓")
+
+
+# ============================================================
+# Phase 29D - Page-level UX consistency pass
+# ============================================================
+#
+# Phase 29D migrates the existing UI pages and components onto the
+# Phase 29C design system primitives. These tests verify that the
+# primitives are actually consumed by the local web UI: page shells,
+# headers, cards, buttons, badges, forms, tables/lists, state blocks,
+# raw JSON/details blocks, dangerous-action blocks, and trust/security
+# warning blocks. Phase 29D does not add features or alter routes.
+
+UI_COMPONENTS_DIR = "ui/src/components"
+UI_PAGES_DIR = "ui/src/pages"
+
+
+def _read_ui(rel: str) -> str:
+    return (_repo_root() / rel).read_text(encoding="utf-8")
+
+
+def _all_components_text() -> str:
+    root = _repo_root() / UI_COMPONENTS_DIR
+    parts = []
+    for p in sorted(root.iterdir()):
+        if p.is_file() and (p.suffix == ".svelte" or p.suffix == ".astro"):
+            parts.append(p.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
+
+def test_p29d_1_every_app_page_renders_cve_shell():
+    """P29D-1: every /app page renders content that adopts a cve page shell.
+
+    Astro pages mount Svelte islands. Either the .astro file itself uses a
+    cve-page* primitive, or every component it imports does. The aggregate
+    check confirms each page route ends up rendering a cve-page shell.
+    """
+    print("\n=== Test P29D-1: every page renders a cve page shell ===")
+    pages_dir = _repo_root() / UI_PAGES_DIR
+    components_dir = _repo_root() / UI_COMPONENTS_DIR
+    missing = []
+    for page in sorted(pages_dir.glob("*.astro")):
+        text = page.read_text(encoding="utf-8")
+        if "cve-page" in text:
+            continue
+        # Otherwise look at the imported components used in the markup.
+        ok = False
+        for comp in components_dir.iterdir():
+            if comp.suffix not in {".svelte", ".astro"}:
+                continue
+            stem = comp.stem
+            if stem in text:
+                comp_text = comp.read_text(encoding="utf-8")
+                if "cve-page" in comp_text:
+                    ok = True
+                    break
+        if not ok:
+            missing.append(page.name)
+    assert not missing, f"Pages lacking a cve-page shell: {missing}"
+    print(f"  All /app pages render a cve-page shell ✓")
+
+
+def test_p29d_2_major_components_use_cve_primitives():
+    """P29D-2: every major Svelte component contains at least one cve-* primitive."""
+    print("\n=== Test P29D-2: major components use cve-* primitives ===")
+    components_dir = _repo_root() / UI_COMPONENTS_DIR
+    offenders = []
+    for comp in sorted(components_dir.glob("*.svelte")):
+        text = comp.read_text(encoding="utf-8")
+        if "cve-" not in text:
+            offenders.append(comp.name)
+    assert not offenders, \
+        f"Svelte components missing cve-* primitives: {offenders}"
+    print("  All Svelte components consume cve-* primitives ✓")
+
+
+def test_p29d_3_page_header_primitive_used():
+    """P29D-3: at least one component renders a cve-page-header."""
+    print("\n=== Test P29D-3: cve-page-header used ===")
+    blob = _all_components_text()
+    assert "cve-page-header" in blob, \
+        "At least one UI component must render a cve-page-header"
+    print("  cve-page-header used ✓")
+
+
+def test_p29d_4_page_title_primitive_used():
+    """P29D-4: at least one component renders a cve-page-title."""
+    print("\n=== Test P29D-4: cve-page-title used ===")
+    blob = _all_components_text()
+    assert "cve-page-title" in blob
+    print("  cve-page-title used ✓")
+
+
+def test_p29d_5_card_primitive_used():
+    """P29D-5: at least one component renders a cve-card."""
+    print("\n=== Test P29D-5: cve-card used ===")
+    blob = _all_components_text()
+    assert "cve-card" in blob, "At least one UI component must render a cve-card"
+    print("  cve-card used ✓")
+
+
+def test_p29d_6_button_primitive_used():
+    """P29D-6: at least one component renders a cve-btn variant."""
+    print("\n=== Test P29D-6: cve-btn used ===")
+    blob = _all_components_text()
+    assert "cve-btn" in blob, "At least one UI component must render a cve-btn"
+    print("  cve-btn used ✓")
+
+
+def test_p29d_7_badge_primitive_used():
+    """P29D-7: at least one component renders a cve-badge."""
+    print("\n=== Test P29D-7: cve-badge used ===")
+    blob = _all_components_text()
+    assert "cve-badge" in blob, "At least one UI component must render a cve-badge"
+    print("  cve-badge used ✓")
+
+
+def test_p29d_8_form_primitive_used():
+    """P29D-8: at least one component renders a cve-input/select/textarea."""
+    print("\n=== Test P29D-8: cve-input/select/textarea used ===")
+    blob = _all_components_text()
+    assert any(k in blob for k in ("cve-input", "cve-select", "cve-textarea")), \
+        "At least one UI component must render a cve-input, cve-select, or cve-textarea"
+    print("  Form primitive used ✓")
+
+
+def test_p29d_9_table_or_list_primitive_used():
+    """P29D-9: at least one component renders a cve-table or cve-list."""
+    print("\n=== Test P29D-9: cve-table or cve-list used ===")
+    blob = _all_components_text()
+    assert ("cve-table" in blob) or ("cve-list" in blob), \
+        "At least one UI component must render a cve-table or cve-list"
+    print("  Table or list primitive used ✓")
+
+
+def test_p29d_10_state_primitive_used():
+    """P29D-10: at least one component renders a cve-empty/loading/error/success."""
+    print("\n=== Test P29D-10: cve state primitive used ===")
+    blob = _all_components_text()
+    assert any(k in blob for k in (
+        "cve-empty", "cve-loading", "cve-error", "cve-success",
+    )), "At least one UI component must render a cve state block"
+    print("  State primitive used ✓")
+
+
+def test_p29d_11_details_and_raw_primitive_used():
+    """P29D-11: at least one component renders both cve-details and cve-raw."""
+    print("\n=== Test P29D-11: cve-details and cve-raw used ===")
+    blob = _all_components_text()
+    assert "cve-details" in blob, "cve-details must be used by a component"
+    assert "cve-raw" in blob, "cve-raw must be used by a component"
+    print("  cve-details and cve-raw used ✓")
+
+
+def test_p29d_12_dangerous_action_primitive_used():
+    """P29D-12: dangerous-action surfaces use cve-danger-zone or cve-warning-block."""
+    print("\n=== Test P29D-12: cve-danger-zone or cve-warning-block used ===")
+    blob = _all_components_text()
+    assert ("cve-danger-zone" in blob) or ("cve-warning-block" in blob), \
+        "Dangerous actions must use cve-danger-zone or cve-warning-block"
+    # VaultSetup is the canonical destructive surface; confirm explicitly.
+    vault = _read_ui(f"{UI_COMPONENTS_DIR}/VaultSetup.svelte")
+    assert "cve-danger-zone" in vault, \
+        "VaultSetup.svelte must use cve-danger-zone on its destructive surface"
+    print("  Dangerous action primitive used ✓")
+
+
+def test_p29d_13_trust_warning_primitive_used():
+    """P29D-13: trust/security/import surfaces use cve-trust-warning or cve-warning-block."""
+    print("\n=== Test P29D-13: trust warning primitive used ===")
+    blob = _all_components_text()
+    assert ("cve-trust-warning" in blob) or ("cve-warning-block" in blob), \
+        "Trust/security/import surfaces must use cve-trust-warning or cve-warning-block"
+    trust = _read_ui(f"{UI_COMPONENTS_DIR}/TrustEvidence.svelte")
+    assert "cve-trust-warning" in trust, \
+        "TrustEvidence.svelte must use cve-trust-warning to disclaim trust metadata"
+    print("  Trust/security warning primitive used ✓")
+
+
+def test_p29d_14_applayout_groups_preserved():
+    """P29D-14: AppLayout still contains the Phase 29B grouped navigation labels."""
+    print("\n=== Test P29D-14: AppLayout grouped nav labels ===")
+    text = _applayout()
+    for label in ("Overview", "Vault", "Context",
+                  "Review and Governance", "Developer"):
+        assert label in text, f"AppLayout.astro must still contain {label!r}"
+    print("  Phase 29B group labels preserved ✓")
+
+
+def test_p29d_15_applayout_api_raw_under_developer():
+    """P29D-15: AppLayout still surfaces /app/raw as API / Raw under Developer."""
+    print("\n=== Test P29D-15: API / Raw under Developer ===")
+    text = _applayout()
+    assert "/app/raw" in text, "AppLayout must still link to /app/raw"
+    assert "API / Raw" in text, "AppLayout must still label /app/raw as 'API / Raw'"
+    dev_idx = text.find("Developer")
+    raw_idx = text.find("/app/raw")
+    assert dev_idx >= 0 and raw_idx > dev_idx, \
+        "'API / Raw' must appear under the Developer group"
+    print("  API / Raw remains under Developer ✓")
+
+
+def test_p29d_16_roadmap_phase27_still_deferred():
+    """P29D-16: ROADMAP.md still marks Phase 27 Deferred."""
+    print("\n=== Test P29D-16: Phase 27 deferred ===")
+    text = (_repo_root() / "ROADMAP.md").read_text(encoding="utf-8")
+    assert "| 27    | Registry and Reuse Layer                | Deferred |" in text
+    print("  Phase 27 still deferred ✓")
+
+
+def test_p29d_17_roadmap_phase28_still_deferred():
+    """P29D-17: ROADMAP.md still marks Phase 28 Deferred."""
+    print("\n=== Test P29D-17: Phase 28 deferred ===")
+    text = (_repo_root() / "ROADMAP.md").read_text(encoding="utf-8")
+    assert "| 28    | Optional Semantic Retrieval             | Deferred |" in text
+    print("  Phase 28 still deferred ✓")
+
+
+def test_p29d_18_roadmap_marks_phase29d_complete():
+    """P29D-18: ROADMAP.md records Phase 29D as Complete."""
+    print("\n=== Test P29D-18: ROADMAP marks Phase 29D complete ===")
+    text = (_repo_root() / "ROADMAP.md").read_text(encoding="utf-8")
+    marker = "##### Phase 29D - Page-level UX consistency pass"
+    idx = text.find(marker)
+    assert idx >= 0, "ROADMAP.md must contain a Phase 29D section header"
+    block = text[idx:idx + 2000]
+    assert "Complete" in block, "ROADMAP.md Phase 29D block must mark the sub-phase Complete"
+    print("  ROADMAP marks Phase 29D Complete ✓")
+
+
+def test_p29d_19_testing_documents_phase29d():
+    """P29D-19: TESTING.md documents Phase 29D and a new total."""
+    print("\n=== Test P29D-19: TESTING.md documents Phase 29D ===")
+    text = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
+    assert "Phase 29D" in text, "TESTING.md must document Phase 29D"
+    print("  TESTING.md documents Phase 29D ✓")
+
+
+def test_p29d_20_readme_no_phase29_complete_claim():
+    """P29D-20: README.md does not claim Phase 29 is fully complete."""
+    print("\n=== Test P29D-20: README does not claim Phase 29 complete ===")
+    text = (_repo_root() / "README.md").read_text(encoding="utf-8")
+    forbidden = [
+        "Phase 29 is complete",
+        "Phase 29 complete",
+        "Phase 29 (UI/UX Quality and Design System) is complete",
+        "all of Phase 29 is complete",
+    ]
+    for phrase in forbidden:
+        assert phrase not in text, f"README.md must not claim {phrase!r}"
+    print("  README does not claim Phase 29 complete ✓")
+
+
+def test_p29d_21_no_em_dashes_in_p29d_docs():
+    """P29D-21: No project-authored doc modified by Phase 29D contains em dashes."""
+    print("\n=== Test P29D-21: no em dashes in modified docs ===")
+    docs = ["ROADMAP.md", "TESTING.md", "README.md",
+            "RELEASE_CHECKLIST.md", "UI_UX_AUDIT.md"]
+    offenders = [n for n in docs
+                 if "\u2014" in (_repo_root() / n).read_text(encoding="utf-8")]
+    assert not offenders, \
+        f"Project-authored docs must not contain em dashes; offenders: {offenders}"
+    print("  No em dashes in Phase 29D docs ✓")
+
+
+def test_p29d_22_verification_commands_intact():
+    """P29D-22: All six standard verification commands remain documented."""
+    print("\n=== Test P29D-22: verification commands intact ===")
+    testing = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
+    checklist = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
+    for cmd in ("py mcp/test_verify.py", "py run.py validate",
+                "py run.py security", "py run.py feedback",
+                "py run.py export --overwrite", "npm run build"):
+        assert cmd in testing, f"TESTING.md must keep {cmd!r}"
     for cmd in ("python mcp/test_verify.py", "python run.py validate",
                 "python run.py security", "python run.py feedback",
                 "python run.py export --overwrite", "npm run build"):

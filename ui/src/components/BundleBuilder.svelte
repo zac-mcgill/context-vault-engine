@@ -356,12 +356,13 @@
   }
 </script>
 
+<div class="cve-page">
 <!-- =========================================================
      Page header
      ========================================================= -->
-<div class="mb-5">
-  <h1 class="text-xl font-semibold text-zinc-100">Bundle Builder</h1>
-  <p class="text-sm text-zinc-500 mt-0.5">
+<div class="cve-page-header mb-5">
+  <h1 class="cve-page-title text-xl font-semibold text-zinc-100">Bundle Builder</h1>
+  <p class="cve-body text-sm text-zinc-500 mt-0.5">
     Configure filters and sections, then preview a context bundle from your vault.
   </p>
 </div>
@@ -1095,3 +1096,4 @@
 
   </div>
 {/if}
+</div>

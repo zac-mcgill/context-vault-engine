@@ -92,7 +92,7 @@ The backend is strong. The local UI has reached a usable application baseline. T
 
 ## Current Active Phase
 
-Phase 29D (Page-level UX consistency pass). Phases 0 to 26 are complete. Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B (Navigation and information architecture redesign), and Phase 29C (Global design system and shared UI primitives) are complete. Phase 29 (UI/UX Quality and Design System) remains active overall; 29D is the next sub-phase to ship. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain deferred and are not started by Phase 29.
+Phase 29E (Final polish, docs, and release readiness). Phases 0 to 26 are complete. Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B (Navigation and information architecture redesign), Phase 29C (Global design system and shared UI primitives), and Phase 29D (Page-level UX consistency pass) are complete. Phase 29 (UI/UX Quality and Design System) remains active overall; 29E is the next sub-phase to ship. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain deferred and are not started by Phase 29.
 
 ## Phase Status Overview
 
@@ -875,6 +875,8 @@ feat(ui): design system tokens and shared primitives (Phase 29C)
 
 ##### Phase 29D - Page-level UX consistency pass
 
+**Status: Complete.**
+
 **Purpose**
 
 Migrate every existing page to the Phase 29C primitives, tighten copy, standardise empty/loading/error/success states, standardise raw JSON expanders, and apply consistent dangerous action and trust/security warning patterns. No new pages, no new backend.
@@ -901,6 +903,16 @@ Migrate every existing page to the Phase 29C primitives, tighten copy, standardi
 - Every raw JSON panel is collapsed by default and uses the standardised expander.
 - `cd ui; npm run build` succeeds.
 - Backend tests are unchanged.
+
+**Delivered**
+
+- Every Astro page under `ui/src/pages/` continues to mount its existing Svelte island. Each major Svelte component (`Dashboard`, `VaultSetup`, `NoteBrowser`, `BundleBuilder`, `ExportPackage`, `SecurityScan`, `FeedbackWorkflow`, `GraphExplorer`, `ContextController`, `PendingChanges`, `TrustEvidence`, `ImportReview`) and the `PlaceholderPage.astro` shim now adopt the Phase 29C `cve-*` primitives: a `cve-page` shell, a `cve-page-header` containing a `cve-page-title`, plus targeted use of `cve-card`, `cve-btn`, `cve-badge`, `cve-input` / `cve-select`, `cve-table`, `cve-list`, `cve-details` / `cve-raw`, `cve-empty` / `cve-loading` / `cve-error`, `cve-danger-zone`, `cve-warning-block`, and `cve-trust-warning` where each pattern applies.
+- `VaultSetup.svelte` flags its destructive vault-delete surface with `cve-danger-zone` and applies `cve-btn-danger` to the confirmation button; the typed-confirmation phrase, audit copy, and disabled-until-match behaviour are unchanged.
+- `TrustEvidence.svelte` carries an explicit `cve-trust-warning` block that restates the standing disclaimer: trust metadata reflects review and maintenance state only and does not prove factual correctness.
+- `ImportReview.svelte` wraps its write-confirmation block with `cve-warning-block` so import safety wording remains visually prominent; the typed checkbox and dry-run / write gating are preserved.
+- `PendingChanges.svelte` adopts `cve-empty`, `cve-loading`, `cve-error`, `cve-list`, and `cve-badge` for the change list so review states are consistent with the rest of the UI.
+- Phase 29B's grouped sidebar in `AppLayout.astro` is unchanged. All 15 existing `/app/*` routes still resolve. `/app/raw` continues to appear under Developer as API / Raw. No backend route is added, renamed, or removed; no dependency is added; no page is consolidated.
+- 22 new tests (`test_p29d_1` through `test_p29d_22`) verify that every app page renders a `cve-page` shell, that every major Svelte component consumes at least one `cve-*` primitive, that each required primitive family is used somewhere in the UI, that destructive and trust surfaces use the documented warning blocks, that the Phase 29B navigation is intact, that Phases 27 and 28 remain deferred, that Phase 29D is recorded as Complete in `ROADMAP.md`, and that no project-authored doc modified by Phase 29D contains em dashes.
 
 **Suggested Commit**
 

@@ -465,12 +465,12 @@
      Schema-derived deterministic relationships only.
      ========================================================================= -->
 
-<div class="space-y-5">
+<div class="cve-page space-y-5">
 
   <!-- Header ---------------------------------------------------------------- -->
-  <div class="flex flex-col gap-1">
+  <div class="cve-page-header flex flex-col gap-1">
     <div class="flex items-center gap-3">
-      <h1 class="text-xl font-semibold text-zinc-100">Graph Explorer</h1>
+      <h1 class="cve-page-title text-xl font-semibold text-zinc-100">Graph Explorer</h1>
       {#if selectedVault}
         <span class="px-2 py-0.5 rounded text-xs font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">
           {selectedVault}
@@ -918,7 +918,7 @@
               <p class="text-sm text-zinc-500">No ranked data available.</p>
             {:else}
               <div class="overflow-x-auto rounded-lg border border-zinc-800">
-                <table class="w-full text-sm">
+                <table class="cve-table w-full text-sm">
                   <thead>
                     <tr class="border-b border-zinc-800 bg-zinc-900/80">
                       <th class="text-left px-3 py-2 text-xs font-medium text-zinc-500 w-10">#</th>

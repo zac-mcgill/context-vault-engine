@@ -154,11 +154,11 @@
      Layout
      ====================================================================== -->
 
-<div class="space-y-6">
+<div class="cve-page space-y-6">
 
   <!-- ── Header ────────────────────────────────────────────────────────── -->
-  <div>
-    <h1 class="text-xl font-semibold text-zinc-100">Context Controller</h1>
+  <div class="cve-page-header">
+    <h1 class="cve-page-title text-xl font-semibold text-zinc-100">Context Controller</h1>
     <p class="text-sm text-zinc-500 mt-0.5">
       Deterministic vault state snapshot and action planner. No LLM — all output
       is derived from the current state of your vault.
@@ -246,7 +246,7 @@
 
         <!-- Service summary table -->
         <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
-          <table class="w-full text-sm">
+          <table class="cve-table w-full text-sm">
             <thead class="bg-zinc-800 border-b border-zinc-700">
               <tr>
                 <th class="text-left px-4 py-2.5 text-xs font-medium text-zinc-500 uppercase tracking-wide">Service</th>

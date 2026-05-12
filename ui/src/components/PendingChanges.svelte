@@ -223,12 +223,12 @@
 </script>
 
 <!-- ── Page ─────────────────────────────────────────────────────────────── -->
-<div class="space-y-6">
+<div class="cve-page space-y-6">
 
   <!-- Header -->
-  <div class="flex items-center justify-between">
+  <div class="cve-page-header flex items-center justify-between">
     <div>
-      <h1 class="text-xl font-semibold text-zinc-100">Pending Changes</h1>
+      <h1 class="cve-page-title text-xl font-semibold text-zinc-100">Pending Changes</h1>
       <p class="mt-1 text-sm text-zinc-400">
         Review LLM-proposed note changes before they are written to the vault.
         Nothing is applied without explicit acceptance.
@@ -294,13 +294,13 @@
       </div>
 
       {#if listState === 'loading'}
-        <div class="p-4 text-sm text-zinc-500">Loading…</div>
+        <div class="cve-loading p-4 text-sm text-zinc-500">Loading…</div>
       {:else if listState === 'error'}
-        <div class="p-4 text-sm text-red-400">{listError}</div>
+        <div class="cve-error p-4 text-sm text-red-400">{listError}</div>
       {:else if listState === 'ok' && changes.length === 0}
-        <div class="p-4 text-sm text-zinc-500">No changes found.</div>
+        <div class="cve-empty p-4 text-sm text-zinc-500">No changes found.</div>
       {:else if listState === 'ok'}
-        <ul class="divide-y divide-zinc-800 max-h-[600px] overflow-y-auto">
+        <ul class="cve-list divide-y divide-zinc-800 max-h-[600px] overflow-y-auto">
           {#each changes as ch}
             <li>
               <button
@@ -314,8 +314,8 @@
               >
                 <!-- Type + status -->
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="text-xs font-mono font-semibold text-sky-400">{typeBadge(ch.type)}</span>
-                  <span class="text-xs px-1.5 py-0.5 rounded-full font-medium {statusBadgeClass(ch.status)}">{ch.status}</span>
+                  <span class="cve-badge cve-badge-info text-xs font-mono font-semibold text-sky-400">{typeBadge(ch.type)}</span>
+                  <span class="cve-badge text-xs px-1.5 py-0.5 rounded-full font-medium {statusBadgeClass(ch.status)}">{ch.status}</span>
                   {#if ch.validation_status === 'fail'}
                     <span class="text-xs text-red-400">⚠ invalid</span>
                   {/if}

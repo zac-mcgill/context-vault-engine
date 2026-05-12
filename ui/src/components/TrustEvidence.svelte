@@ -166,15 +166,21 @@
   }
 </script>
 
-<div class="p-6 space-y-8">
+<div class="cve-page p-6 space-y-8">
 
   <!-- Page Header -->
-  <div>
-    <h1 class="text-2xl font-bold text-zinc-100">Trust &amp; Evidence</h1>
+  <div class="cve-page-header">
+    <h1 class="cve-page-title text-2xl font-bold text-zinc-100">Trust &amp; Evidence</h1>
     <p class="mt-1 text-sm text-zinc-400">
       View trust metadata, staleness, and build evidence responses from vault notes.
-      Confidence levels reflect note maintenance status — not factual accuracy.
+      Confidence levels reflect note maintenance status, not factual accuracy.
     </p>
+  </div>
+
+  <!-- Trust disclaimer: trust metadata reflects review and maintenance state only -->
+  <div class="cve-trust-warning">
+    <strong>Trust metadata is informational.</strong> It records review and maintenance state.
+    It does not prove factual correctness of any note content.
   </div>
 
   <!-- Vault Selector -->
@@ -259,7 +265,7 @@
         <p class="text-sm text-zinc-500">No stale notes — all notes are within their review dates.</p>
       {:else}
         <div class="overflow-x-auto">
-          <table class="w-full text-sm border-collapse">
+          <table class="cve-table w-full text-sm border-collapse">
             <thead>
               <tr class="border-b border-zinc-700 text-left text-zinc-400">
                 <th class="py-2 pr-4 font-medium">Path</th>

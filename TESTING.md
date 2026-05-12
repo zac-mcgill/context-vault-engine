@@ -1,13 +1,13 @@
 # Context Vault Engine - Testing
 
-All tests live in `mcp/test_verify.py`. The suite currently has 740 test functions (724 phase tests plus 16 documentation drift guardrails), all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721) appear later in this document as part of the phase changelog and are not the current total.
+All tests live in `mcp/test_verify.py`. The suite currently has 763 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740) appear later in this document as part of the phase changelog and are not the current total.
 
 ## Current Verification Summary
 
 A full local verification consists of:
 
 ```bash
-py mcp/test_verify.py           # 740 tests, all must pass
+py mcp/test_verify.py           # 763 tests, all must pass
 py run.py validate              # vault schema-compliance
 py run.py security              # status: pass (or warning, never fail)
 py run.py feedback              # exits 0, valid JSON
@@ -2114,6 +2114,52 @@ cd ui; npm run build             # builds without errors
 ```
 
 Phase 29C is the design system foundation only. Page-level UX consistency, page consolidation, and migration of every existing page to the new primitives are deferred to Phase 29D.
+
+---
+
+## Phase 29D - Page-Level UX Consistency Pass
+
+22 new tests (`test_p29d_1` through `test_p29d_22`), bringing the current total to 763 test functions.
+
+Phase 29D migrates the existing UI pages and components onto the Phase 29C design system primitives. Every Astro page under `ui/src/pages/` continues to mount its existing Svelte island, and each major Svelte component (`Dashboard`, `VaultSetup`, `NoteBrowser`, `BundleBuilder`, `ExportPackage`, `SecurityScan`, `FeedbackWorkflow`, `GraphExplorer`, `ContextController`, `PendingChanges`, `TrustEvidence`, `ImportReview`) together with the `PlaceholderPage.astro` shim now adopts the `cve-*` primitives for the page shell, headers, cards, buttons, badges, forms, tables/lists, state blocks, raw JSON details, dangerous actions, and trust/security warnings. `VaultSetup.svelte` wraps its vault-delete surface in `cve-danger-zone` with a `cve-btn-danger` confirmation button; `TrustEvidence.svelte` carries a `cve-trust-warning` block that restates the standing disclaimer that trust metadata reflects review and maintenance state only and does not prove factual correctness; `ImportReview.svelte` highlights its write-confirmation block with `cve-warning-block`. Phase 29B's grouped sidebar in `AppLayout.astro` is unchanged, all 15 existing `/app/*` routes still resolve, and `/app/raw` is still labelled API / Raw under Developer. No backend route is added, renamed, or removed; no dependency is added.
+
+**Tests added:**
+
+- `test_p29d_1_every_app_page_renders_cve_shell` - Every page under `ui/src/pages/` either uses `cve-page*` directly or mounts a Svelte component that does.
+- `test_p29d_2_major_components_use_cve_primitives` - Every Svelte component contains at least one `cve-*` primitive.
+- `test_p29d_3_page_header_primitive_used` - At least one component renders `cve-page-header`.
+- `test_p29d_4_page_title_primitive_used` - At least one component renders `cve-page-title`.
+- `test_p29d_5_card_primitive_used` - At least one component renders `cve-card`.
+- `test_p29d_6_button_primitive_used` - At least one component renders `cve-btn`.
+- `test_p29d_7_badge_primitive_used` - At least one component renders `cve-badge`.
+- `test_p29d_8_form_primitive_used` - At least one component renders `cve-input`, `cve-select`, or `cve-textarea`.
+- `test_p29d_9_table_or_list_primitive_used` - At least one component renders `cve-table` or `cve-list`.
+- `test_p29d_10_state_primitive_used` - At least one component renders a `cve-empty`, `cve-loading`, `cve-error`, or `cve-success` block.
+- `test_p29d_11_details_and_raw_primitive_used` - Both `cve-details` and `cve-raw` are used by components.
+- `test_p29d_12_dangerous_action_primitive_used` - A dangerous-action primitive (`cve-danger-zone` or `cve-warning-block`) is used, and `VaultSetup.svelte` uses `cve-danger-zone`.
+- `test_p29d_13_trust_warning_primitive_used` - `TrustEvidence.svelte` uses `cve-trust-warning`.
+- `test_p29d_14_applayout_groups_preserved` - `AppLayout.astro` still contains the Phase 29B grouped nav labels (Overview, Vault, Context, Review and Governance, Developer).
+- `test_p29d_15_applayout_api_raw_under_developer` - `AppLayout.astro` still surfaces `/app/raw` as API / Raw under the Developer group.
+- `test_p29d_16_roadmap_phase27_still_deferred` - `ROADMAP.md` still marks Phase 27 Deferred.
+- `test_p29d_17_roadmap_phase28_still_deferred` - `ROADMAP.md` still marks Phase 28 Deferred.
+- `test_p29d_18_roadmap_marks_phase29d_complete` - `ROADMAP.md` records Phase 29D as Complete.
+- `test_p29d_19_testing_documents_phase29d` - `TESTING.md` documents Phase 29D.
+- `test_p29d_20_readme_no_phase29_complete_claim` - `README.md` does not claim that Phase 29 is fully complete.
+- `test_p29d_21_no_em_dashes_in_p29d_docs` - `ROADMAP.md`, `TESTING.md`, `README.md`, `RELEASE_CHECKLIST.md`, and `UI_UX_AUDIT.md` contain no em dashes.
+- `test_p29d_22_verification_commands_intact` - The six standard verification commands remain documented in `TESTING.md` and `RELEASE_CHECKLIST.md`.
+
+**Verification steps:**
+
+```bash
+py mcp/test_verify.py            # 763 tests, all must pass
+py run.py validate               # vault still valid
+py run.py security               # status: pass
+py run.py feedback               # exits 0, valid JSON
+py run.py export --overwrite     # status: ok
+cd ui; npm run build             # builds without errors
+```
+
+Phase 29D migrates the existing pages onto the design system. Final polish, accessibility minimums, responsive review, and release-readiness documentation are deferred to Phase 29E.
 
 ---
 

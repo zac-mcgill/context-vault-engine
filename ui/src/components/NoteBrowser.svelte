@@ -655,12 +655,12 @@
 <!-- =========================================================================
   Note Browser
   ========================================================================= -->
-<div class="flex flex-col gap-4">
+<div class="cve-page flex flex-col gap-4">
 
   <!-- Header + vault selector -->
-  <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+  <div class="cve-page-header flex flex-col sm:flex-row sm:items-center gap-3">
     <div>
-      <h1 class="text-lg font-semibold text-zinc-100">Note Browser</h1>
+      <h1 class="cve-page-title text-lg font-semibold text-zinc-100">Note Browser</h1>
       <p class="text-xs text-zinc-500 mt-0.5">Select a note to inspect or edit frontmatter, body, and context.</p>
     </div>
     <div class="flex items-center gap-2 sm:ml-auto">

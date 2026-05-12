@@ -251,8 +251,9 @@
 <!-- =========================================================
      Page header
      ========================================================= -->
-<div class="mb-6">
-  <h1 class="text-xl font-semibold text-zinc-100">Vault Setup</h1>
+<div class="cve-page">
+<div class="cve-page-header mb-6">
+  <h1 class="cve-page-title text-xl font-semibold text-zinc-100">Vault Setup</h1>
   <p class="text-sm text-zinc-500 mt-0.5">
     Guided vault bootstrap — define your domain, schema, and generate starter files.
   </p>
@@ -689,12 +690,12 @@
 <!-- =========================================================
      Danger Zone — Vault Management (Deletion)
      ========================================================= -->
-<div class="mt-10">
+<div class="cve-danger-zone mt-10">
   <div class="border-t border-zinc-800 pt-8">
-    <h2 class="text-base font-semibold text-red-400 mb-1">Danger Zone</h2>
+    <h2 class="cve-danger-zone__title text-base font-semibold text-red-400 mb-1">Danger Zone</h2>
     <p class="text-xs text-zinc-500 mb-5">
       Permanently delete a vault and all its files. This cannot be undone by the app.
-      Exported packages are <strong>not</strong> the source of truth — the vault folder contains all notes.
+      Exported packages are <strong>not</strong> the source of truth. The vault folder contains all notes.
     </p>
 
     <!-- Delete success message -->
@@ -809,7 +810,7 @@
             autocomplete="off"
             spellcheck="false"
             placeholder="DELETE {deleteVaultName}"
-            class="w-full bg-zinc-950 border {deleteConfirmPhrase && !deleteConfirmValid ? 'border-red-600 focus:ring-red-500' : deleteConfirmValid ? 'border-emerald-700 focus:ring-emerald-600' : 'border-zinc-700 focus:ring-zinc-600'} text-zinc-100 text-sm rounded px-3 py-2 focus:outline-none focus:ring-1 font-mono placeholder:text-zinc-700 placeholder:font-sans"
+            class="cve-input w-full bg-zinc-950 border {deleteConfirmPhrase && !deleteConfirmValid ? 'border-red-600 focus:ring-red-500' : deleteConfirmValid ? 'border-emerald-700 focus:ring-emerald-600' : 'border-zinc-700 focus:ring-zinc-600'} text-zinc-100 text-sm rounded px-3 py-2 focus:outline-none focus:ring-1 font-mono placeholder:text-zinc-700 placeholder:font-sans"
           />
           {#if deleteConfirmPhrase && !deleteConfirmValid}
             <p class="text-xs text-red-400 mt-1.5">
@@ -825,7 +826,7 @@
           type="button"
           on:click={handleDelete}
           disabled={!canDelete}
-          class="w-full flex items-center justify-center gap-2 bg-red-700 hover:bg-red-600 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed text-white disabled:border disabled:border-zinc-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+          class="cve-btn cve-btn-danger w-full flex items-center justify-center gap-2 bg-red-700 hover:bg-red-600 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed text-white disabled:border disabled:border-zinc-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
         >
           {#if deleteState === 'loading'}
             <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -841,4 +842,5 @@
 
     </div><!-- end danger zone card -->
   </div>
+</div>
 </div>

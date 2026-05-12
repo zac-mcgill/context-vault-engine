@@ -269,8 +269,9 @@
 <!-- =========================================================
      Page header
      ========================================================= -->
-<div class="mb-5">
-  <h1 class="text-xl font-semibold text-zinc-100">Export Package</h1>
+<div class="cve-page">
+<div class="cve-page-header mb-5">
+  <h1 class="cve-page-title text-xl font-semibold text-zinc-100">Export Package</h1>
   <p class="text-sm text-zinc-500 mt-0.5">
     Configure and export a context bundle as a portable package with SHA-256 manifest.
   </p>
@@ -773,7 +774,7 @@
             <p class="text-xs text-zinc-500">No files reported.</p>
           {:else}
             <div class="overflow-x-auto -mx-1">
-              <table class="w-full text-xs">
+              <table class="cve-table w-full text-xs">
                 <thead>
                   <tr class="border-b border-zinc-800">
                     <th class="text-left text-zinc-500 font-medium pb-2 pr-3 pl-1">File</th>
@@ -847,3 +848,4 @@
     </div>
   </div>
 {/if}
+</div>

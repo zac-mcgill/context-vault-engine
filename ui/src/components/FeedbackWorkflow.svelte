@@ -517,7 +517,7 @@
 {:else}
 
 <!-- ── Vault selector ─────────────────────────────────────────────────────── -->
-<div class="mb-6 flex flex-wrap items-center gap-3">
+<div class="cve-page-header mb-6 flex flex-wrap items-center gap-3">
   <label class="text-sm text-zinc-400 shrink-0" for="vault-select">Vault</label>
   <select
     id="vault-select"

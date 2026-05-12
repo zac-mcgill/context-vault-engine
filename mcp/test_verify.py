@@ -11638,6 +11638,21 @@ def main():
     test_p29e_23_no_em_dashes_in_modified_ui_sources()
     test_p29e_24_package_json_unchanged()
 
+    # Phase 30B - App shell, theme, layout, and primitive foundation
+    test_p30b_1_applayout_declares_layout_mode_contract()
+    test_p30b_2_required_pages_declare_non_standard_layout()
+    test_p30b_3_raw_declares_developer_layout()
+    test_p30b_4_global_css_has_data_theme_blocks()
+    test_p30b_5_token_parity_between_themes()
+    test_p30b_6_color_scheme_declared()
+    test_p30b_7_required_primitive_classes_exist()
+    test_p30b_8_no_raw_tailwind_dark_literals_in_new_primitives()
+    test_p30b_9_developer_nav_group_intact()
+    test_p30b_10_roadmap_phase27_still_deferred()
+    test_p30b_11_roadmap_phase28_still_deferred()
+    test_p30b_12_placeholder_pages_not_removed()
+    test_p30b_13_package_json_no_new_runtime_deps()
+
     print()
     print("=" * 60)
     print("ALL VERIFICATION TESTS PASSED")
@@ -19252,9 +19267,9 @@ def _repo_root():
 
 
 def test_doc_drift_readme_test_count():
-    """DOC-DRIFT-1: README quotes the current 787-test total, no stale counts."""
+    """DOC-DRIFT-1: README quotes the current 800-test total, no stale counts."""
     readme = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    assert "787" in readme, "README.md must mention the current test count 787"
+    assert "800" in readme, "README.md must mention the current test count 800"
     stale_phrases = [
         "553 deterministic tests",
         "548 deterministic tests",
@@ -19275,29 +19290,31 @@ def test_doc_drift_readme_test_count():
         "740 tests.",
         "763 deterministic tests",
         "763 tests.",
+        "787 deterministic tests",
+        "787 tests.",
     ]
     for phrase in stale_phrases:
         assert phrase not in readme, f"README.md still mentions stale phrase {phrase!r}"
-    print(f"  README mentions 787 tests, no stale counts present ✓")
+    print(f"  README mentions 800 tests, no stale counts present ✓")
 
 
 def test_doc_drift_testing_test_count():
-    """DOC-DRIFT-2: TESTING.md current total is 787 and historical markers retained."""
+    """DOC-DRIFT-2: TESTING.md current total is 800 and historical markers retained."""
     text = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
-    assert "787 test functions" in text, "TESTING.md must state 787 test functions"
-    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763"):
+    assert "800 test functions" in text, "TESTING.md must state 800 test functions"
+    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763", "787"):
         assert marker in text, f"TESTING.md must retain historical test-count marker {marker}"
-    print(f"  TESTING.md states 787 functions and keeps historical markers ✓")
+    print(f"  TESTING.md states 800 functions and keeps historical markers ✓")
 
 
 def test_doc_drift_release_checklist_test_count():
-    """DOC-DRIFT-3: RELEASE_CHECKLIST references 787 tests and required commands."""
+    """DOC-DRIFT-3: RELEASE_CHECKLIST references 800 tests and required commands."""
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "787" in text, "RELEASE_CHECKLIST.md must reference the 787-test target"
+    assert "800" in text, "RELEASE_CHECKLIST.md must reference the 800-test target"
     for req in ("test_verify.py", "run.py validate", "run.py security",
                 "run.py export", "GitHub Release"):
         assert req in text, f"RELEASE_CHECKLIST.md must contain {req!r}"
-    print(f"  RELEASE_CHECKLIST mentions 787 tests and required commands ✓")
+    print(f"  RELEASE_CHECKLIST mentions 800 tests and required commands ✓")
 
 
 def test_doc_drift_roadmap_active_phase():
@@ -20685,14 +20702,17 @@ def test_p29e_19_readme_states_phase29_complete():
 
 
 def test_p29e_20_release_checklist_test_count_updated():
-    """P29E-20: RELEASE_CHECKLIST.md references the new test count of 787."""
+    """P29E-20: RELEASE_CHECKLIST.md references the current test count.
+    Phase 30B bumped the total from 787 to 800."""
     print("\n=== Test P29E-20: RELEASE_CHECKLIST test count ===")
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "787" in text, "RELEASE_CHECKLIST.md must reference the new 787-test target"
-    # The previous count must not linger in the checklist after this phase.
+    assert "800" in text, "RELEASE_CHECKLIST.md must reference the current 800-test target"
+    # The previous counts must not linger in the checklist after this phase.
     assert "all 763 tests green" not in text, \
         "RELEASE_CHECKLIST.md must not still say 'all 763 tests green'"
-    print("  RELEASE_CHECKLIST.md references 787 tests ✓")
+    assert "all 787 tests green" not in text, \
+        "RELEASE_CHECKLIST.md must not still say 'all 787 tests green'"
+    print("  RELEASE_CHECKLIST.md references 800 tests ✓")
 
 
 def test_p29e_21_ui_ux_audit_has_phase29e_note():
@@ -20753,6 +20773,240 @@ def test_p29e_24_package_json_unchanged():
     assert not sneaked_in, \
         f"ui/package.json must not introduce {sorted(sneaked_in)} in Phase 29E"
     print("  ui/package.json has not picked up React or icon/animation libraries ✓")
+
+
+# ============================================================
+# Phase 30B - App shell, theme, layout, and primitive foundation
+# ============================================================
+
+def _read_text(rel: str) -> str:
+    return (_repo_root() / rel).read_text(encoding="utf-8")
+
+
+def _theme_token_block(css: str, selector: str) -> str:
+    """Return the body of the first CSS block whose selector starts with
+    `selector`. Used to compare token coverage between dark and light."""
+    import re
+    pattern = re.escape(selector) + r"\s*\{([^}]*)\}"
+    m = re.search(pattern, css)
+    assert m is not None, f"selector {selector!r} not found in global.css"
+    return m.group(1)
+
+
+def _tokens_in_block(block: str) -> set[str]:
+    import re
+    return set(re.findall(r"--cve-[a-z0-9-]+", block))
+
+
+def test_p30b_1_applayout_declares_layout_mode_contract():
+    """P30B-1: AppLayout.astro exposes the four layout modes by name."""
+    print("\n=== Test P30B-1: AppLayout layoutMode contract ===")
+    text = _read_text("ui/src/layouts/AppLayout.astro")
+    assert "layoutMode" in text, "AppLayout.astro must accept a layoutMode prop"
+    for mode in ("standard", "wide", "workspace", "developer"):
+        assert f"'{mode}'" in text or f'"{mode}"' in text, \
+            f"AppLayout.astro must reference layout mode {mode!r}"
+    # Default must remain standard to avoid regressions.
+    assert "layoutMode = 'standard'" in text or 'layoutMode = "standard"' in text, \
+        "AppLayout default layoutMode must remain 'standard'"
+    # A deterministic data-layout-mode attribute lets tests / Phase 30C-F
+    # assert which mode is in use.
+    assert "data-layout-mode" in text, \
+        "AppLayout.astro must emit a data-layout-mode attribute"
+    print("  AppLayout exposes standard / wide / workspace / developer ✓")
+
+
+def test_p30b_2_required_pages_declare_non_standard_layout():
+    """P30B-2: workflow pages opt out of the default standard layout."""
+    print("\n=== Test P30B-2: workflow pages declare layout mode ===")
+    expected = {
+        "ui/src/pages/notes.astro": "workspace",
+        "ui/src/pages/graph.astro": "workspace",
+        "ui/src/pages/pending.astro": "workspace",
+        "ui/src/pages/feedback.astro": ("wide", "workspace"),
+        "ui/src/pages/bundles.astro": "wide",
+        "ui/src/pages/exports.astro": "wide",
+        "ui/src/pages/security.astro": "wide",
+        "ui/src/pages/import.astro": ("wide", "workspace"),
+        "ui/src/pages/controller.astro": "wide",
+        "ui/src/pages/trust.astro": "wide",
+        "ui/src/pages/validation.astro": "wide",
+        "ui/src/pages/tasks.astro": "wide",
+    }
+    for path, mode in expected.items():
+        text = _read_text(path)
+        candidates = (mode,) if isinstance(mode, str) else mode
+        assert any(f'layoutMode="{c}"' in text for c in candidates), \
+            f"{path} must declare layoutMode in {candidates}"
+    print("  Required workflow pages declare a non-standard layout mode ✓")
+
+
+def test_p30b_3_raw_declares_developer_layout():
+    """P30B-3: /app/raw uses the developer layout mode."""
+    print("\n=== Test P30B-3: raw.astro uses developer mode ===")
+    text = _read_text("ui/src/pages/raw.astro")
+    assert 'layoutMode="developer"' in text, \
+        "raw.astro must declare layoutMode=\"developer\""
+    print("  raw.astro uses developer layout mode ✓")
+
+
+def test_p30b_4_global_css_has_data_theme_blocks():
+    """P30B-4: global.css defines dark and light theme selectors."""
+    print("\n=== Test P30B-4: html[data-theme] dark + light blocks ===")
+    css = _read_text("ui/src/styles/global.css")
+    assert 'html[data-theme="dark"]' in css, \
+        "global.css must define html[data-theme=\"dark\"]"
+    assert 'html[data-theme="light"]' in css, \
+        "global.css must define html[data-theme=\"light\"]"
+    print("  Dark and light data-theme selectors present ✓")
+
+
+def test_p30b_5_token_parity_between_themes():
+    """P30B-5: every --cve-* token in the dark theme has a value in
+    the light theme block and vice versa."""
+    print("\n=== Test P30B-5: token parity between dark and light ===")
+    css = _read_text("ui/src/styles/global.css")
+    dark = _tokens_in_block(_theme_token_block(css, 'html[data-theme="dark"]'))
+    light = _tokens_in_block(_theme_token_block(css, 'html[data-theme="light"]'))
+    only_dark = dark - light
+    only_light = light - dark
+    assert not only_dark, f"tokens defined only in dark theme: {sorted(only_dark)}"
+    assert not only_light, f"tokens defined only in light theme: {sorted(only_light)}"
+    assert dark, "dark theme block must define at least one --cve-* token"
+    print(f"  Token parity ({len(dark)} tokens in each theme) ✓")
+
+
+def test_p30b_6_color_scheme_declared():
+    """P30B-6: color-scheme: dark light is declared at root level."""
+    print("\n=== Test P30B-6: color-scheme declaration ===")
+    css = _read_text("ui/src/styles/global.css")
+    layout = _read_text("ui/src/layouts/AppLayout.astro")
+    has_css_declaration = "color-scheme: dark light" in css
+    has_html_attr = "color-scheme: dark light" in layout
+    assert has_css_declaration or has_html_attr, \
+        "color-scheme: dark light must be declared (CSS root or html style)"
+    print("  color-scheme: dark light declared ✓")
+
+
+def test_p30b_7_required_primitive_classes_exist():
+    """P30B-7: new foundation primitive classes exist in global.css."""
+    print("\n=== Test P30B-7: new primitive class definitions ===")
+    css = _read_text("ui/src/styles/global.css")
+    required = [
+        ".cve-workbench",
+        ".cve-workbench__rail",
+        ".cve-workbench__inspector",
+        ".cve-scroll-region",
+        ".cve-toolbar",
+        ".cve-toolbar__main",
+        ".cve-toolbar__title",
+        ".cve-toolbar__actions",
+        ".cve-status-strip",
+        ".cve-status-tile",
+        ".cve-table-empty",
+        ".cve-banner",
+        ".cve-banner--info",
+        ".cve-banner--warning",
+        ".cve-banner--danger",
+        ".cve-banner--success",
+        ".cve-details--inspector",
+        ".cve-details__developer-link",
+        ".cve-slide-over",
+        ".cve-slide-over__panel",
+        ".cve-slide-over__backdrop",
+        ".cve-slide-over__header",
+        ".cve-slide-over__body",
+        ".cve-slide-over__footer",
+        ".cve-diff",
+        ".cve-diff__line",
+        ".cve-diff__line--add",
+        ".cve-diff__line--remove",
+        ".cve-diff__line--hunk",
+    ]
+    missing = [c for c in required if c not in css]
+    assert not missing, f"global.css missing primitive classes: {missing}"
+    print(f"  All {len(required)} primitive classes present ✓")
+
+
+def test_p30b_8_no_raw_tailwind_dark_literals_in_new_primitives():
+    """P30B-8: the newly added Phase 30B primitive section uses tokens,
+    not raw Tailwind dark palette literals."""
+    print("\n=== Test P30B-8: no Tailwind dark literals in new primitives ===")
+    css = _read_text("ui/src/styles/global.css")
+    marker = "Phase 30B - App shell layout modes"
+    idx = css.find(marker)
+    assert idx >= 0, "Phase 30B primitive section marker missing"
+    new_block = css[idx:]
+    # Forbidden Tailwind palette literals inside the newly authored
+    # primitive section. These would re-introduce hard-coded dark theme
+    # colours and break the light-mode token contract.
+    forbidden = [
+        "bg-zinc", "text-zinc", "border-zinc",
+        "bg-emerald-9", "bg-amber-9", "bg-rose-9", "bg-sky-9",
+    ]
+    offenders = [f for f in forbidden if f in new_block]
+    assert not offenders, \
+        f"New Phase 30B primitive CSS must not use Tailwind dark literals: {offenders}"
+    print("  No raw Tailwind dark palette literals in new primitive CSS ✓")
+
+
+def test_p30b_9_developer_nav_group_intact():
+    """P30B-9: AppLayout keeps the Developer nav group with /app/raw."""
+    print("\n=== Test P30B-9: Developer nav group intact ===")
+    text = _read_text("ui/src/layouts/AppLayout.astro")
+    assert "Developer" in text, "AppLayout must declare a Developer nav group"
+    assert "/app/raw" in text, "AppLayout must keep /app/raw in the nav"
+    print("  Developer nav group with /app/raw present ✓")
+
+
+def test_p30b_10_roadmap_phase27_still_deferred():
+    """P30B-10: ROADMAP.md keeps Phase 27 deferred."""
+    print("\n=== Test P30B-10: Phase 27 deferred ===")
+    text = _read_text("ROADMAP.md")
+    assert "| 27" in text and "Deferred" in text, \
+        "ROADMAP.md must keep Phase 27 deferred"
+    assert "### Phase 27 - Registry and Reuse Layer" in text
+    print("  Phase 27 remains deferred ✓")
+
+
+def test_p30b_11_roadmap_phase28_still_deferred():
+    """P30B-11: ROADMAP.md keeps Phase 28 deferred."""
+    print("\n=== Test P30B-11: Phase 28 deferred ===")
+    text = _read_text("ROADMAP.md")
+    assert "| 28" in text and "Deferred" in text, \
+        "ROADMAP.md must keep Phase 28 deferred"
+    assert "### Phase 28 - Optional Semantic Retrieval" in text
+    print("  Phase 28 remains deferred ✓")
+
+
+def test_p30b_12_placeholder_pages_not_removed():
+    """P30B-12: Validation, Tasks, and Raw still mount PlaceholderPage.
+    Real implementations land in Phase 30D, not 30B."""
+    print("\n=== Test P30B-12: placeholders preserved for 30D ===")
+    for path in ("ui/src/pages/validation.astro",
+                 "ui/src/pages/tasks.astro",
+                 "ui/src/pages/raw.astro"):
+        text = _read_text(path)
+        assert "PlaceholderPage" in text, \
+            f"{path} must still use PlaceholderPage in Phase 30B"
+    print("  Placeholder pages preserved for Phase 30D ✓")
+
+
+def test_p30b_13_package_json_no_new_runtime_deps():
+    """P30B-13: ui/package.json does not pick up React or icon/animation
+    libraries in Phase 30B."""
+    print("\n=== Test P30B-13: ui/package.json deps unchanged ===")
+    import json
+    pkg = json.loads(_read_text("ui/package.json"))
+    deps = set((pkg.get("dependencies") or {}).keys())
+    dev_deps = set((pkg.get("devDependencies") or {}).keys())
+    forbidden = {"react", "react-dom", "vue", "lucide-react", "@heroicons/react",
+                 "framer-motion", "react-icons", "@radix-ui/react-icons",
+                 "chart.js", "d3", "recharts"}
+    sneaked_in = (deps | dev_deps) & forbidden
+    assert not sneaked_in, \
+        f"ui/package.json must not introduce {sorted(sneaked_in)} in Phase 30B"
+    print("  No new runtime dependencies in Phase 30B ✓")
 
 
 if __name__ == "__main__":

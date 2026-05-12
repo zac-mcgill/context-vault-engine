@@ -92,7 +92,7 @@ The backend is strong. The local UI has reached a usable application baseline. T
 
 ## Current Active Phase
 
-Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX audit consolidation) is complete. Phase 30B (app shell, theme, layout, and primitive foundation) is the next implementation slice and has not started. Phases 0 to 26 and Phase 29 (UI/UX Quality and Design System) remain complete: Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B, Phase 29C, Phase 29D, and Phase 29E all shipped. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain explicitly deferred and are not started, prepared, or implied by Phase 30.
+Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX audit consolidation) is complete. Phase 30B (app shell, theme, layout, and primitive foundation) is complete. Phase 30C is the next implementation slice and has not started. Phases 0 to 26 and Phase 29 (UI/UX Quality and Design System) remain complete: Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B, Phase 29C, Phase 29D, and Phase 29E all shipped. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain explicitly deferred and are not started, prepared, or implied by Phase 30.
 
 ## Phase Status Overview
 
@@ -128,7 +128,7 @@ Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX
 | 26    | Import Pipelines                        | Complete |
 | 29    | UI/UX Quality and Design System         | Complete |
 | 30A   | UI Release Quality Pass - Audit         | Complete |
-| 30B   | UI Foundation (shell, theme, primitives)| Planned  |
+| 30B   | UI Foundation (shell, theme, primitives)| Complete |
 | 30C   | Dashboard Redesign                      | Planned  |
 | 30D   | Core Workflow Page Redesigns            | Planned  |
 | 30E   | Review/Governance/Developer Polish      | Planned  |
@@ -1017,42 +1017,26 @@ docs(phase30a): consolidate UI/UX audit and brief Phase 30B foundation
 
 #### Phase 30B - App Shell, Theme, Layout, and Primitive Foundation
 
-**Status:** Planned.
+**Status:** Complete (Phase 30B - 2026-05-12).
+
+**Backend tests:** 800 (13 new Phase 30B guardrail tests; all pass).
+**UI build:** PASS.
 
 Foundation-only slice. Phase 30B exists so Phase 30C, 30D, 30E, and 30F do not have to re-invent layout, theme, or shared primitives per page.
 
-**Scope (per `UI_UX_AUDIT.md` section 19):**
-- Layout-mode contract on `AppLayout.astro`: `standard`, `wide`, `workspace`, `developer`.
-- `cve-workbench` / split-pane primitive (resizable or breakpoint-aware list rail plus inspector pane with internal scroll).
-- `cve-toolbar` / sticky header primitive with vault selector slot, page title slot, status pill slot, trailing action slot.
-- `cve-status-strip` / metric-strip primitive.
-- `cve-table` primitive with sticky header, internal scroll, deterministic empty state.
-- `cve-banner` primitive (info, warning, danger).
-- `cve-details` / disclosure evolution; raw JSON is delegated to the Developer route via a deep-link contract.
-- `cve-slide-over` primitive for create / destructive flows.
-- `cve-diff` primitive stub or design contract for Pending.
-- Semantic colour tokens for dark and light mode; `data-theme="dark"` / `data-theme="light"` and `color-scheme: dark light`.
-- Tokenised `:focus-visible` rules covering all new primitives.
-- Developer nav group definition (no new pages built).
+**Delivered:**
+- `ui/src/layouts/AppLayout.astro` - new `layoutMode` prop with `standard` (default), `wide`, `workspace`, and `developer` values. Emits `data-layout-mode` on the shell main and content containers. Default remains `standard`; existing pages render unchanged.
+- `ui/src/styles/global.css` - added `html[data-theme="dark"]` and `html[data-theme="light"]` token blocks with full token parity (18 `--cve-*` tokens each); declared `color-scheme: dark light`; added new layout-mode containers (`cve-shell-main`, `cve-shell-content--{mode}`); added new primitive classes: `cve-workbench` (with rail/inspector and `cve-scroll-region`), `cve-toolbar` (main/title/meta/actions), `cve-status-strip` and `cve-status-tile`, `cve-table` sticky header + hover + `cve-table-empty`, `cve-banner` with info / warning / danger / success variants, `cve-details--inspector` and `cve-details__developer-link`, `cve-slide-over` (backdrop/panel/header/body/footer), `cve-diff` (line/add/remove/hunk). Tokenised `:focus-visible` rules cover every new primitive.
+- `ui/src/pages/*.astro` - workflow pages now declare a non-`standard` layout mode: Notes / Graph / Pending / Feedback use `workspace`; Bundles / Exports / Security / Import / Controller / Trust / Validation / Tasks use `wide`; Raw uses `developer`. Dashboard, Vault Setup remain on `standard`. PlaceholderPage on Validation / Tasks / Raw is preserved (real implementation lands in Phase 30D).
+- `mcp/test_verify.py` - 13 new Phase 30B guardrail tests covering the layout-mode contract, dark/light theme parity, `color-scheme` declaration, new primitive class presence, Developer nav group, Tailwind dark literal absence in new primitive CSS, preserved placeholders, and unchanged dependencies.
 
-**Explicitly out of scope:**
-- No Dashboard, Validation, Tasks, or Raw implementation.
-- No Bundles / Exports refactor.
-- No Security scan default changes.
-- No vault-delete relocation.
-- No user-facing light-mode toggle if tokens do not yet cover every primitive.
-- No React, no third-party UI library, no charting library.
-- No semantic retrieval, registry, LLM, RAG, SaaS, or cloud functionality.
-- No backend route, schema, or contract change.
+**Safety:** No backend route, schema, or contract change. No new runtime dependency added to `ui/package.json`. No React, Vue, charting, icon, or animation library introduced. PlaceholderPage removal is deliberately deferred to Phase 30D.
 
-**Acceptance criteria:**
-- `AppLayout.astro` supports the four layout modes via a deterministic contract.
-- `global.css` defines both dark and light values for every semantic token.
-- New primitive classes are defined and render in isolation.
-- Existing pages still render under the `standard` default with no visible regression.
-- `ui/package.json` introduces no new runtime dependency.
-- Deterministic guardrail tests cover the primitive class definitions, the `data-theme` contract, and the layout-mode contract.
-- Verification suite passes; no generated artefacts staged.
+**Out of scope (handed to later phases):**
+- Phase 30C - Dashboard redesign.
+- Phase 30D - Core workflow page redesigns (Notes, Import, Bundles, Exports, Security, Graph, Validation, Tasks, Raw).
+- Phase 30E - Review/Governance/Developer polish (Pending, Trust, Feedback, Controller, Vault Setup, Diff fill-out).
+- Phase 30F - Final QA, accessibility, responsive, and user-facing light-mode toggle.
 
 **Suggested Commit**
 

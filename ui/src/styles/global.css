@@ -18,6 +18,7 @@
 
 @layer base {
   :root {
+    color-scheme: dark light;
     /* Surfaces and structure */
     --cve-bg: #09090b;             /* app background, zinc-950 */
     --cve-surface: #18181b;        /* elevated surface, zinc-900 */
@@ -43,6 +44,10 @@
     --cve-focus: #38bdf8;          /* focus outline colour */
     --cve-focus-ring: 0 0 0 2px var(--cve-focus);
 
+    /* Code / raw block surface (Phase 30B - tokenised so light mode
+       can override). */
+    --cve-raw-bg: #0b0b0d;
+
     /* Radii */
     --cve-radius-sm: 4px;
     --cve-radius: 6px;
@@ -55,6 +60,58 @@
     --cve-space-4: 1rem;
     --cve-space-5: 1.5rem;
     --cve-space-6: 2rem;
+  }
+
+  /* Phase 30B - explicit dark theme block. Default appearance remains
+     dark; this block lets pages opt in via <html data-theme="dark">
+     and lets the future Phase 30F toggle flip themes without touching
+     :root. Every --cve-* token defined here must also have a
+     counterpart in the light block below. */
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --cve-bg: #09090b;
+    --cve-surface: #18181b;
+    --cve-surface-muted: #27272a;
+    --cve-border: #3f3f46;
+    --cve-border-soft: #27272a;
+    --cve-text-strong: #fafafa;
+    --cve-text: #f4f4f5;
+    --cve-text-muted: #a1a1aa;
+    --cve-text-faint: #71717a;
+    --cve-accent: #38bdf8;
+    --cve-accent-soft: #075985;
+    --cve-success: #4ade80;
+    --cve-warning: #facc15;
+    --cve-danger: #f87171;
+    --cve-info: #60a5fa;
+    --cve-focus: #38bdf8;
+    --cve-focus-ring: 0 0 0 2px var(--cve-focus);
+    --cve-raw-bg: #0b0b0d;
+  }
+
+  /* Phase 30B - light theme tokens. The Phase 30F toggle will switch
+     html[data-theme]; until then this block is dormant. The full token
+     set is mirrored so guardrail tests can assert parity. */
+  html[data-theme="light"] {
+    color-scheme: light;
+    --cve-bg: #fafafa;
+    --cve-surface: #ffffff;
+    --cve-surface-muted: #f4f4f5;
+    --cve-border: #d4d4d8;
+    --cve-border-soft: #e4e4e7;
+    --cve-text-strong: #09090b;
+    --cve-text: #18181b;
+    --cve-text-muted: #52525b;
+    --cve-text-faint: #71717a;
+    --cve-accent: #0284c7;
+    --cve-accent-soft: #bae6fd;
+    --cve-success: #15803d;
+    --cve-warning: #b45309;
+    --cve-danger: #b91c1c;
+    --cve-info: #1d4ed8;
+    --cve-focus: #0284c7;
+    --cve-focus-ring: 0 0 0 2px var(--cve-focus);
+    --cve-raw-bg: #f4f4f5;
   }
 
   html {
@@ -619,5 +676,428 @@
   .cve-page video {
     max-width: 100%;
     height: auto;
+  }
+
+  /* ------------------------------------------------------------------
+     Phase 30B - App shell layout modes
+     ------------------------------------------------------------------
+     AppLayout.astro tags the page content area with a layout-mode data
+     attribute. Each mode adjusts the inner content container width and
+     scroll behaviour so workflow pages (Notes, Graph, Pending, etc.)
+     can opt in to a full-width workbench shell while reading pages
+     stay bounded. No mode introduces page-level horizontal overflow.
+     ------------------------------------------------------------------ */
+  .cve-shell-main {
+    background-color: var(--cve-bg);
+    color: var(--cve-text);
+  }
+  .cve-shell-content {
+    width: 100%;
+    max-width: 100%;
+  }
+  .cve-shell-content--standard {
+    max-width: 72rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .cve-shell-content--wide {
+    max-width: 100rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .cve-shell-content--workspace {
+    max-width: 100%;
+    padding-left: var(--cve-space-4);
+    padding-right: var(--cve-space-4);
+  }
+  .cve-shell-content--developer {
+    max-width: 100%;
+    padding-left: var(--cve-space-4);
+    padding-right: var(--cve-space-4);
+    border-top: 1px dashed var(--cve-border-soft);
+    background-color: var(--cve-bg);
+  }
+  .cve-shell-main--developer {
+    /* Subtle diagnostics framing so the Developer route reads as a
+       diagnostics surface without changing route chrome. The real Raw
+       page implementation lands in Phase 30D; this is foundation only. */
+    background-image: linear-gradient(
+      to bottom,
+      var(--cve-bg),
+      var(--cve-bg)
+    );
+  }
+
+  /* ------------------------------------------------------------------
+     Phase 30B - cve-workbench: list rail + inspector
+     ------------------------------------------------------------------
+     Two-pane workbench primitive used by future Notes, Graph, Pending,
+     and Feedback redesigns. Rail width scales at lg / xl / 2xl. Inner
+     panes scroll independently so the page shell never overflows.
+     ------------------------------------------------------------------ */
+  .cve-workbench {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-3);
+    min-height: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+  @media (min-width: 1024px) {
+    .cve-workbench {
+      display: grid;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: var(--cve-space-4);
+      align-items: stretch;
+    }
+  }
+  @media (min-width: 1280px) {
+    .cve-workbench {
+      grid-template-columns: 420px minmax(0, 1fr);
+    }
+  }
+  @media (min-width: 1536px) {
+    .cve-workbench {
+      grid-template-columns: 480px minmax(0, 1fr);
+    }
+  }
+  .cve-workbench__rail {
+    background-color: var(--cve-surface);
+    border: 1px solid var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .cve-workbench__inspector {
+    background-color: var(--cve-surface);
+    border: 1px solid var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .cve-scroll-region {
+    overflow: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+    max-width: 100%;
+  }
+
+  /* ------------------------------------------------------------------
+     Phase 30B - cve-toolbar: sticky workflow header
+     ------------------------------------------------------------------
+     CSS-only sticky header primitive. Pages can slot a vault selector,
+     title, status pill, and trailing action without coupling to a
+     framework. Visuals only in 30B; behaviour wiring lands in 30D.
+     ------------------------------------------------------------------ */
+  .cve-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background-color: var(--cve-bg);
+    border-bottom: 1px solid var(--cve-border-soft);
+    padding: var(--cve-space-3) var(--cve-space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-2);
+  }
+  .cve-toolbar__main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--cve-space-3);
+  }
+  .cve-toolbar__title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--cve-text-strong);
+    margin-right: auto;
+  }
+  .cve-toolbar__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--cve-space-2);
+    color: var(--cve-text-muted);
+    font-size: 0.8125rem;
+  }
+  .cve-toolbar__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--cve-space-2);
+  }
+
+  /* ------------------------------------------------------------------
+     Phase 30B - cve-status-strip: compact KPI strip
+     ------------------------------------------------------------------ */
+  .cve-status-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: var(--cve-space-2);
+    width: 100%;
+    max-width: 100%;
+  }
+  .cve-status-tile {
+    border: 1px solid var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+    background-color: var(--cve-surface);
+    padding: var(--cve-space-2) var(--cve-space-3);
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+  .cve-status-tile__label {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cve-text-faint);
+  }
+  .cve-status-tile__value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--cve-text-strong);
+    line-height: 1.2;
+  }
+  .cve-status-tile__hint {
+    font-size: 0.75rem;
+    color: var(--cve-text-muted);
+  }
+  .cve-status-tile[data-zero="true"] {
+    /* Zero-value tiles deliberately stay compact so the strip does not
+       inflate when most counters are 0. */
+    opacity: 0.85;
+  }
+
+  /* ------------------------------------------------------------------
+     Phase 30B - cve-table extensions
+     ------------------------------------------------------------------
+     The base cve-table primitive already lives above. Phase 30B adds a
+     sticky-header variant, hover state, and a deterministic empty
+     placeholder for workflow pages.
+     ------------------------------------------------------------------ */
+  .cve-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: var(--cve-surface-muted);
+  }
+  .cve-table tbody tr:hover td {
+    background-color: var(--cve-surface-muted);
+  }
+  .cve-table-empty {
+    padding: var(--cve-space-5);
+    text-align: center;
+    color: var(--cve-text-muted);
+    font-size: 0.875rem;
+    background-color: var(--cve-surface);
+    border-top: 1px solid var(--cve-border-soft);
+  }
+
+  /* ------------------------------------------------------------------
+     Phase 30B - cve-banner primitive
+     ------------------------------------------------------------------
+     Tokenised banner for info, warning, danger, success messaging.
+     Uses semantic tokens only - no Tailwind palette literals.
+     ------------------------------------------------------------------ */
+  .cve-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--cve-space-3);
+    padding: var(--cve-space-3) var(--cve-space-4);
+    border: 1px solid var(--cve-border-soft);
+    border-left-width: 3px;
+    border-radius: var(--cve-radius);
+    background-color: var(--cve-surface);
+    color: var(--cve-text);
+    font-size: 0.875rem;
+  }
+  .cve-banner__title {
+    font-weight: 600;
+    color: var(--cve-text-strong);
+  }
+  .cve-banner__body {
+    color: var(--cve-text);
+  }
+  .cve-banner--info {
+    border-left-color: var(--cve-info);
+  }
+  .cve-banner--warning {
+    border-left-color: var(--cve-warning);
+  }
+  .cve-banner--danger {
+    border-left-color: var(--cve-danger);
+  }
+  .cve-banner--success {
+    border-left-color: var(--cve-success);
+  }
+
+  /* ------------------------------------------------------------------
+     Phase 30B - cve-details inspector variant + developer deep-link
+     ------------------------------------------------------------------
+     The base cve-details disclosure is unchanged. The inspector variant
+     widens the body for raw JSON/evidence and offers a tokenised
+     "Open in Developer" link styling so later phases can hand off to
+     the /app/raw route via a normal anchor.
+     ------------------------------------------------------------------ */
+  .cve-details--inspector {
+    background-color: var(--cve-surface);
+  }
+  .cve-details--inspector > .cve-details__body {
+    padding: var(--cve-space-4);
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .cve-details__developer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--cve-space-1);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--cve-info);
+    text-decoration: none;
+    padding: 0.125rem var(--cve-space-2);
+    border-radius: var(--cve-radius-sm);
+    border: 1px solid var(--cve-border-soft);
+    background-color: var(--cve-surface-muted);
+  }
+  .cve-details__developer-link:hover {
+    color: var(--cve-text-strong);
+    border-color: var(--cve-info);
+  }
+
+  /* ------------------------------------------------------------------
+     Phase 30B - cve-slide-over primitive
+     ------------------------------------------------------------------
+     Right-anchored slide-over for future create / destructive flows.
+     CSS-only contract; wiring lands in Phase 30E. Hidden by default;
+     pages set [data-open="true"] (or the [open] attribute on a
+     <dialog>) to reveal it. Keyboard / focus-visible friendly via the
+     shared focus rule below.
+     ------------------------------------------------------------------ */
+  .cve-slide-over {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: none;
+  }
+  .cve-slide-over[data-open="true"],
+  .cve-slide-over[open] {
+    display: block;
+  }
+  .cve-slide-over__backdrop {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.55);
+  }
+  .cve-slide-over__panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(32rem, 100%);
+    background-color: var(--cve-surface);
+    border-left: 1px solid var(--cve-border);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .cve-slide-over__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--cve-space-3);
+    padding: var(--cve-space-3) var(--cve-space-4);
+    border-bottom: 1px solid var(--cve-border-soft);
+    color: var(--cve-text-strong);
+    font-weight: 600;
+  }
+  .cve-slide-over__body {
+    padding: var(--cve-space-4);
+    overflow: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .cve-slide-over__footer {
+    padding: var(--cve-space-3) var(--cve-space-4);
+    border-top: 1px solid var(--cve-border-soft);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--cve-space-2);
+  }
+  .cve-slide-over__panel:focus-visible,
+  .cve-slide-over__header :focus-visible,
+  .cve-slide-over__body :focus-visible,
+  .cve-slide-over__footer :focus-visible {
+    outline: 2px solid var(--cve-focus);
+    outline-offset: 2px;
+    border-radius: var(--cve-radius);
+  }
+
+  /* ------------------------------------------------------------------
+     Phase 30B - cve-diff primitive
+     ------------------------------------------------------------------
+     Minimal usable diff styling for Pending Changes. The full diff
+     view (hunk navigation, syntax highlighting) lands in Phase 30E.
+     ------------------------------------------------------------------ */
+  .cve-diff {
+    font-family: ui-monospace, "Cascadia Code", "Fira Code", Consolas,
+      "Liberation Mono", Menlo, monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    background-color: var(--cve-raw-bg);
+    border: 1px solid var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+    padding: var(--cve-space-2) 0;
+    max-width: 100%;
+    overflow-x: auto;
+    color: var(--cve-text);
+  }
+  .cve-diff__line {
+    display: block;
+    padding: 0 var(--cve-space-3);
+    white-space: pre;
+    border-left: 3px solid transparent;
+  }
+  .cve-diff__line--add {
+    background-color: rgba(74, 222, 128, 0.08);
+    border-left-color: var(--cve-success);
+    color: var(--cve-text);
+  }
+  .cve-diff__line--remove {
+    background-color: rgba(248, 113, 113, 0.08);
+    border-left-color: var(--cve-danger);
+    color: var(--cve-text);
+  }
+  .cve-diff__line--hunk {
+    background-color: var(--cve-surface-muted);
+    color: var(--cve-text-muted);
+    border-left-color: var(--cve-info);
+    font-weight: 500;
+  }
+
+  /* ------------------------------------------------------------------
+     Phase 30B - tokenised focus-visible coverage for new primitives
+     ------------------------------------------------------------------ */
+  .cve-workbench a:focus-visible,
+  .cve-workbench button:focus-visible,
+  .cve-toolbar a:focus-visible,
+  .cve-toolbar button:focus-visible,
+  .cve-status-tile:focus-visible,
+  .cve-table a:focus-visible,
+  .cve-table button:focus-visible,
+  .cve-banner a:focus-visible,
+  .cve-banner button:focus-visible,
+  .cve-details__developer-link:focus-visible {
+    outline: 2px solid var(--cve-focus);
+    outline-offset: 2px;
+    border-radius: var(--cve-radius);
   }
 }

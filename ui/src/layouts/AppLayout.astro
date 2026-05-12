@@ -1,10 +1,25 @@
 ---
 import '../styles/global.css';
 
+// Phase 30B - layout-mode contract. Pages declare which shell mode
+// they want via the `layoutMode` prop. The default remains `standard`
+// to preserve existing visuals; later sub-phases (30C-30F) flip pages
+// to `wide` / `workspace` / `developer` as they migrate.
+//
+// Modes:
+//   standard   - bounded reading column (existing behaviour)
+//   wide       - full available content width with sensible gutters
+//   workspace  - full-width workbench shell with internal scroll
+//   developer  - developer/diagnostics shell mode
+export type LayoutMode = 'standard' | 'wide' | 'workspace' | 'developer';
+
 interface Props {
   title?: string;
+  layoutMode?: LayoutMode;
 }
-const { title = 'Context Vault Engine' } = Astro.props;
+const { title = 'Context Vault Engine', layoutMode = 'standard' } = Astro.props;
+const validLayoutModes: LayoutMode[] = ['standard', 'wide', 'workspace', 'developer'];
+const mode: LayoutMode = validLayoutModes.includes(layoutMode) ? layoutMode : 'standard';
 
 // Phase 29B - grouped, data-driven sidebar navigation.
 // Every existing /app route remains reachable. Route paths are not
@@ -68,7 +83,7 @@ function groupId(label: string): string {
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark" style="color-scheme: dark light;">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -151,7 +166,7 @@ function groupId(label: string): string {
       </div>
 
       <!-- Main content -->
-      <main class="flex-1 min-w-0 flex flex-col">
+      <main class={`cve-shell-main cve-shell-main--${mode} flex-1 min-w-0 flex flex-col`} data-layout-mode={mode}>
 
         <!-- Top bar -->
         <div class="hidden md:flex items-center gap-2 px-6 py-3.5 border-b border-zinc-800 bg-zinc-950">
@@ -161,7 +176,7 @@ function groupId(label: string): string {
         </div>
 
         <!-- Page content -->
-        <div class="flex-1 p-4 md:p-6 pt-16 md:pt-6 overflow-auto">
+        <div class={`cve-shell-content cve-shell-content--${mode} flex-1 p-4 md:p-6 pt-16 md:pt-6 overflow-auto`} data-layout-mode={mode}>
           <slot />
         </div>
       </main>

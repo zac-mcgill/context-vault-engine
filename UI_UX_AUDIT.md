@@ -594,3 +594,19 @@ Phase 30B is complete when:
 - Deterministic guardrail tests are added in `mcp/test_verify.py` covering the primitive class definitions, the `data-theme` contract, the layout-mode contract, and the absence of net-new Tailwind dark literals in the primitive layer (per-page literal removal is enforced as later sub-phases migrate each page).
 - `py mcp/test_verify.py`, `py run.py validate`, `py run.py security`, `py run.py feedback`, `py run.py export --overwrite`, and `cd ui && npm run build` all pass.
 - `git status --short` shows no generated artefacts staged.
+
+## 20. Phase 30B Implementation Note
+
+Phase 30B (2026-05-12) shipped the foundation-only slice defined in section 19. Concretely:
+
+- `ui/src/layouts/AppLayout.astro` now accepts a `layoutMode` prop with values `standard` (default), `wide`, `workspace`, and `developer`. The shell main and content containers emit a `data-layout-mode` attribute so later sub-phases and tests can assert which mode is in use without parsing class strings.
+- `ui/src/styles/global.css` defines `html[data-theme="dark"]` and `html[data-theme="light"]` token blocks with full token parity (18 `--cve-*` tokens in each), declares `color-scheme: dark light`, and adds the new layout-mode containers and primitive classes: `cve-workbench` (with `__rail`, `__inspector`, `cve-scroll-region`), `cve-toolbar` (`__main`, `__title`, `__meta`, `__actions`), `cve-status-strip` / `cve-status-tile`, `cve-table` sticky-header + hover + `cve-table-empty`, `cve-banner` with info/warning/danger/success variants, `cve-details--inspector` and `cve-details__developer-link`, `cve-slide-over` (`__panel`, `__backdrop`, `__header`, `__body`, `__footer`), and `cve-diff` (`__line`, `--add`, `--remove`, `--hunk`). Tokenised `:focus-visible` rules cover every new primitive.
+- Workflow pages now declare a non-`standard` layout mode: Notes / Graph / Pending / Feedback use `workspace`; Bundles / Exports / Security / Import / Controller / Trust / Validation / Tasks use `wide`; Raw uses `developer`. Dashboard and Vault Setup remain on `standard`.
+- `mcp/test_verify.py` adds 13 deterministic guardrail tests; total test count rises from 787 to 800.
+
+Deferred to later sub-phases:
+
+- Phase 30C ships the Dashboard redesign on top of this foundation.
+- Phase 30D ships the Notes / Import / Bundles / Exports / Security / Graph / Validation / Tasks / Raw redesigns (and replaces PlaceholderPage on Validation, Tasks, Raw).
+- Phase 30E ships the Review / Governance / Developer polish, including the full `cve-diff` implementation on Pending.
+- Phase 30F wires the user-facing light-mode toggle, finishes responsive and accessibility passes, and adds the final Tailwind-literal scan across migrated pages.

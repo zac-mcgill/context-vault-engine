@@ -92,7 +92,7 @@ The backend is strong. The local UI has reached a usable application baseline. T
 
 ## Current Active Phase
 
-Phase 29E (Final polish, docs, and release readiness). Phases 0 to 26 are complete. Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B (Navigation and information architecture redesign), Phase 29C (Global design system and shared UI primitives), and Phase 29D (Page-level UX consistency pass) are complete. Phase 29 (UI/UX Quality and Design System) remains active overall; 29E is the next sub-phase to ship. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain deferred and are not started by Phase 29.
+None. Phases 0 to 26 are complete. Phase 29 (UI/UX Quality and Design System) is complete: Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B (Navigation and information architecture redesign), Phase 29C (Global design system and shared UI primitives), Phase 29D (Page-level UX consistency pass), and Phase 29E (Final polish, docs, and release readiness) have all shipped. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain deferred and are not started by Phase 29.
 
 ## Phase Status Overview
 
@@ -126,7 +126,7 @@ Phase 29E (Final polish, docs, and release readiness). Phases 0 to 26 are comple
 | 24    | Device Profiles and Context Budgets     | Complete |
 | 25    | Trust, Staleness, and Evidence Metadata | Complete |
 | 26    | Import Pipelines                        | Complete |
-| 29    | UI/UX Quality and Design System         | Active   |
+| 29    | UI/UX Quality and Design System         | Complete |
 | 27    | Registry and Reuse Layer                | Deferred |
 | 28    | Optional Semantic Retrieval             | Deferred |
 
@@ -714,7 +714,7 @@ docs(import): finalise Phase 26 import lifecycle
 
 ### Phase 29 - UI/UX Quality and Design System
 
-**Status: Active (Phase 29C complete, Phase 29D in progress).**
+**Status: Complete.**
 
 #### Purpose
 
@@ -922,6 +922,8 @@ feat(ui): page-level UX consistency pass (Phase 29D)
 
 ##### Phase 29E - Final polish, docs, and release readiness
 
+**Status: Complete.**
+
 **Purpose**
 
 Final pass before any UI release tag. Tighten visual rhythm, accessibility (keyboard focus, colour contrast, screen-reader labels for icon-only controls), responsive behaviour, and update the documentation to reflect the new UI shape without claiming behaviour that the backend does not implement.
@@ -945,6 +947,23 @@ Final pass before any UI release tag. Tighten visual rhythm, accessibility (keyb
 - Accessibility minimums pass manual inspection on every page.
 - Docs reflect the implemented UI only.
 - ROADMAP marks Phase 29 complete and notes Phase 27 and Phase 28 are still deferred.
+
+**Delivered**
+
+- `ui/src/styles/global.css` now gives `cve-details > summary` an explicit textual disclosure cue. A pseudo-element chevron and a "Show details" / "Hide details" label make every collapsed block visibly interactive without relying on the removed native triangle.
+- `cve-btn:disabled`, `cve-btn[aria-disabled="true"]`, and the new `cve-btn-disabled` class share a clearly distinct visual state (reduced opacity, desaturated, not-allowed cursor, no pointer events). Disabled form controls share the same treatment.
+- `cve-raw` and `cve-table-wrap` are pinned to `max-width: 100%` and scroll inside themselves so long JSON, stack traces, wide tables, and Markdown payloads no longer push the page into horizontal overflow.
+- The `:focus-visible` rule now covers ordinary anchor links and native buttons inside the page shell in addition to the existing `cve-*` primitives, so keyboard focus is visible everywhere the user can land.
+- A small responsive guard caps `.cve-page` at the viewport width and constrains any descendant image/svg/video to its parent, preventing accidental overflow on narrow viewports.
+- The `prefers-reduced-motion` guard is preserved; the new pseudo-element transition is so short that it remains under the reduced-motion ceiling.
+- `ui/src/layouts/AppLayout.astro` footer label moves from the stale "Phase 29B - Navigation" to "Phase 29 - Stable" so the visible chrome no longer claims an old sub-phase is active. Grouped navigation, `/app/raw` labelled API / Raw under Developer, and all 15 `/app/*` routes are preserved.
+- Documentation closes out Phase 29: ROADMAP marks Phase 29 (and every sub-phase) Complete, TESTING.md adds a Phase 29E section, README states Phase 29 is complete while keeping Phase 27 and Phase 28 deferred, RELEASE_CHECKLIST is bumped to the new test total, and UI_UX_AUDIT records a Phase 29E implementation note plus a Phase 29 closure note.
+- 24 new tests (`test_p29e_1` through `test_p29e_24`) verify the disclosure cue, the broadened focus-visible rule, the disabled-state styling, the raw and table overflow guards, the reduced-motion guard, the danger and trust warning blocks, the AppLayout grouped navigation and footer wording, the existence of every `/app` page file, the ROADMAP completion markers, the deferral of Phases 27 and 28, the TESTING/README/RELEASE/audit doc updates, the absence of em dashes in modified docs and modified UI sources, the verification command index, and that `ui/package.json` is unchanged.
+- No new dependency, no new icon library, no animation library, no React, no backend route change, no route removal, no page consolidation, no business logic change.
+
+#### Phase 29 Closure Summary
+
+Phase 29 delivered a coherent UI/UX layer on top of the existing local web UI without touching backend contracts. Phase 29A formalised the phase and produced the audit. Phase 29B grouped the sidebar by intent and preserved every `/app/*` route. Phase 29C added the design system foundation in `global.css`. Phase 29D applied the `cve-*` primitives across every existing Svelte component. Phase 29E hardened accessibility (disclosure cues, focus-visible coverage, disabled states), pinned raw and table blocks against page overflow, refreshed the AppLayout footer wording, and closed the documentation set. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain explicitly deferred. No backend route was added, removed, or renamed during Phase 29; no React was introduced; no new dependency was added.
 
 **Suggested Commit**
 

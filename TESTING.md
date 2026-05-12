@@ -1,13 +1,13 @@
 # Context Vault Engine - Testing
 
-All tests live in `mcp/test_verify.py`. The suite currently has 763 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740) appear later in this document as part of the phase changelog and are not the current total.
+All tests live in `mcp/test_verify.py`. The suite currently has 787 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763) appear later in this document as part of the phase changelog and are not the current total.
 
 ## Current Verification Summary
 
 A full local verification consists of:
 
 ```bash
-py mcp/test_verify.py           # 763 tests, all must pass
+py mcp/test_verify.py           # 787 tests, all must pass
 py run.py validate              # vault schema-compliance
 py run.py security              # status: pass (or warning, never fail)
 py run.py feedback              # exits 0, valid JSON
@@ -2160,6 +2160,54 @@ cd ui; npm run build             # builds without errors
 ```
 
 Phase 29D migrates the existing pages onto the design system. Final polish, accessibility minimums, responsive review, and release-readiness documentation are deferred to Phase 29E.
+
+---
+
+## Phase 29E - Final Polish, Accessibility, and Release Readiness
+
+24 new tests (`test_p29e_1` through `test_p29e_24`), bringing the current total to 787 test functions.
+
+Phase 29E is the final UI/UX polish pass and the closure of Phase 29. It does not introduce features. It addresses the rough edges exposed by the Phase 29D primitive rollout: the `cve-details` summary now carries an explicit textual disclosure cue and chevron so users can tell a block expands; the `:focus-visible` rule now covers ordinary anchors and native buttons inside the page shell as well as the `cve-*` primitives; disabled buttons and disabled form controls share a clearly distinct visual state; raw JSON and table containers are pinned to `max-width: 100%` with internal scroll so wide payloads no longer push the page into horizontal overflow; a small responsive guard caps `.cve-page` at the viewport width and constrains descendant media; the `AppLayout.astro` footer label is refreshed from the stale "Phase 29B - Navigation" to "Phase 29 - Stable"; documentation is closed out across ROADMAP, TESTING, README, RELEASE_CHECKLIST, and UI_UX_AUDIT. No backend route, dependency, icon library, animation library, or business behaviour is added or changed. Phase 29B's grouped sidebar is preserved verbatim, every `/app/*` route still resolves, and `/app/raw` is still labelled API / Raw under Developer.
+
+**Tests added:**
+
+- `test_p29e_1_details_summary_has_disclosure_indicator` - `global.css` gives `cve-details > summary` a visible disclosure indicator (pseudo-element chevron and a textual Show details / Hide details cue).
+- `test_p29e_2_focus_visible_styling_covers_primitives` - `global.css` defines `:focus-visible` styling for buttons, inputs, selects, textareas, details summaries, and links.
+- `test_p29e_3_disabled_state_styling_present` - `global.css` defines a disabled-state rule for `cve-btn` and disabled form controls.
+- `test_p29e_4_raw_block_protected_from_overflow` - `cve-raw` is constrained to `max-width: 100%` and scrolls internally rather than overflowing the page.
+- `test_p29e_5_table_wrap_protected_from_overflow` - `cve-table-wrap` is constrained to `max-width: 100%` and scrolls internally rather than overflowing the page.
+- `test_p29e_6_reduced_motion_guard_present` - `global.css` retains a `prefers-reduced-motion` guard.
+- `test_p29e_7_danger_zone_styling_present` - `global.css` retains `cve-danger-zone` with explicit danger styling and a textual title class.
+- `test_p29e_8_trust_warning_styling_present` - `global.css` retains `cve-trust-warning` and `cve-warning-block` styling.
+- `test_p29e_9_applayout_grouped_nav_labels_present` - `AppLayout.astro` still contains the Phase 29B grouped nav labels.
+- `test_p29e_10_applayout_api_raw_under_developer` - `AppLayout.astro` still links to `/app/raw` labelled API / Raw under Developer.
+- `test_p29e_11_applayout_footer_phase_label_current` - `AppLayout.astro` footer label no longer claims an old Phase 29 sub-phase is active.
+- `test_p29e_12_major_components_still_use_cve_primitives` - Every major Svelte component still contains at least one `cve-*` primitive after the polish pass.
+- `test_p29e_13_all_app_routes_have_page_files` - Every `/app/*` route referenced by the AppLayout sidebar resolves to a page file in `ui/src/pages/`.
+- `test_p29e_14_roadmap_marks_phase29e_complete` - `ROADMAP.md` records Phase 29E as Complete.
+- `test_p29e_15_roadmap_marks_phase29_complete` - `ROADMAP.md` status table marks Phase 29 as Complete.
+- `test_p29e_16_roadmap_phase27_still_deferred` - `ROADMAP.md` still marks Phase 27 Deferred.
+- `test_p29e_17_roadmap_phase28_still_deferred` - `ROADMAP.md` still marks Phase 28 Deferred.
+- `test_p29e_18_testing_documents_phase29e` - `TESTING.md` documents Phase 29E and states the new total of 787 test functions.
+- `test_p29e_19_readme_states_phase29_complete` - `README.md` states Phase 29 is complete and keeps Phase 27 and Phase 28 deferred.
+- `test_p29e_20_release_checklist_test_count_updated` - `RELEASE_CHECKLIST.md` references the new test count of 787.
+- `test_p29e_21_ui_ux_audit_has_phase29e_note` - `UI_UX_AUDIT.md` includes a Phase 29E implementation note and a Phase 29 closure note.
+- `test_p29e_22_no_em_dashes_in_p29e_docs` - No project-authored doc modified by Phase 29E contains em dashes.
+- `test_p29e_23_no_em_dashes_in_modified_ui_sources` - The UI source files modified by Phase 29E contain no em dashes.
+- `test_p29e_24_package_json_unchanged` - `ui/package.json` does not introduce any new dependency in Phase 29E.
+
+**Verification steps:**
+
+```bash
+py mcp/test_verify.py            # 787 tests, all must pass
+py run.py validate               # vault still valid
+py run.py security               # status: pass
+py run.py feedback               # exits 0, valid JSON
+py run.py export --overwrite     # status: ok
+cd ui; npm run build             # builds without errors
+```
+
+Phase 29E closes Phase 29. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain explicitly deferred.
 
 ---
 

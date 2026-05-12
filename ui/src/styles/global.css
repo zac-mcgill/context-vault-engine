@@ -1,4 +1,4 @@
-/* Tailwind CSS 4 — single import activates all utilities */
+/* Tailwind CSS 4 - single import activates all utilities */
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------
@@ -240,9 +240,19 @@
     user-select: none;
   }
   .cve-btn:disabled,
-  .cve-btn[aria-disabled="true"] {
+  .cve-btn[aria-disabled="true"],
+  .cve-btn-disabled {
     opacity: 0.55;
     cursor: not-allowed;
+    filter: grayscale(0.25);
+    pointer-events: none;
+  }
+  .cve-input:disabled,
+  .cve-select:disabled,
+  .cve-textarea:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: var(--cve-surface-muted);
   }
   .cve-btn-primary {
     background-color: var(--cve-accent-soft);
@@ -393,7 +403,11 @@
   .cve-table-wrap {
     border: 1px solid var(--cve-border-soft);
     border-radius: var(--cve-radius);
-    overflow: auto;
+    /* Phase 29E: ensure wide tables scroll inside the container
+       rather than pushing the page into horizontal overflow. */
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
     background-color: var(--cve-surface);
   }
   .cve-table {
@@ -470,8 +484,13 @@
       "Liberation Mono", Menlo, monospace;
     font-size: 0.8125rem;
     line-height: 1.5;
+    /* Keep long JSON, stack traces, and Markdown payloads inside the
+       block instead of breaking the page layout. Phase 29E. */
+    max-width: 100%;
     overflow-x: auto;
+    overflow-y: auto;
     white-space: pre;
+    word-break: normal;
   }
   .cve-details {
     border: 1px solid var(--cve-border-soft);
@@ -485,6 +504,38 @@
     padding: var(--cve-space-2) var(--cve-space-3);
     font-size: 0.8125rem;
     font-weight: 500;
+    color: var(--cve-text-muted);
+    /* Visible disclosure indicator. The native triangle is removed by
+       list-style: none above, so a textual chevron is added here so
+       users (and screen readers narrating visible text) can tell the
+       block expands. Phase 29E. */
+    display: flex;
+    align-items: center;
+    gap: var(--cve-space-2);
+    user-select: none;
+  }
+  .cve-details > summary::before {
+    content: "\25B8"; /* small right-pointing triangle */
+    display: inline-block;
+    width: 0.75rem;
+    color: var(--cve-text-muted);
+    transition: transform 120ms ease;
+  }
+  .cve-details[open] > summary::before {
+    content: "\25BE"; /* small down-pointing triangle */
+    color: var(--cve-text);
+  }
+  .cve-details > summary::after {
+    content: "Show details";
+    margin-left: auto;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cve-text-faint);
+  }
+  .cve-details[open] > summary::after {
+    content: "Hide details";
     color: var(--cve-text-muted);
   }
   .cve-details[open] > summary {
@@ -540,15 +591,33 @@
 
   /* Focus-visible: a single global rule for every interactive primitive.
      Native focus rings on inputs and buttons must remain reachable;
-     this rule strengthens them without removing the default. */
+     this rule strengthens them without removing the default. Phase 29E
+     extends coverage to ordinary anchor links inside the page shell and
+     to native buttons that have not adopted .cve-btn yet. */
   .cve-btn:focus-visible,
   .cve-input:focus-visible,
   .cve-select:focus-visible,
   .cve-textarea:focus-visible,
   .cve-details > summary:focus-visible,
+  .cve-page a:focus-visible,
+  .cve-page button:focus-visible,
   a.cve-link:focus-visible {
     outline: 2px solid var(--cve-focus);
     outline-offset: 2px;
     border-radius: var(--cve-radius);
+  }
+
+  /* Responsive page guard. Phase 29E: prevent horizontal overflow on
+     narrow viewports by ensuring the page shell never exceeds the
+     viewport width and that any descendant raw/table block keeps its
+     scroll inside, not on the body. */
+  .cve-page {
+    max-width: min(96rem, 100%);
+  }
+  .cve-page img,
+  .cve-page svg,
+  .cve-page video {
+    max-width: 100%;
+    height: auto;
   }
 }

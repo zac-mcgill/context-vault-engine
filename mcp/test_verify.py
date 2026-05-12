@@ -11612,6 +11612,32 @@ def main():
     test_p29d_21_no_em_dashes_in_p29d_docs()
     test_p29d_22_verification_commands_intact()
 
+    # Phase 29E - Final polish, accessibility, and release readiness
+    test_p29e_1_details_summary_has_disclosure_indicator()
+    test_p29e_2_focus_visible_styling_covers_primitives()
+    test_p29e_3_disabled_state_styling_present()
+    test_p29e_4_raw_block_protected_from_overflow()
+    test_p29e_5_table_wrap_protected_from_overflow()
+    test_p29e_6_reduced_motion_guard_present()
+    test_p29e_7_danger_zone_styling_present()
+    test_p29e_8_trust_warning_styling_present()
+    test_p29e_9_applayout_grouped_nav_labels_present()
+    test_p29e_10_applayout_api_raw_under_developer()
+    test_p29e_11_applayout_footer_phase_label_current()
+    test_p29e_12_major_components_still_use_cve_primitives()
+    test_p29e_13_all_app_routes_have_page_files()
+    test_p29e_14_roadmap_marks_phase29e_complete()
+    test_p29e_15_roadmap_marks_phase29_complete()
+    test_p29e_16_roadmap_phase27_still_deferred()
+    test_p29e_17_roadmap_phase28_still_deferred()
+    test_p29e_18_testing_documents_phase29e()
+    test_p29e_19_readme_states_phase29_complete()
+    test_p29e_20_release_checklist_test_count_updated()
+    test_p29e_21_ui_ux_audit_has_phase29e_note()
+    test_p29e_22_no_em_dashes_in_p29e_docs()
+    test_p29e_23_no_em_dashes_in_modified_ui_sources()
+    test_p29e_24_package_json_unchanged()
+
     print()
     print("=" * 60)
     print("ALL VERIFICATION TESTS PASSED")
@@ -19226,9 +19252,9 @@ def _repo_root():
 
 
 def test_doc_drift_readme_test_count():
-    """DOC-DRIFT-1: README quotes the current 763-test total, no stale counts."""
+    """DOC-DRIFT-1: README quotes the current 787-test total, no stale counts."""
     readme = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    assert "763" in readme, "README.md must mention the current test count 763"
+    assert "787" in readme, "README.md must mention the current test count 787"
     stale_phrases = [
         "553 deterministic tests",
         "548 deterministic tests",
@@ -19247,29 +19273,31 @@ def test_doc_drift_readme_test_count():
         "721 tests.",
         "740 deterministic tests",
         "740 tests.",
+        "763 deterministic tests",
+        "763 tests.",
     ]
     for phrase in stale_phrases:
         assert phrase not in readme, f"README.md still mentions stale phrase {phrase!r}"
-    print(f"  README mentions 763 tests, no stale counts present ✓")
+    print(f"  README mentions 787 tests, no stale counts present ✓")
 
 
 def test_doc_drift_testing_test_count():
-    """DOC-DRIFT-2: TESTING.md current total is 763 and historical markers retained."""
+    """DOC-DRIFT-2: TESTING.md current total is 787 and historical markers retained."""
     text = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
-    assert "763 test functions" in text, "TESTING.md must state 763 test functions"
-    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740"):
+    assert "787 test functions" in text, "TESTING.md must state 787 test functions"
+    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763"):
         assert marker in text, f"TESTING.md must retain historical test-count marker {marker}"
-    print(f"  TESTING.md states 763 functions and keeps historical markers ✓")
+    print(f"  TESTING.md states 787 functions and keeps historical markers ✓")
 
 
 def test_doc_drift_release_checklist_test_count():
-    """DOC-DRIFT-3: RELEASE_CHECKLIST references 763 tests and required commands."""
+    """DOC-DRIFT-3: RELEASE_CHECKLIST references 787 tests and required commands."""
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "763" in text, "RELEASE_CHECKLIST.md must reference the 763-test target"
+    assert "787" in text, "RELEASE_CHECKLIST.md must reference the 787-test target"
     for req in ("test_verify.py", "run.py validate", "run.py security",
                 "run.py export", "GitHub Release"):
         assert req in text, f"RELEASE_CHECKLIST.md must contain {req!r}"
-    print(f"  RELEASE_CHECKLIST mentions 763 tests and required commands ✓")
+    print(f"  RELEASE_CHECKLIST mentions 787 tests and required commands ✓")
 
 
 def test_doc_drift_roadmap_active_phase():
@@ -19443,8 +19471,9 @@ def test_p29a_1_roadmap_contains_phase29():
     text = (_repo_root() / "ROADMAP.md").read_text(encoding="utf-8")
     assert "Phase 29 - UI/UX Quality and Design System" in text, \
         "ROADMAP.md must contain a Phase 29 section header"
-    assert "| 29    | UI/UX Quality and Design System         | Active   |" in text, \
-        "ROADMAP.md status table must mark Phase 29 Active"
+    assert ("| 29    | UI/UX Quality and Design System         | Active   |" in text
+            or "| 29    | UI/UX Quality and Design System         | Complete |" in text), \
+        "ROADMAP.md status table must include the Phase 29 row"
     print("  ROADMAP.md contains Phase 29 ✓")
 
 
@@ -19500,8 +19529,6 @@ def test_p29a_5_roadmap_current_active_phase():
     section = text[idx:idx + 800]
     assert "Phase 29A" in section, \
         "ROADMAP.md Current Active Phase must reference Phase 29A"
-    assert "None." not in section.split("\n\n", 2)[1], \
-        "ROADMAP.md Current Active Phase must not still read 'None'"
     print("  Current Active Phase references Phase 29A ✓")
 
 
@@ -19568,28 +19595,22 @@ def test_p29a_9_testing_documents_phase29a():
 
 
 def test_p29a_10_readme_no_phase29_implementation_claim():
-    """P29A-10: README.md does not claim Phase 29 UI implementation is complete."""
-    print("\n=== Test P29A-10: README does not over-claim Phase 29 ===")
+    """P29A-10: README.md keeps Phase 27 and Phase 28 deferred.
+
+    Original Phase 29A wording forbade README from claiming Phase 29 sub-phases
+    were complete. That guard was correct while Phase 29 was in progress; Phase
+    29E has now closed the phase, so the README is permitted to state Phase 29
+    is complete. The remaining invariant is that Phase 27 and Phase 28 must
+    still be marked deferred. The historical name is preserved so the manual
+    runner stays stable.
+    """
+    print("\n=== Test P29A-10: README keeps Phase 27/28 deferred ===")
     text = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    forbidden = [
-        "Phase 29 is complete",
-        "Phase 29 (UI/UX Quality and Design System) is complete",
-        "Phase 29B is complete",
-        "Phase 29C is complete",
-        "Phase 29D is complete",
-        "Phase 29E is complete",
-        "UI/UX redesign is complete",
-        "design system is complete",
-    ]
-    for phrase in forbidden:
-        assert phrase not in text, \
-            f"README.md must not claim {phrase!r}; Phase 29A is documentation only"
-    # README must keep Phase 27 and Phase 28 deferred.
     assert "Phase 27 (Registry and Reuse Layer) is deferred" in text, \
         "README.md must keep Phase 27 deferred"
     assert "Phase 28 (Optional Semantic Retrieval) is deferred" in text, \
         "README.md must keep Phase 28 deferred"
-    print("  README does not over-claim Phase 29 ✓")
+    print("  README keeps Phase 27 and Phase 28 deferred ✓")
 
 
 def test_p29a_11_verification_commands_intact():
@@ -19809,20 +19830,19 @@ def test_p29b_12_testing_documents_phase29b():
 
 
 def test_p29b_13_readme_no_phase29_complete_claim():
-    """P29B-13: README.md must not claim Phase 29 is fully complete."""
-    print("\n=== Test P29B-13: README does not over-claim Phase 29 ===")
+    """P29B-13: README.md keeps Phase 27 and Phase 28 deferred.
+
+    Same rationale as test_p29a_10: the no-complete-claim guard was correct
+    while Phase 29 was in progress and is now relaxed at Phase 29 closure.
+    The deferred status of Phase 27 and Phase 28 must remain.
+    """
+    print("\n=== Test P29B-13: README keeps Phase 27/28 deferred ===")
     text = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    forbidden = [
-        "Phase 29 is complete",
-        "Phase 29 (UI/UX Quality and Design System) is complete",
-        "UI/UX redesign is complete",
-        "design system is complete",
-    ]
-    for phrase in forbidden:
-        assert phrase not in text, (
-            f"README.md must not claim {phrase!r}; Phase 29 is still in progress"
-        )
-    print("  README does not over-claim Phase 29 ✓")
+    assert "Phase 27 (Registry and Reuse Layer) is deferred" in text, \
+        "README.md must keep Phase 27 deferred"
+    assert "Phase 28 (Optional Semantic Retrieval) is deferred" in text, \
+        "README.md must keep Phase 28 deferred"
+    print("  README keeps Phase 27 and Phase 28 deferred ✓")
 
 
 def test_p29b_14_no_em_dashes_in_p29b_docs():
@@ -20058,18 +20078,19 @@ def test_p29c_16_testing_documents_phase29c():
 
 
 def test_p29c_17_readme_no_phase29_complete_claim():
-    """P29C-17: README.md does not claim Phase 29 is fully complete."""
-    print("\n=== Test P29C-17: README does not claim Phase 29 complete ===")
+    """P29C-17: README.md keeps Phase 27 and Phase 28 deferred.
+
+    Relaxed at Phase 29 closure: the README is permitted to state Phase 29 is
+    complete because Phase 29E has shipped. The historical guard against
+    claiming Phase 27 or Phase 28 are implemented remains in force.
+    """
+    print("\n=== Test P29C-17: README keeps Phase 27/28 deferred ===")
     text = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    forbidden = [
-        "Phase 29 is complete",
-        "Phase 29 complete",
-        "Phase 29 (UI/UX Quality and Design System) is complete",
-        "all of Phase 29 is complete",
-    ]
-    for phrase in forbidden:
-        assert phrase not in text, f"README.md must not claim {phrase!r}"
-    print("  README does not claim Phase 29 complete ✓")
+    assert "Phase 27 (Registry and Reuse Layer) is deferred" in text, \
+        "README.md must keep Phase 27 deferred"
+    assert "Phase 28 (Optional Semantic Retrieval) is deferred" in text, \
+        "README.md must keep Phase 28 deferred"
+    print("  README keeps Phase 27 and Phase 28 deferred ✓")
 
 
 def test_p29c_18_no_em_dashes_in_p29c_docs():
@@ -20337,18 +20358,19 @@ def test_p29d_19_testing_documents_phase29d():
 
 
 def test_p29d_20_readme_no_phase29_complete_claim():
-    """P29D-20: README.md does not claim Phase 29 is fully complete."""
-    print("\n=== Test P29D-20: README does not claim Phase 29 complete ===")
+    """P29D-20: README.md keeps Phase 27 and Phase 28 deferred.
+
+    Relaxed at Phase 29 closure: the README is permitted to state Phase 29 is
+    complete because Phase 29E has shipped. The historical guard against
+    claiming Phase 27 or Phase 28 are implemented remains in force.
+    """
+    print("\n=== Test P29D-20: README keeps Phase 27/28 deferred ===")
     text = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    forbidden = [
-        "Phase 29 is complete",
-        "Phase 29 complete",
-        "Phase 29 (UI/UX Quality and Design System) is complete",
-        "all of Phase 29 is complete",
-    ]
-    for phrase in forbidden:
-        assert phrase not in text, f"README.md must not claim {phrase!r}"
-    print("  README does not claim Phase 29 complete ✓")
+    assert "Phase 27 (Registry and Reuse Layer) is deferred" in text, \
+        "README.md must keep Phase 27 deferred"
+    assert "Phase 28 (Optional Semantic Retrieval) is deferred" in text, \
+        "README.md must keep Phase 28 deferred"
+    print("  README keeps Phase 27 and Phase 28 deferred ✓")
 
 
 def test_p29d_21_no_em_dashes_in_p29d_docs():
@@ -20377,6 +20399,360 @@ def test_p29d_22_verification_commands_intact():
                 "python run.py export --overwrite", "npm run build"):
         assert cmd in checklist, f"RELEASE_CHECKLIST.md must keep {cmd!r}"
     print("  Verification commands intact ✓")
+
+
+# ============================================================
+# Phase 29E - Final polish, accessibility, and release readiness
+# ============================================================
+#
+# Phase 29E is the final UI/UX pass that closes Phase 29. It targets
+# the rough edges exposed by the Phase 29D primitive rollout and the
+# documentation closure. These tests are static checks against the
+# stylesheet, the layout, the major Svelte components, and the doc
+# set. They do not add features or alter routes.
+
+_P29E_UI_COMPONENTS_DIR = "ui/src/components"
+_P29E_UI_PAGES_DIR = "ui/src/pages"
+_P29E_GLOBAL_CSS = "ui/src/styles/global.css"
+_P29E_APP_LAYOUT = "ui/src/layouts/AppLayout.astro"
+
+
+def _p29e_css() -> str:
+    return (_repo_root() / _P29E_GLOBAL_CSS).read_text(encoding="utf-8")
+
+
+def _p29e_layout() -> str:
+    return (_repo_root() / _P29E_APP_LAYOUT).read_text(encoding="utf-8")
+
+
+def test_p29e_1_details_summary_has_disclosure_indicator():
+    """P29E-1: global.css gives cve-details summary a visible disclosure cue."""
+    print("\n=== Test P29E-1: cve-details disclosure indicator ===")
+    css = _p29e_css()
+    assert ".cve-details > summary::before" in css, \
+        "global.css must give cve-details > summary a ::before disclosure indicator"
+    assert ".cve-details[open] > summary::before" in css, \
+        "global.css must change the indicator when cve-details is open"
+    # Textual hint so the cue is not colour-only.
+    assert "Show details" in css and "Hide details" in css, \
+        "global.css must include textual Show details / Hide details cues"
+    print("  cve-details disclosure cue present ✓")
+
+
+def test_p29e_2_focus_visible_styling_covers_primitives():
+    """P29E-2: global.css defines focus-visible for buttons, inputs, details, links."""
+    print("\n=== Test P29E-2: focus-visible coverage ===")
+    css = _p29e_css()
+    for selector in (".cve-btn:focus-visible",
+                     ".cve-input:focus-visible",
+                     ".cve-select:focus-visible",
+                     ".cve-textarea:focus-visible",
+                     ".cve-details > summary:focus-visible",
+                     ".cve-page a:focus-visible",
+                     ".cve-page button:focus-visible"):
+        assert selector in css, f"global.css must define {selector}"
+    assert "outline: 2px solid var(--cve-focus)" in css, \
+        "global.css focus-visible rule must use the --cve-focus token"
+    print("  focus-visible coverage broadened ✓")
+
+
+def test_p29e_3_disabled_state_styling_present():
+    """P29E-3: global.css defines disabled-state styling for cve buttons and form controls."""
+    print("\n=== Test P29E-3: disabled-state styling ===")
+    css = _p29e_css()
+    assert ".cve-btn:disabled" in css, "global.css must style disabled cve-btn"
+    assert '.cve-btn[aria-disabled="true"]' in css, \
+        "global.css must style aria-disabled cve-btn"
+    assert "cursor: not-allowed" in css, \
+        "global.css disabled state must surface a not-allowed cursor"
+    # Disabled form controls should also be visually distinct.
+    assert ".cve-input:disabled" in css or ".cve-textarea:disabled" in css \
+        or ".cve-select:disabled" in css, \
+        "global.css must style at least one disabled form control"
+    print("  Disabled-state styling present ✓")
+
+
+def test_p29e_4_raw_block_protected_from_overflow():
+    """P29E-4: global.css protects cve-raw blocks from page overflow."""
+    print("\n=== Test P29E-4: cve-raw overflow guard ===")
+    css = _p29e_css()
+    raw_idx = css.find(".cve-raw")
+    assert raw_idx >= 0, "global.css must define .cve-raw"
+    block = css[raw_idx:raw_idx + 1500]
+    assert "max-width: 100%" in block, \
+        "cve-raw must be constrained to max-width: 100% to avoid page overflow"
+    assert "overflow-x: auto" in block, \
+        "cve-raw must scroll horizontally inside the block"
+    print("  cve-raw cannot push the page into horizontal overflow ✓")
+
+
+def test_p29e_5_table_wrap_protected_from_overflow():
+    """P29E-5: global.css protects cve-table-wrap from page overflow."""
+    print("\n=== Test P29E-5: cve-table-wrap overflow guard ===")
+    css = _p29e_css()
+    idx = css.find(".cve-table-wrap")
+    assert idx >= 0, "global.css must define .cve-table-wrap"
+    block = css[idx:idx + 800]
+    assert "max-width: 100%" in block, \
+        "cve-table-wrap must be constrained to max-width: 100%"
+    assert "overflow-x: auto" in block, \
+        "cve-table-wrap must scroll horizontally inside the wrapper"
+    print("  cve-table-wrap cannot push the page into horizontal overflow ✓")
+
+
+def test_p29e_6_reduced_motion_guard_present():
+    """P29E-6: global.css retains a prefers-reduced-motion guard."""
+    print("\n=== Test P29E-6: prefers-reduced-motion guard ===")
+    css = _p29e_css()
+    assert "prefers-reduced-motion" in css, \
+        "global.css must keep a prefers-reduced-motion media query"
+    print("  prefers-reduced-motion guard present ✓")
+
+
+def test_p29e_7_danger_zone_styling_present():
+    """P29E-7: global.css keeps cve-danger-zone with a textual danger title."""
+    print("\n=== Test P29E-7: cve-danger-zone styling ===")
+    css = _p29e_css()
+    assert ".cve-danger-zone" in css, "global.css must define .cve-danger-zone"
+    assert ".cve-danger-zone__title" in css, \
+        "global.css must define .cve-danger-zone__title so the danger label is text, not colour-only"
+    # The danger zone must surface a visible danger colour.
+    danger_idx = css.find(".cve-danger-zone")
+    block = css[danger_idx:danger_idx + 600]
+    assert "var(--cve-danger)" in block, \
+        "cve-danger-zone must reference the danger token"
+    print("  cve-danger-zone styling intact ✓")
+
+
+def test_p29e_8_trust_warning_styling_present():
+    """P29E-8: global.css keeps cve-trust-warning and cve-warning-block styling."""
+    print("\n=== Test P29E-8: trust/warning styling ===")
+    css = _p29e_css()
+    assert ".cve-trust-warning" in css, \
+        "global.css must define .cve-trust-warning"
+    assert ".cve-warning-block" in css, \
+        "global.css must define .cve-warning-block"
+    print("  Trust/security warning styling intact ✓")
+
+
+def test_p29e_9_applayout_grouped_nav_labels_present():
+    """P29E-9: AppLayout still contains the Phase 29B grouped nav labels."""
+    print("\n=== Test P29E-9: AppLayout grouped nav labels ===")
+    text = _p29e_layout()
+    for label in ("Overview", "Vault", "Context",
+                  "Review and Governance", "Developer"):
+        assert label in text, f"AppLayout.astro must still contain {label!r}"
+    print("  Phase 29B group labels preserved ✓")
+
+
+def test_p29e_10_applayout_api_raw_under_developer():
+    """P29E-10: AppLayout still links to /app/raw labelled API / Raw under Developer."""
+    print("\n=== Test P29E-10: API / Raw under Developer ===")
+    text = _p29e_layout()
+    assert "/app/raw" in text, "AppLayout must still link to /app/raw"
+    assert "API / Raw" in text, "AppLayout must still label /app/raw as 'API / Raw'"
+    dev_idx = text.find("Developer")
+    raw_idx = text.find("/app/raw")
+    assert dev_idx >= 0 and raw_idx > dev_idx, \
+        "'API / Raw' must appear under the Developer group"
+    print("  /app/raw remains labelled API / Raw under Developer ✓")
+
+
+def test_p29e_11_applayout_footer_phase_label_current():
+    """P29E-11: AppLayout footer no longer claims an old Phase 29 sub-phase is active."""
+    print("\n=== Test P29E-11: AppLayout footer phase label ===")
+    text = _p29e_layout()
+    stale_labels = (
+        "Phase 18 - Stable",
+        "Phase 29A - ",
+        "Phase 29B - Navigation",
+        "Phase 29C - ",
+        "Phase 29D - ",
+        "Phase 29E - ",
+    )
+    for stale in stale_labels:
+        assert stale not in text, \
+            f"AppLayout.astro footer must not claim {stale!r} after Phase 29 is complete"
+    # Some current label must be present.
+    assert "Phase 29" in text, \
+        "AppLayout.astro should still surface the Phase 29 status in the footer"
+    print("  AppLayout footer no longer claims an old sub-phase ✓")
+
+
+def test_p29e_12_major_components_still_use_cve_primitives():
+    """P29E-12: every major Svelte component still contains cve-* primitives."""
+    print("\n=== Test P29E-12: major components still use cve-* primitives ===")
+    components_dir = _repo_root() / _P29E_UI_COMPONENTS_DIR
+    offenders = []
+    for comp in sorted(components_dir.glob("*.svelte")):
+        text = comp.read_text(encoding="utf-8")
+        if "cve-" not in text:
+            offenders.append(comp.name)
+    assert not offenders, \
+        f"Svelte components missing cve-* primitives after Phase 29E: {offenders}"
+    print("  All major components still use cve-* primitives ✓")
+
+
+def test_p29e_13_all_app_routes_have_page_files():
+    """P29E-13: every /app/* route referenced by AppLayout has a page file."""
+    print("\n=== Test P29E-13: every /app route resolves to a page file ===")
+    import re
+    text = _p29e_layout()
+    pages_dir = _repo_root() / _P29E_UI_PAGES_DIR
+    hrefs = sorted(set(re.findall(r"href:\s*'(/app/[A-Za-z0-9_\-/]*)'", text)))
+    assert hrefs, "AppLayout must declare at least one /app/* href"
+    missing = []
+    for href in hrefs:
+        # /app/ -> index.astro, /app/notes -> notes.astro, etc.
+        rest = href[len("/app/"):].rstrip("/")
+        if rest == "":
+            target = pages_dir / "index.astro"
+        else:
+            target = pages_dir / f"{rest}.astro"
+        if not target.is_file():
+            missing.append((href, target.name))
+    assert not missing, f"Pages missing for app routes: {missing}"
+    print(f"  All {len(hrefs)} /app routes resolve to a page file ✓")
+
+
+def test_p29e_14_roadmap_marks_phase29e_complete():
+    """P29E-14: ROADMAP.md records Phase 29E as Complete."""
+    print("\n=== Test P29E-14: ROADMAP marks Phase 29E complete ===")
+    text = (_repo_root() / "ROADMAP.md").read_text(encoding="utf-8")
+    marker = "##### Phase 29E - Final polish, docs, and release readiness"
+    idx = text.find(marker)
+    assert idx >= 0, "ROADMAP.md must contain a Phase 29E section header"
+    block = text[idx:idx + 4000]
+    assert "Status: Complete" in block or "**Status: Complete.**" in block, \
+        "ROADMAP.md Phase 29E section must mark the sub-phase Complete"
+    print("  ROADMAP marks Phase 29E Complete ✓")
+
+
+def test_p29e_15_roadmap_marks_phase29_complete():
+    """P29E-15: ROADMAP.md status table marks Phase 29 as Complete."""
+    print("\n=== Test P29E-15: ROADMAP marks Phase 29 complete ===")
+    text = (_repo_root() / "ROADMAP.md").read_text(encoding="utf-8")
+    assert "| 29    | UI/UX Quality and Design System         | Complete |" in text, \
+        "ROADMAP.md status table must mark Phase 29 as Complete"
+    print("  ROADMAP status table marks Phase 29 Complete ✓")
+
+
+def test_p29e_16_roadmap_phase27_still_deferred():
+    """P29E-16: ROADMAP.md still marks Phase 27 Deferred."""
+    print("\n=== Test P29E-16: Phase 27 deferred ===")
+    text = (_repo_root() / "ROADMAP.md").read_text(encoding="utf-8")
+    assert "| 27    | Registry and Reuse Layer                | Deferred |" in text
+    print("  Phase 27 still deferred ✓")
+
+
+def test_p29e_17_roadmap_phase28_still_deferred():
+    """P29E-17: ROADMAP.md still marks Phase 28 Deferred."""
+    print("\n=== Test P29E-17: Phase 28 deferred ===")
+    text = (_repo_root() / "ROADMAP.md").read_text(encoding="utf-8")
+    assert "| 28    | Optional Semantic Retrieval             | Deferred |" in text
+    print("  Phase 28 still deferred ✓")
+
+
+def test_p29e_18_testing_documents_phase29e():
+    """P29E-18: TESTING.md documents Phase 29E and the new total."""
+    print("\n=== Test P29E-18: TESTING.md documents Phase 29E ===")
+    text = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
+    assert "Phase 29E" in text, "TESTING.md must document Phase 29E"
+    assert "787 test functions" in text, \
+        "TESTING.md must state the new total of 787 test functions"
+    print("  TESTING.md documents Phase 29E ✓")
+
+
+def test_p29e_19_readme_states_phase29_complete():
+    """P29E-19: README.md states Phase 29 is complete and keeps 27/28 deferred."""
+    print("\n=== Test P29E-19: README states Phase 29 complete ===")
+    text = (_repo_root() / "README.md").read_text(encoding="utf-8")
+    assert "Phase 29 (UI/UX Quality and Design System) is complete" in text, \
+        "README.md must state that Phase 29 is complete"
+    assert "Phase 27 (Registry and Reuse Layer) is deferred" in text, \
+        "README.md must keep Phase 27 deferred"
+    assert "Phase 28 (Optional Semantic Retrieval) is deferred" in text, \
+        "README.md must keep Phase 28 deferred"
+    # README must not falsely claim Phase 27 or 28 are implemented.
+    for forbidden in (
+        "Phase 27 is complete",
+        "Phase 28 is complete",
+        "registry is implemented",
+        "semantic retrieval is implemented",
+    ):
+        assert forbidden not in text, f"README.md must not claim {forbidden!r}"
+    print("  README states Phase 29 complete and keeps 27/28 deferred ✓")
+
+
+def test_p29e_20_release_checklist_test_count_updated():
+    """P29E-20: RELEASE_CHECKLIST.md references the new test count of 787."""
+    print("\n=== Test P29E-20: RELEASE_CHECKLIST test count ===")
+    text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
+    assert "787" in text, "RELEASE_CHECKLIST.md must reference the new 787-test target"
+    # The previous count must not linger in the checklist after this phase.
+    assert "all 763 tests green" not in text, \
+        "RELEASE_CHECKLIST.md must not still say 'all 763 tests green'"
+    print("  RELEASE_CHECKLIST.md references 787 tests ✓")
+
+
+def test_p29e_21_ui_ux_audit_has_phase29e_note():
+    """P29E-21: UI_UX_AUDIT.md includes a Phase 29E note and a Phase 29 closure note."""
+    print("\n=== Test P29E-21: UI_UX_AUDIT Phase 29E + closure notes ===")
+    text = (_repo_root() / "UI_UX_AUDIT.md").read_text(encoding="utf-8")
+    assert "Phase 29E Implementation Note" in text, \
+        "UI_UX_AUDIT.md must include a 'Phase 29E Implementation Note' section"
+    assert "Phase 29 Closure Note" in text, \
+        "UI_UX_AUDIT.md must include a 'Phase 29 Closure Note' section"
+    # The audit must still record the No React decision.
+    assert "No React needed" in text, \
+        "UI_UX_AUDIT.md must keep the 'No React needed' decision"
+    print("  UI_UX_AUDIT.md contains Phase 29E and closure notes ✓")
+
+
+def test_p29e_22_no_em_dashes_in_p29e_docs():
+    """P29E-22: No project-authored doc modified by Phase 29E contains em dashes."""
+    print("\n=== Test P29E-22: no em dashes in modified docs ===")
+    docs = ["ROADMAP.md", "TESTING.md", "README.md",
+            "RELEASE_CHECKLIST.md", "UI_UX_AUDIT.md"]
+    offenders = [n for n in docs
+                 if "\u2014" in (_repo_root() / n).read_text(encoding="utf-8")]
+    assert not offenders, \
+        f"Project-authored docs must not contain em dashes; offenders: {offenders}"
+    print("  No em dashes in Phase 29E docs ✓")
+
+
+def test_p29e_23_no_em_dashes_in_modified_ui_sources():
+    """P29E-23: UI source files modified by Phase 29E contain no em dashes."""
+    print("\n=== Test P29E-23: no em dashes in modified UI sources ===")
+    modified = [
+        "ui/src/styles/global.css",
+        "ui/src/layouts/AppLayout.astro",
+    ]
+    offenders = [n for n in modified
+                 if "\u2014" in (_repo_root() / n).read_text(encoding="utf-8")]
+    assert not offenders, \
+        f"UI source files modified by Phase 29E must not contain em dashes; offenders: {offenders}"
+    print("  No em dashes in modified UI sources ✓")
+
+
+def test_p29e_24_package_json_unchanged():
+    """P29E-24: ui/package.json does not gain new runtime dependencies in Phase 29E."""
+    print("\n=== Test P29E-24: ui/package.json deps unchanged ===")
+    import json
+    pkg = json.loads(
+        (_repo_root() / "ui" / "package.json").read_text(encoding="utf-8")
+    )
+    deps = set((pkg.get("dependencies") or {}).keys())
+    dev_deps = set((pkg.get("devDependencies") or {}).keys())
+    # The Phase 29 stack: Astro, Svelte, Vite, Tailwind CSS 4, TypeScript.
+    # The local UI must not pull in React, an icon library, or an animation
+    # library as part of the Phase 29E polish pass.
+    forbidden = {"react", "react-dom", "lucide-react", "@heroicons/react",
+                 "framer-motion", "react-icons", "@radix-ui/react-icons"}
+    sneaked_in = (deps | dev_deps) & forbidden
+    assert not sneaked_in, \
+        f"ui/package.json must not introduce {sorted(sneaked_in)} in Phase 29E"
+    print("  ui/package.json has not picked up React or icon/animation libraries ✓")
 
 
 if __name__ == "__main__":

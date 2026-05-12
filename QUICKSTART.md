@@ -1402,7 +1402,70 @@ Visit `/app/trust` in the browser UI to:
 
 ---
 
-## 30. Run Verification Tests (Optional)
+## 30. Safe Markdown Folder Import (Phase 26A)
+
+Phase 26A provides the first import pipeline. It is local, deterministic, security-scanned, and dry-run by default. No content is written without explicit `--write`. Imports never land inside `Vault Files/` and never escape the vault root.
+
+### CLI
+
+```bash
+# Dry-run (default): prints the import plan as JSON, writes no files
+py run.py import-markdown C:\path\to\markdown\folder
+
+# Actually write into the vault under Imported/
+py run.py import-markdown C:\path\to\markdown\folder --write
+
+# Choose a different destination subfolder
+py run.py import-markdown C:\path\to\markdown\folder --destination Fundamentals --write
+
+# Replace existing notes at destination paths
+py run.py import-markdown C:\path\to\markdown\folder --write --overwrite
+
+# Target a specific vault
+py run.py import-markdown C:\path\to\markdown\folder --vault demo-vault
+```
+
+The CLI prints structured JSON to stdout and exits `0` on `status: ok`, `1` on `status: error`.
+
+### API
+
+```
+POST /import/markdown-folder
+```
+
+Request body:
+```json
+{
+  "vault": "demo-vault",
+  "source_dir": "C:/path/to/markdown/folder",
+  "destination": "Imported",
+  "dry_run": true,
+  "overwrite": false
+}
+```
+
+The response includes a `summary` (`discovered`, `planned`, `written`, `skipped`, `errors`, `warnings`) and one `items[*]` entry per discovered file with `status` (`planned`, `written`, `skipped`, `blocked`, or `error`), per-item `security`, per-item `validation`, plus any `warnings` and structured `errors`.
+
+### Safety rules
+
+- Source files are read with a 5 MB size cap; null bytes are rejected.
+- Every source body is scanned via the project security scanner. Blocking rules at high or critical severity produce `SECURITY_FAIL` and prevent that file from being written. Warning-severity findings are surfaced but do not block.
+- Unknown frontmatter keys are dropped (with a warning) so imports cannot smuggle schema extensions.
+- Section booleans (`has_key_principles`, `has_how_it_works`, `has_tradeoffs`) are recomputed from body content, not trusted from source frontmatter.
+- When the vault schema supports them, imports are marked `trust_level: draft` and `source_type: imported` so they show up as draft signals in the trust UI and evidence builder.
+- Candidates that fail schema validation are reported per item as `VALIDATION_FAILED` with structured `validation.errors`; no file is written.
+- The destination is sanitised: `..`, absolute paths, and any path inside `Vault Files/` are rejected with `UNSAFE_DESTINATION`.
+- Writes are atomic (temp file plus rename). Existing notes are never replaced unless `overwrite=true`.
+- After any successful write, the note index and result cache are invalidated so imported notes appear immediately in `/notes`, `/query`, `/validation`, and `/tasks`.
+- The endpoint is blocked in remote read-only mode.
+
+### Scope
+
+Phase 26A covers Markdown folder import only. PDF-to-Markdown, browser article import, GitHub repo docs import, and Obsidian-specific import remain deferred. There is no LLM or semantic step; this is a rule-based, deterministic pipeline.
+
+---
+
+## 31. Run Verification Tests (Optional)
 
 Core tests (requires only `requirements.txt`):
 
@@ -1427,7 +1490,7 @@ ALL VERIFICATION TESTS PASSED
 
 ---
 
-## 31. Troubleshooting
+## 32. Troubleshooting
 
 **Package already exists error**
 

@@ -4,18 +4,18 @@
 
 Context Vault Engine is a local-first Python pipeline for validating, scanning, and securely packaging structured Markdown content. It enforces a schema contract on every note, scans content for credential leaks, prompt-injection patterns, and suspicious executable/script blocks, then exports integrity-verified packages with SHA-256 manifests. All security rules are deterministic and regex-based, so every finding is explainable, reproducible, and auditable without an LLM or cloud dependency.
 
-**Local-first Python pipeline: credential leak scanning, prompt-injection detection, schema enforcement, rate-limited API, path-traversal blocking, SHA-256 artefact integrity, MCP stdio compatibility layer, private cloud mode, session and project state, safe memory write queue, trust/staleness/evidence metadata. 564 tests.**
+**Local-first Python pipeline: credential leak scanning, prompt-injection detection, schema enforcement, rate-limited API, path-traversal blocking, SHA-256 artefact integrity, MCP stdio compatibility layer, private cloud mode, session and project state, safe memory write queue, trust/staleness/evidence metadata, safe Markdown folder import. 587 tests.**
 
 ---
 
 ## Current Status
 
 - Phases 0 to 25 are complete.
-- Phase 26 (Import Pipelines) is the active development phase.
+- Phase 26 (Import Pipelines) is the active development phase. Phase 26A (safe Markdown folder import) is implemented; PDF, browser article, GitHub repo, and Obsidian-specific imports remain deferred.
 - Phase 27 (Registry and Reuse Layer) is deferred.
 - Phase 28 (Optional Semantic Retrieval) is deferred.
 - The local app, CLI, HTTP API, and MCP stdio surface are all production-quality for local use.
-- 564 deterministic tests cover phases 0 to 25 plus documentation drift guardrails.
+- 587 deterministic tests cover phases 0 to 25, the Phase 26A import pipeline, plus documentation drift guardrails.
 
 ---
 
@@ -35,6 +35,7 @@ Context Vault Engine is a local-first Python pipeline for validating, scanning, 
 - Session and Project State: file-backed session tracking and project state so local LLMs can answer "where was I?" - local-first, no DB, no cloud sync
 - Safe Memory Write Queue: LLM-proposed note changes are stored as pending proposals for human review - nothing is written to vault notes without explicit accept
 - Trust, Staleness, and Evidence Metadata: optional `trust_level`, `source_type`, `last_reviewed`, `review_after` frontmatter fields; `/trust`, `/stale`, `/evidence` endpoints; confidence scoring (verified/working/draft/external/deprecated); stale detection; evidence builder returns trust-ranked source notes with cite-able paths
+- Safe Markdown Folder Import (Phase 26A): `POST /import/markdown-folder` and `py run.py import-markdown` discover Markdown files in a source folder, scan each file for security findings, drop unknown frontmatter, recompute section booleans from body content, mark imports as drafts (`trust_level: draft`, `source_type: imported`), serialise candidate notes, validate against the vault schema, and only then write inside the vault (default destination `Imported/`, default dry-run, no overwrite, no writes inside `Vault Files/`). PDF, browser article, GitHub repo, and Obsidian-specific imports remain deferred.
 
 ---
 
@@ -56,7 +57,7 @@ python run.py security
 # Export - writes integrity-verified package to dist/ with SHA-256 manifest
 python run.py export --overwrite
 
-# Full test suite (564 deterministic tests covering all phases 0 to 25)
+# Full test suite (587 deterministic tests covering all phases 0 to 25 and Phase 26A)
 python mcp/test_verify.py
 ```
 

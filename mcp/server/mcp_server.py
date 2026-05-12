@@ -763,6 +763,16 @@ class NoteUpdateRequest(BaseModel):
     body: str = Field(..., description="Markdown body text (without frontmatter)")
 
 
+class ImportMarkdownFolderRequest(BaseModel):
+    """Request body for POST /import/markdown-folder."""
+
+    vault: str = Field(..., description="Vault name")
+    source_dir: str = Field(..., description="Absolute or user-expandable path to the source folder")
+    destination: str = Field("Imported", description="Vault-relative destination folder")
+    dry_run: bool = Field(True, description="When true, plan without writing files")
+    overwrite: bool = Field(False, description="When true, replace existing destination files")
+
+
 # ---------- Error helpers ----------
 
 def _error(code: str, message: str, status_code: int = 400) -> JSONResponse:
@@ -926,6 +936,61 @@ def endpoint_note_update(req: NoteUpdateRequest):
             status_code = 404
         elif code == "WRITE_FAILED":
             status_code = 500
+        else:
+            status_code = 400
+        return JSONResponse(status_code=status_code, content=result)
+
+    return result
+
+
+@app.post("/import/markdown-folder")
+def endpoint_import_markdown_folder(req: ImportMarkdownFolderRequest):
+    """Safely import a folder of Markdown files into an existing vault.
+
+    Phase 26A: Markdown folder import only.  Other import sources (PDF,
+    article URLs, GitHub repos, Obsidian-specific) are deferred.
+
+    Request body:
+        vault (str, required): Target vault name.
+        source_dir (str, required): Folder containing Markdown files.
+        destination (str, optional): Vault-relative destination folder.
+            Defaults to ``"Imported"``.  Must not be inside ``Vault Files/``.
+        dry_run (bool, optional): If true (default) plan without writing.
+        overwrite (bool, optional): If true, replace existing destination files.
+
+    Response data on success:
+        vault, source_dir, destination, dry_run, summary, items.
+
+    Error codes:
+        INVALID_VAULT, INVALID_SOURCE, UNSAFE_DESTINATION, UNSAFE_SOURCE.
+    """
+    err = _validate_vault(req.vault)
+    if err:
+        return err
+
+    if is_remote_read_only():
+        return _error(
+            "READ_ONLY", "Imports are disabled in remote read-only mode.", 403
+        )
+
+    from core.shared.import_pipeline import import_markdown_folder
+
+    try:
+        result = import_markdown_folder(
+            vault_name=req.vault,
+            source_dir=req.source_dir,
+            destination=req.destination,
+            dry_run=req.dry_run,
+            overwrite=req.overwrite,
+        )
+    except Exception as exc:
+        logger.exception("import_markdown_folder failed")
+        return _error("IMPORT_FAILED", f"Import failed: {exc}", 500)
+
+    if result.get("status") == "error":
+        code = result["error"].get("code", "IMPORT_FAILED")
+        if code in ("INVALID_VAULT",):
+            status_code = 404
         else:
             status_code = 400
         return JSONResponse(status_code=status_code, content=result)

@@ -1,4 +1,4 @@
-# Context Vault Engine - Updated Master Roadmap
+﻿# Context Vault Engine - Updated Master Roadmap
 
 ## Executive Direction
 
@@ -611,19 +611,21 @@ Optional `trust_level`, `source_type`, `last_reviewed`, `review_after` frontmatt
 
 ### Phase 26 - Import Pipelines
 
+**Status: Active - Phase 26A complete.**
+
 #### Purpose
 
 Make it easier to ingest existing knowledge without bypassing schema controls.
 
 #### Import Sources
 
-- Markdown folder
-- Obsidian vault
-- GitHub repo docs
-- Copilot/agent reports
-- chat transcript
-- browser article
-- PDF-to-Markdown, later
+- Markdown folder (Phase 26A - implemented)
+- Obsidian vault (deferred)
+- GitHub repo docs (deferred)
+- Copilot/agent reports (deferred)
+- chat transcript (deferred)
+- browser article (deferred)
+- PDF-to-Markdown (deferred)
 
 #### Flow
 
@@ -643,10 +645,14 @@ Make it easier to ingest existing knowledge without bypassing schema controls.
 
 #### Acceptance Criteria
 
-- User can import Markdown safely.
-- Imported files are schema-mapped.
-- Invalid imports produce actionable tasks.
-- No unsafe path writes.
+- User can import Markdown safely. (Phase 26A - done)
+- Imported files are schema-mapped. (Phase 26A - done)
+- Invalid imports produce actionable tasks. (Phase 26A - done)
+- No unsafe path writes. (Phase 26A - done)
+
+#### Phase 26A Summary
+
+Phase 26A delivers `core/shared/import_pipeline.py`, the `POST /import/markdown-folder` API endpoint, and the `py run.py import-markdown` CLI command. The pipeline discovers Markdown files deterministically, scans each source body via the project security scanner, drops unknown source frontmatter, recomputes section booleans from body content, marks imports with `trust_level: draft` and `source_type: imported`, serialises candidate notes, validates them through the existing `validate_file` engine, and writes only when validation passes. Default destination is `Imported/`, default mode is dry-run, no overwrite, no writes inside `Vault Files/`, and the note index plus result cache are invalidated after any successful write so imported notes appear immediately in `/notes`, `/query`, `/validation`, and `/tasks`. Other import sources remain deferred.
 
 #### Suggested Commit
 

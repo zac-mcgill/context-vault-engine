@@ -378,6 +378,83 @@ Safely update an existing Markdown note in a vault. The note must already exist;
 
 ---
 
+### POST /import/markdown-folder
+
+Safely import a folder of Markdown files into a vault (Phase 26A). The pipeline is local-only, deterministic, and dry-run by default. It discovers `.md` files in the source folder, scans each body via the project security scanner, drops unknown source frontmatter, recomputes section booleans from body content, marks imports with `trust_level: draft` and `source_type: imported` when the schema supports those fields, serialises candidate notes, validates each candidate against the vault schema, and only writes when validation passes. Default destination is `Imported/` inside the vault. Writes inside `Vault Files/` are always rejected. The note index and result cache are invalidated after any successful write. Blocked in remote read-only mode.
+
+**Request body:**
+```json
+{
+  "vault": "demo-vault",
+  "source_dir": "C:/path/to/markdown/folder",
+  "destination": "Imported",
+  "dry_run": true,
+  "overwrite": false
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `vault` | string | yes | - | Registered vault name |
+| `source_dir` | string | yes | - | Absolute filesystem path to the folder of Markdown sources |
+| `destination` | string | no | `"Imported"` | Vault-relative POSIX subfolder for imports; rejected if it traverses the vault, is absolute, or lands inside `Vault Files/` |
+| `dry_run` | bool | no | `true` | When true, no files are written; the response shows the plan |
+| `overwrite` | bool | no | `false` | When true, existing destination notes are replaced atomically |
+
+**Success response (HTTP 200):**
+```json
+{
+  "status": "ok",
+  "data": {
+    "vault": "demo-vault",
+    "source_dir": "C:/path/to/markdown/folder",
+    "destination": "Imported",
+    "dry_run": true,
+    "overwrite": false,
+    "summary": {
+      "discovered": 3,
+      "planned": 2,
+      "written": 0,
+      "skipped": 1,
+      "errors": 0,
+      "warnings": 1
+    },
+    "items": [
+      {
+        "source_path": "C:/path/to/markdown/folder/algos.md",
+        "destination_path": "Imported/algos.md",
+        "action": "create",
+        "status": "planned",
+        "fields": {"type": "core-concept", "trust_level": "draft", "source_type": "imported"},
+        "warnings": ["dropped unknown frontmatter key: legacy_id"],
+        "errors": [],
+        "security": {"status": "pass", "findings": []},
+        "validation": {"status": "pass", "errors": []}
+      }
+    ]
+  }
+}
+```
+
+`status` per item is one of `planned`, `written`, `skipped`, `blocked`, or `error`. `action` is one of `create`, `overwrite`, or `skip`.
+
+**Error codes:**
+- `INVALID_VAULT` - vault not registered (HTTP 404).
+- `INVALID_SOURCE` - `source_dir` missing, not a directory, or contains null bytes (HTTP 400).
+- `UNSAFE_SOURCE` - source folder rejected by safety checks (HTTP 400).
+- `UNSAFE_DESTINATION` - destination traverses the vault, is absolute, or lands in `Vault Files/` (HTTP 400).
+- `READ_FAILED` - source file unreadable or exceeds the 5 MB size cap (per-item; surfaced in item `errors`).
+- `SECURITY_FAIL` - blocking security finding (high or critical severity) in a source body (per-item).
+- `INVALID_FRONTMATTER` - malformed YAML in source frontmatter (per-item).
+- `SERIALISE_FAILED` - candidate note could not be serialised (per-item).
+- `VALIDATION_FAILED` - candidate failed schema validation (per-item; `validation.errors` populated).
+- `DESTINATION_EXISTS` - destination already exists and `overwrite=false` (per-item).
+- `WRITE_FAILED` - atomic write failed (per-item; HTTP 200 returned with item-level error).
+- `READ_ONLY` - remote read-only mode forbids writes (HTTP 403).
+- `IMPORT_FAILED` - unexpected pipeline error (HTTP 500).
+
+---
+
 ### GET /stats
 
 Aggregate distinct values for a field across a vault.

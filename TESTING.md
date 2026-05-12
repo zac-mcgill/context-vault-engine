@@ -1,13 +1,13 @@
 # Context Vault Engine - Testing
 
-All tests live in `mcp/test_verify.py`. The suite currently has 564 test functions (548 phase tests plus 16 documentation drift guardrails), all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553) appear later in this document as part of the phase changelog and are not the current total.
+All tests live in `mcp/test_verify.py`. The suite currently has 587 test functions (571 phase tests plus 16 documentation drift guardrails), all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564) appear later in this document as part of the phase changelog and are not the current total.
 
 ## Current Verification Summary
 
 A full local verification consists of:
 
 ```bash
-py mcp/test_verify.py           # 564 tests, all must pass
+py mcp/test_verify.py           # 587 tests, all must pass
 py run.py validate              # vault schema-compliance
 py run.py security              # status: pass (or warning, never fail)
 py run.py feedback              # exits 0, valid JSON
@@ -1746,11 +1746,56 @@ The `dist/` directory is gitignored and should not be committed.
 **Verification steps:**
 
 ```bash
-py mcp/test_verify.py      # 564 tests, all must pass
+py mcp/test_verify.py      # 587 tests, all must pass
 py run.py validate         # all notes valid (trust fields accepted)
 py run.py security         # status: pass
 py run.py trust            # prints trust summary as JSON
 py run.py stale            # prints stale list as JSON
+py run.py feedback         # exits 0, valid JSON
+py run.py export --overwrite   # status: ok
+cd ui; npm run build       # zero errors
+```
+
+---
+
+## Phase 26A - Markdown Folder Import Backend
+
+23 new tests (`test_p26a_1` through `test_p26a_23`), bringing the phase-test total to 571. Combined with the 16 documentation drift guardrails, the overall test count is now 587.
+
+**Highlights:**
+
+- `test_p26a_1`: discovery is deterministic and ignores non-`.md` files.
+- `test_p26a_2`: invalid or null-byte source paths are rejected with `INVALID_SOURCE`.
+- `test_p26a_3`: traversal and absolute-path destinations are rejected with `UNSAFE_DESTINATION`.
+- `test_p26a_4`: `Vault Files/` destinations are rejected.
+- `test_p26a_5`: oversized source files are rejected with `READ_FAILED`.
+- `test_p26a_6`: high-severity security findings produce `SECURITY_FAIL` and block writes.
+- `test_p26a_7`: dry-run produces a complete plan but writes no files.
+- `test_p26a_8`: write mode without `overwrite` refuses to clobber an existing note.
+- `test_p26a_9`: `overwrite=True` replaces an existing note via atomic write.
+- `test_p26a_10`: unknown source frontmatter keys are dropped and surfaced as warnings.
+- `test_p26a_11`: imported notes carry `trust_level: draft` and `source_type: imported` when supported by the schema.
+- `test_p26a_12`: section booleans are recomputed from body content rather than trusted from source frontmatter.
+- `test_p26a_13`: slug normalisation produces deterministic, lowercase, hyphenated destination paths.
+- `test_p26a_14`: warning-severity security findings are surfaced without blocking.
+- `test_p26a_15`: invalid content returns `VALIDATION_FAILED` with actionable error details.
+- `test_p26a_16`: HTTP `POST /import/markdown-folder` dry-run end-to-end.
+- `test_p26a_17`: HTTP endpoint rejects unsafe destinations with structured error.
+- `test_p26a_18`: CLI `py run.py import-markdown` dry-run prints JSON and writes no files.
+- `test_p26a_19`: CLI `--write` mode performs the actual import.
+- `test_p26a_20`: note index and result cache are invalidated after a successful write.
+- `test_p26a_21`: every realised destination path stays inside the vault root.
+- `test_p26a_22`: source paths under `Vault Files/` cannot be written into the reserved folder.
+- `test_p26a_23`: response shape matches the documented contract (`status`, `data.summary`, `data.items[*]`).
+
+**Verification steps:**
+
+```bash
+py mcp/test_verify.py      # 587 tests, all must pass
+py run.py validate         # vault still valid
+py run.py security         # status: pass
+py run.py import-markdown <source_dir>            # dry-run by default
+py run.py import-markdown <source_dir> --write    # actually writes
 py run.py feedback         # exits 0, valid JSON
 py run.py export --overwrite   # status: ok
 cd ui; npm run build       # zero errors

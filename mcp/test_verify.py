@@ -11822,6 +11822,23 @@ def main():
     test_p30e2_23_no_em_dashes_and_no_new_deps()
     test_p30e2_24_global_css_has_phase30e2_block()
 
+    # Phase 30F — Workspace spacing fix (Notes and Graph)
+    test_p30f_1_global_css_has_phase30f_block()
+    test_p30f_2_global_css_workbench_panes_padded()
+    test_p30f_3_global_css_scroll_region_padding()
+    test_p30f_4_global_css_list_row_padding()
+    test_p30f_5_global_css_table_cell_padding()
+    test_p30f_6_global_css_empty_pane_padded_frame()
+    test_p30f_7_global_css_inspector_body_padded()
+    test_p30f_8_notes_workspace_spacing_contracts()
+    test_p30f_9_graph_workspace_spacing_contracts()
+    test_p30f_10_notes_graph_still_use_workbench()
+    test_p30f_11_notes_graph_still_use_scroll_regions()
+    test_p30f_12_notes_graph_no_tailwind_dark_literals()
+    test_p30f_13_notes_graph_static_links_resolve()
+    test_p30f_14_no_em_dashes_in_30f_files()
+    test_p30f_15_no_new_runtime_dependencies()
+
     print()
     print("=" * 60)
     print("ALL VERIFICATION TESTS PASSED")
@@ -23483,6 +23500,259 @@ def test_p30e2_24_global_css_has_phase30e2_block():
                 ".cve-p30e2-form-grid", ".cve-p30e2-pill"):
         assert cls in css, f"global.css must define {cls}"
     print("  global.css declares the Phase 30E2 primitives ✓")
+
+
+# ============================================================
+# Phase 30F — Workspace Spacing Fix Tests
+# ============================================================
+#
+# Source-level guardrails that pin the screenshot-driven CSS spacing
+# fixes applied to the Phase 30D2 Notes and Graph workbench surfaces.
+# Tests assert the presence of explicit padding contracts on rails,
+# inspectors, scroll regions, list rows, table cells, and empty
+# states. Pixel values are intentionally not asserted; tests instead
+# check for the presence of explicit spacing rules and class names.
+# ============================================================
+
+_P30F_NOTES_COMPONENT = "ui/src/components/NoteBrowser.svelte"
+_P30F_GRAPH_COMPONENT = "ui/src/components/GraphExplorer.svelte"
+_P30F_GLOBAL_CSS = "ui/src/styles/global.css"
+
+
+def _p30f_phase_block(css: str) -> str:
+    """Return only the Phase 30F section of global.css, for scoped asserts."""
+    marker = "Phase 30F"
+    idx = css.find(marker)
+    assert idx != -1, "global.css must contain a Phase 30F section comment"
+    return css[idx:]
+
+
+def test_p30f_1_global_css_has_phase30f_block():
+    """P30F-1: global.css contains a Phase 30F workspace-spacing block."""
+    print("\n=== Test P30F-1: global.css Phase 30F section ===")
+    css = _read_text(_P30F_GLOBAL_CSS)
+    assert "Phase 30F" in css, "global.css must contain a Phase 30F section comment"
+    assert "Workspace spacing" in css, \
+        "Phase 30F section must describe workspace spacing"
+    print("  Phase 30F workspace-spacing block present in global.css ✓")
+
+
+def test_p30f_2_global_css_workbench_panes_padded():
+    """P30F-2: rail and inspector workbench panes have explicit padding."""
+    print("\n=== Test P30F-2: workbench rail and inspector padding ===")
+    block = _p30f_phase_block(_read_text(_P30F_GLOBAL_CSS))
+    assert ".cve-workbench__rail" in block, \
+        "Phase 30F block must target .cve-workbench__rail"
+    assert ".cve-workbench__inspector" in block, \
+        "Phase 30F block must target .cve-workbench__inspector"
+    # The rule must apply some padding (no specific px value required).
+    assert "padding: var(--cve-space-" in block, \
+        "Phase 30F block must declare token-based padding"
+    print("  Workbench panes have explicit token-driven padding ✓")
+
+
+def test_p30f_3_global_css_scroll_region_padding():
+    """P30F-3: workbench scroll regions have inner padding or scroll-padding."""
+    print("\n=== Test P30F-3: scroll region internal padding ===")
+    block = _p30f_phase_block(_read_text(_P30F_GLOBAL_CSS))
+    assert ".cve-scroll-region" in block, \
+        "Phase 30F block must address .cve-scroll-region inside workbench panes"
+    # Accept either padding-right gutter or scroll-padding contract.
+    assert ("padding-right: var(--cve-space-" in block
+            or "scroll-padding" in block), \
+        "Phase 30F block must declare padding-right or scroll-padding for scroll regions"
+    print("  Scroll regions declare padding-right or scroll-padding ✓")
+
+
+def test_p30f_4_global_css_list_row_padding():
+    """P30F-4: notes/graph list rows have explicit padding."""
+    print("\n=== Test P30F-4: list row padding ===")
+    block = _p30f_phase_block(_read_text(_P30F_GLOBAL_CSS))
+    assert ".cve-p30d2-note-row" in block, \
+        "Phase 30F block must adjust .cve-p30d2-note-row"
+    assert ".cve-p30d2-node-row" in block, \
+        "Phase 30F block must adjust .cve-p30d2-node-row"
+    assert "padding: var(--cve-space-" in block, \
+        "Phase 30F block must declare token-based row padding"
+    print("  Notes and Graph list rows have explicit padding ✓")
+
+
+def test_p30f_5_global_css_table_cell_padding():
+    """P30F-5: graph workbench tables have explicit cell padding."""
+    print("\n=== Test P30F-5: table cell padding ===")
+    block = _p30f_phase_block(_read_text(_P30F_GLOBAL_CSS))
+    assert ".cve-p30d2-table" in block, \
+        "Phase 30F block must adjust .cve-p30d2-table cells"
+    assert (".cve-p30d2-table .cve-table th" in block
+            and ".cve-p30d2-table .cve-table td" in block), \
+        "Phase 30F block must target both th and td inside .cve-p30d2-table"
+    print("  Table cells inside cve-p30d2-table have explicit padding ✓")
+
+
+def test_p30f_6_global_css_empty_pane_padded_frame():
+    """P30F-6: empty inspector state is wrapped in a padded, framed block."""
+    print("\n=== Test P30F-6: empty-pane padded frame ===")
+    block = _p30f_phase_block(_read_text(_P30F_GLOBAL_CSS))
+    assert ".cve-p30d2-empty-pane" in block, \
+        "Phase 30F block must adjust .cve-p30d2-empty-pane"
+    assert "padding: var(--cve-space-" in block, \
+        "Empty pane must declare token-based padding"
+    assert "border" in block, "Empty pane must declare a framing border"
+    print("  Empty inspector state is framed and padded ✓")
+
+
+def test_p30f_7_global_css_inspector_body_padded():
+    """P30F-7: inspector body declares explicit vertical padding contracts."""
+    print("\n=== Test P30F-7: inspector body padding ===")
+    block = _p30f_phase_block(_read_text(_P30F_GLOBAL_CSS))
+    assert ".cve-p30d2-inspector__body" in block, \
+        "Phase 30F block must target .cve-p30d2-inspector__body"
+    assert "padding-top" in block and "padding-bottom" in block, \
+        "Inspector body must declare explicit top and bottom padding"
+    print("  Inspector body declares explicit top and bottom padding ✓")
+
+
+def test_p30f_8_notes_workspace_spacing_contracts():
+    """P30F-8: NoteBrowser preserves padded rail/list/filter/empty-state contracts."""
+    print("\n=== Test P30F-8: Notes workspace spacing contracts ===")
+    text = _read_text(_P30F_NOTES_COMPONENT)
+    required = (
+        "cve-workbench__rail",
+        "cve-workbench__inspector",
+        "cve-p30d2-rail__head",
+        "cve-p30d2-rail__list-head",
+        "cve-p30d2-filter-row",
+        "cve-p30d2-checkbox-row",
+        "cve-p30d2-note-row",
+        "cve-p30d2-empty-pane",
+        "cve-p30d2-inspector__body",
+    )
+    missing = [c for c in required if c not in text]
+    assert not missing, \
+        f"NoteBrowser.svelte must use spacing contract classes; missing: {missing}"
+    print("  Notes workspace spacing contracts present ✓")
+
+
+def test_p30f_9_graph_workspace_spacing_contracts():
+    """P30F-9: GraphExplorer preserves padded rail/filter/list/inspector/table contracts."""
+    print("\n=== Test P30F-9: Graph workspace spacing contracts ===")
+    text = _read_text(_P30F_GRAPH_COMPONENT)
+    required = (
+        "cve-workbench__rail",
+        "cve-workbench__inspector",
+        "cve-p30d2-rail__head",
+        "cve-p30d2-rail__list-head",
+        "cve-p30d2-checkbox-row",
+        "cve-p30d2-node-row",
+        "cve-p30d2-inspector__head",
+        "cve-p30d2-inspector__body",
+        "cve-p30d2-table",
+    )
+    missing = [c for c in required if c not in text]
+    assert not missing, \
+        f"GraphExplorer.svelte must use spacing contract classes; missing: {missing}"
+    print("  Graph workspace spacing contracts present ✓")
+
+
+def test_p30f_10_notes_graph_still_use_workbench():
+    """P30F-10: Notes and Graph still use cve-workbench (no regression)."""
+    print("\n=== Test P30F-10: workbench preserved ===")
+    for path in (_P30F_NOTES_COMPONENT, _P30F_GRAPH_COMPONENT):
+        text = _read_text(path)
+        assert "cve-workbench" in text, f"{path} must still use cve-workbench"
+    print("  Notes and Graph still use cve-workbench ✓")
+
+
+def test_p30f_11_notes_graph_still_use_scroll_regions():
+    """P30F-11: Notes and Graph still use internal cve-scroll-region (no regression)."""
+    print("\n=== Test P30F-11: scroll regions preserved ===")
+    for path in (_P30F_NOTES_COMPONENT, _P30F_GRAPH_COMPONENT):
+        text = _read_text(path)
+        assert "cve-scroll-region" in text, \
+            f"{path} must still use cve-scroll-region"
+    print("  Notes and Graph still use internal scroll regions ✓")
+
+
+def test_p30f_12_notes_graph_no_tailwind_dark_literals():
+    """P30F-12: Notes and Graph contain no raw Tailwind dark palette literals."""
+    print("\n=== Test P30F-12: no Tailwind dark literals ===")
+    # Same forbidden Tailwind dark palette patterns used elsewhere in the
+    # suite. A simple substring match is sufficient because the project
+    # has been explicitly migrated off these literals.
+    forbidden = (
+        "bg-gray-900", "bg-gray-800", "bg-gray-700", "bg-slate-900",
+        "bg-slate-800", "bg-zinc-900", "bg-zinc-800",
+        "text-gray-100", "text-gray-200", "text-slate-100",
+        "border-gray-700", "border-slate-700",
+    )
+    offenders = []
+    for path in (_P30F_NOTES_COMPONENT, _P30F_GRAPH_COMPONENT):
+        text = _read_text(path)
+        for lit in forbidden:
+            if lit in text:
+                offenders.append((path, lit))
+    assert not offenders, \
+        f"Tailwind dark palette literals must not appear; offenders: {offenders}"
+    print("  Notes and Graph contain no raw Tailwind dark palette literals ✓")
+
+
+def test_p30f_13_notes_graph_static_links_resolve():
+    """P30F-13: Static /app/* links in Notes and Graph resolve to existing routes."""
+    print("\n=== Test P30F-13: static links resolve ===")
+    import os
+    import re
+    routes_dir = "ui/src/pages"
+    existing_routes = set()
+    for root, _, files in os.walk(routes_dir):
+        for f in files:
+            if f.endswith(".astro"):
+                # /app/<name> maps to ui/src/pages/<name>.astro
+                existing_routes.add("/app/" + os.path.splitext(f)[0])
+    # The app prefix is handled by Astro base config; we accept either
+    # /app/<name> static href or relative <name> within the project.
+    # Only check absolute /app/* href values to keep the test narrow.
+    pattern = re.compile(r'href="(/app/[A-Za-z0-9_\-]+)"')
+    offenders = []
+    for path in (_P30F_NOTES_COMPONENT, _P30F_GRAPH_COMPONENT):
+        text = _read_text(path)
+        for m in pattern.finditer(text):
+            href = m.group(1)
+            if href not in existing_routes:
+                offenders.append((path, href))
+    assert not offenders, \
+        f"Static /app/* links must resolve to existing routes; offenders: {offenders}"
+    print("  Notes and Graph static /app/* links resolve ✓")
+
+
+def test_p30f_14_no_em_dashes_in_30f_files():
+    """P30F-14: Files modified in Phase 30F contain no em dashes."""
+    print("\n=== Test P30F-14: no em dashes in Phase 30F files ===")
+    css = _read_text(_P30F_GLOBAL_CSS)
+    # Only check the Phase 30F section to avoid coupling to legacy text
+    # elsewhere in global.css.
+    block = _p30f_phase_block(css)
+    assert "\u2014" not in block, \
+        "Phase 30F section of global.css must not contain em dashes"
+    print("  No em dashes in the Phase 30F CSS block ✓")
+
+
+def test_p30f_15_no_new_runtime_dependencies():
+    """P30F-15: ui/package.json introduces no new runtime deps in Phase 30F."""
+    print("\n=== Test P30F-15: no new runtime dependencies ===")
+    import json
+    pkg = json.loads(_read_text("ui/package.json"))
+    deps = set((pkg.get("dependencies") or {}).keys())
+    dev_deps = set((pkg.get("devDependencies") or {}).keys())
+    forbidden = {
+        "react", "react-dom", "vue", "lucide-react",
+        "@heroicons/react", "framer-motion", "react-icons",
+        "@radix-ui/react-icons", "chart.js", "d3", "recharts",
+        "highlight.js", "prismjs", "shiki",
+    }
+    sneaked_in = (deps | dev_deps) & forbidden
+    assert not sneaked_in, \
+        f"ui/package.json must not introduce {sorted(sneaked_in)} in Phase 30F"
+    print("  No new runtime dependencies introduced in Phase 30F ✓")
 
 
 if __name__ == "__main__":

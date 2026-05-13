@@ -2929,4 +2929,96 @@
     align-items: center;
     gap: var(--cve-space-2);
   }
+
+  /* ------------------------------------------------------------------
+     Phase 30F - Workspace spacing fix (Notes and Graph workbench)
+     ------------------------------------------------------------------
+     Screenshot-driven QA pass: the Phase 30D2 workbench surfaces had
+     no internal padding on rails, inspectors, list rows, table cells,
+     or empty-state regions, leaving content visually flush against
+     pane borders. This block adds explicit, token-driven spacing
+     contracts without touching component behaviour or data flow.
+
+     All values resolve through --cve-* tokens; no Tailwind dark
+     palette literals.
+     ------------------------------------------------------------------ */
+  .cve-workbench__rail,
+  .cve-workbench__inspector {
+    padding: var(--cve-space-3);
+  }
+  @media (min-width: 1024px) {
+    .cve-workbench__rail,
+    .cve-workbench__inspector {
+      padding: var(--cve-space-4);
+    }
+  }
+  @media (max-width: 640px) {
+    .cve-workbench__rail,
+    .cve-workbench__inspector {
+      padding: var(--cve-space-2);
+    }
+  }
+  /* Scroll regions keep an internal gutter so list/table content does
+     not press against the right edge when a scrollbar appears, and a
+     scroll-padding so anchored rows are not flush with the top edge. */
+  .cve-workbench__rail .cve-scroll-region,
+  .cve-workbench__inspector .cve-scroll-region {
+    padding-right: var(--cve-space-1);
+    scroll-padding-block: var(--cve-space-3);
+  }
+  /* Rail head + list-head: vertical rhythm inside the padded rail. */
+  .cve-p30d2-rail__head {
+    gap: var(--cve-space-3);
+    padding-bottom: var(--cve-space-3);
+  }
+  .cve-p30d2-rail__list-head {
+    padding: var(--cve-space-3) 0 var(--cve-space-2);
+  }
+  /* Filter rows and checkbox rows: explicit row/column gaps. */
+  .cve-p30d2-filter-row {
+    gap: var(--cve-space-3);
+  }
+  .cve-p30d2-checkbox-row {
+    gap: var(--cve-space-2) var(--cve-space-3);
+    padding: var(--cve-space-1) 0;
+  }
+  /* List rows: bump padding so cards feel intentional, not cramped. */
+  .cve-p30d2-note-row,
+  .cve-p30d2-node-row {
+    padding: var(--cve-space-3);
+  }
+  .cve-p30d2-note-list,
+  .cve-p30d2-node-list {
+    gap: var(--cve-space-2);
+  }
+  /* Graph node-group rhythm: separate type clusters in the rail. */
+  .cve-p30d2-node-group {
+    margin-bottom: var(--cve-space-4);
+  }
+  .cve-p30d2-group-head {
+    padding: var(--cve-space-1) 0 var(--cve-space-2);
+  }
+  /* Inspector head + body: head no longer flush, body has internal
+     bottom padding so the last details/disclosure row breathes. */
+  .cve-p30d2-inspector__head {
+    padding-bottom: var(--cve-space-3);
+  }
+  .cve-p30d2-inspector__body {
+    padding-top: var(--cve-space-3);
+    padding-bottom: var(--cve-space-4);
+    gap: var(--cve-space-4);
+  }
+  /* Graph ranked missing concepts table: explicit cell padding so
+     the ranked overview reads cleanly inside the inspector. */
+  .cve-p30d2-table .cve-table th,
+  .cve-p30d2-table .cve-table td {
+    padding: var(--cve-space-2) var(--cve-space-3);
+  }
+  /* Empty inspector state: framed, padded block. */
+  .cve-p30d2-empty-pane {
+    padding: var(--cve-space-5);
+    border: 1px dashed var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+    background-color: var(--cve-surface-muted);
+  }
 }

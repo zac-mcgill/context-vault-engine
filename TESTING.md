@@ -648,17 +648,17 @@ Protocol tests:
 
 Tools tests:
 - `test_p20_tools_list_deterministic` - tools/list returns same alphabetically-sorted list on each call.
-- `test_p20_tool_names_prefixed` - all tool names start with `cve.`.
+- `test_p20_tool_names_prefixed` - all tool names start with `cve_` and match the Copilot charset `[a-z0-9_-]` (no `.`).
 - `test_p20_tools_list_required_tools` - all 10 required CVE tools present.
 - `test_p20_tools_have_object_schema` - every tool has `inputSchema.type = "object"`.
 - `test_p20_tools_call_unknown_returns_error` - unknown tool returns `isError=true`.
-- `test_p20_tool_list_vaults_works` - `cve.list_vaults` returns vault list.
-- `test_p20_tool_get_context_state_works` - `cve.get_context_state` returns state for demo-vault.
-- `test_p20_tool_get_context_plan_works` - `cve.get_context_plan` returns plan for demo-vault.
-- `test_p20_tool_query_notes_lexical` - `cve.query_notes` returns results for lexical query.
-- `test_p20_tool_get_note_path_traversal_blocked` - `cve.get_note` blocks `../` traversal attempts.
-- `test_p20_tool_security_scan_full_vault` - `cve.security_scan` covers all vault notes.
-- `test_p20_tool_build_context_bundle_no_write` - `cve.build_context_bundle` builds in-memory, writes no files.
+- `test_p20_tool_list_vaults_works` - `cve_list_vaults` returns vault list.
+- `test_p20_tool_get_context_state_works` - `cve_get_context_state` returns state for demo-vault.
+- `test_p20_tool_get_context_plan_works` - `cve_get_context_plan` returns plan for demo-vault.
+- `test_p20_tool_query_notes_lexical` - `cve_query_notes` returns results for lexical query.
+- `test_p20_tool_get_note_path_traversal_blocked` - `cve_get_note` blocks `../` traversal attempts.
+- `test_p20_tool_security_scan_full_vault` - `cve_security_scan` covers all vault notes.
+- `test_p20_tool_build_context_bundle_no_write` - `cve_build_context_bundle` builds in-memory, writes no files.
 
 Resources tests:
 - `test_p20_resources_list_deterministic` - resources/list returns same URIs on each call.
@@ -884,7 +884,7 @@ cd ui && npm run build     # must complete with 0 errors
 
 *MCP layer (P23-28 to P23-31):*
 - `test_p23_mcp_pending_tools_registered` - all 7 pending-change tools listed by `tools/list`.
-- `test_p23_mcp_review_prompt_registered` - `cve.review_pending_change` listed by `prompts/list`.
+- `test_p23_mcp_review_prompt_registered` - `cve_review_pending_change` listed by `prompts/list`.
 - `test_p23_mcp_pending_resource_registered` - `pending-changes` resource URI listed by `resources/list`.
 - `test_p23_mcp_pending_resource_read` - resource returns `status=ok` and `changes` array.
 
@@ -910,7 +910,7 @@ cd ui && npm run build     # must complete with 0 errors
 - `mcp/server/mcp_server.py` - 4 new entries in `_WRITE_PATH_PREFIXES`; 4 Pydantic models; 7 HTTP endpoints.
 - `mcp/core/mcp_tools.py` - 7 new tools; Phase 23 `_tool_*` implementations; dispatch entries.
 - `mcp/core/mcp_resources.py` - 1 new resource template; `_read_pending_changes` handler.
-- `mcp/core/mcp_prompts.py` - `cve.review_pending_change` prompt added.
+- `mcp/core/mcp_prompts.py` - `cve_review_pending_change` prompt added.
 - `run.py` - `pending` CLI command; updated USAGE string.
 - `ui/src/lib/api.ts` - `PendingChange` type and all 7 API functions.
 - `ui/src/layouts/AppLayout.astro` - `Pending` nav item added.
@@ -956,9 +956,9 @@ cd ui && npm run build     # must complete with 0 errors
 - `test_p24_26` - private-cloud auth protects profile endpoints when enabled.
 - `test_p24_27` - private-cloud read-only does not block GET profile endpoints.
 - `test_p24_28` - private-cloud read-only still blocks export writes.
-- `test_p24_29` - MCP `cve.list_context_profiles` tool is listed.
-- `test_p24_30` - MCP `cve.build_context_bundle` accepts profile/mode.
-- `test_p24_31` - MCP `cve.security_scan` accepts profile/mode.
+- `test_p24_29` - MCP `cve_list_context_profiles` tool is listed.
+- `test_p24_30` - MCP `cve_build_context_bundle` accepts profile/mode.
+- `test_p24_31` - MCP `cve_security_scan` accepts profile/mode.
 - `test_p24_32` - MCP resources expose profiles.
 - `test_p24_33` - Bundle Builder UI builds with profile selector.
 - `test_p24_34` - `API.md` documents profile endpoints.
@@ -984,7 +984,7 @@ cd ui && npm run build     # must complete with 0 errors
 **Files modified:**
 - `mcp/core/context_profiles.py` - new profile service module.
 - `mcp/server/mcp_server.py` - new endpoints; profile/mode on bundle/export/security.
-- `mcp/core/mcp_tools.py` - `cve.list_context_profiles` tool; profile/mode on bundle/security tools.
+- `mcp/core/mcp_tools.py` - `cve_list_context_profiles` tool; profile/mode on bundle/security tools.
 - `mcp/core/mcp_resources.py` - `cve://context/profiles` resource and per-profile resources.
 - `ui/src/lib/api.ts` - `ProfileMetadata` type; `fetchContextProfiles`; `fetchContextProfile`.
 - `ui/src/components/BundleBuilder.svelte` - profile/mode selector; override labels; profile_metadata display.
@@ -1031,9 +1031,9 @@ cd ui && npm run build     # must complete with 0 errors
 - `test_p24_26` - private-cloud auth protects profile endpoints when enabled.
 - `test_p24_27` - private-cloud read-only does not block GET profile endpoints.
 - `test_p24_28` - private-cloud read-only still blocks export writes.
-- `test_p24_29` - MCP `cve.list_context_profiles` tool is listed.
-- `test_p24_30` - MCP `cve.build_context_bundle` accepts profile/mode.
-- `test_p24_31` - MCP `cve.security_scan` accepts profile/mode.
+- `test_p24_29` - MCP `cve_list_context_profiles` tool is listed.
+- `test_p24_30` - MCP `cve_build_context_bundle` accepts profile/mode.
+- `test_p24_31` - MCP `cve_security_scan` accepts profile/mode.
 - `test_p24_32` - MCP resources expose profiles.
 - `test_p24_33` - Bundle Builder UI builds with profile selector.
 - `test_p24_34` - `API.md` documents profile endpoints.
@@ -1047,7 +1047,7 @@ cd ui && npm run build     # must complete with 0 errors
 **Files modified:**
 - `mcp/core/context_profiles.py` - new profile service module.
 - `mcp/server/mcp_server.py` - new endpoints; profile/mode on bundle/export/security.
-- `mcp/core/mcp_tools.py` - `cve.list_context_profiles` tool; profile/mode on bundle/security tools.
+- `mcp/core/mcp_tools.py` - `cve_list_context_profiles` tool; profile/mode on bundle/security tools.
 - `mcp/core/mcp_resources.py` - `cve://context/profiles` resource and per-profile resources.
 - `ui/src/lib/api.ts` - `ProfileMetadata` type; `fetchContextProfiles`; `fetchContextProfile`.
 - `ui/src/components/BundleBuilder.svelte` - profile/mode selector; override labels; profile_metadata display.
@@ -1100,9 +1100,9 @@ cd ui && npm run build     # must complete with 0 errors
 - `test_p25_33` - trust field validation rejects malformed ISO date in last_reviewed.
 - `test_p25_34` - trust field validation rejects malformed ISO date in review_after.
 - `test_p25_35` - vault_schema.py has VALID_TRUST_LEVELS and VALID_SOURCE_TYPES.
-- `test_p25_36` - MCP tool `cve.get_trust_summary` returns trust summary.
-- `test_p25_37` - MCP tool `cve.get_stale_notes` returns stale data.
-- `test_p25_38` - MCP tool `cve.build_evidence` returns evidence list.
+- `test_p25_36` - MCP tool `cve_get_trust_summary` returns trust summary.
+- `test_p25_37` - MCP tool `cve_get_stale_notes` returns stale data.
+- `test_p25_38` - MCP tool `cve_build_evidence` returns evidence list.
 - `test_p25_39` - MCP resource `cve://vault/{vault}/trust` readable.
 - `test_p25_40` - MCP prompt `cve.evidence_review` includes cite-source instruction.
 - `test_p25_41` - `ROADMAP.md` marks Phase 25 complete.
@@ -1112,7 +1112,7 @@ cd ui && npm run build     # must complete with 0 errors
 - `demo-vault/Vault Files/Scripts/vault_schema.py` - VALID_TRUST_LEVELS, VALID_SOURCE_TYPES, trust fields in ALL_KNOWN_FIELDS.
 - `core/shared/validate_vault.py` - _validate_trust_fields() called in validate_file().
 - `mcp/server/mcp_server.py` - trust import; annotate on bundle/query; /trust /stale /evidence endpoints.
-- `mcp/core/mcp_tools.py` - cve.get_trust_summary, cve.get_stale_notes, cve.build_evidence tools.
+- `mcp/core/mcp_tools.py` - cve_get_trust_summary, cve_get_stale_notes, cve_build_evidence tools.
 - `mcp/core/mcp_resources.py` - cve://vault/{vault}/trust and cve://vault/{vault}/stale resources.
 - `mcp/core/mcp_prompts.py` - cve.evidence_review prompt with cite-source and disclaimer.
 - `ui/src/lib/api.ts` - Trust/Stale/Evidence types and API functions.
@@ -1738,7 +1738,7 @@ The `dist/` directory is gitignored and should not be committed.
 - `test_p25_1` to `test_p25_22`: trust metadata service unit tests (extraction, staleness, confidence scoring, evidence builder, deprecated exclusion, confidence disclaimer).
 - `test_p25_23` to `test_p25_29`: HTTP endpoints `GET /trust`, `GET /stale`, `POST /evidence` (shapes, 404 paths, prefer_verified ordering, q filter).
 - `test_p25_30` to `test_p25_35`: schema validation for `trust_level`, `source_type`, `last_reviewed`, `review_after` field values and date formats.
-- `test_p25_36` to `test_p25_38`: MCP tools `cve.get_trust_summary`, `cve.get_stale_notes`, `cve.build_evidence`.
+- `test_p25_36` to `test_p25_38`: MCP tools `cve_get_trust_summary`, `cve_get_stale_notes`, `cve_build_evidence`.
 - `test_p25_39`: MCP `trust` resource readable.
 - `test_p25_40`: `cve.evidence_review` prompt includes cite instruction and safety footer.
 - `test_p25_41`: ROADMAP marks Phase 25 Complete.

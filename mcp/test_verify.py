@@ -11923,6 +11923,14 @@ def main():
     test_p31c_6_readme_does_not_overclaim_qa()
     test_p31c_7_no_em_dashes_in_phase31c_docs()
 
+    # Copilot-compat MCP tool naming (cve_*) and hidden dotted aliases
+    test_copilot_tool_names_underscore_only()
+    test_copilot_tool_names_match_charset()
+    test_copilot_all_28_canonical_tools_advertised()
+    test_copilot_old_dotted_names_not_advertised()
+    test_copilot_new_underscore_call_works()
+    test_copilot_old_dotted_call_works_via_alias()
+
     print()
     print("=" * 60)
     print("ALL VERIFICATION TESTS PASSED")
@@ -12688,36 +12696,36 @@ def test_p25_35():
 
 
 def test_p25_36():
-    """P25-36: MCP tool cve.get_trust_summary works for demo-vault."""
-    print("\n=== Test P25-36: cve.get_trust_summary tool works ===")
+    """P25-36: MCP tool cve_get_trust_summary works for demo-vault."""
+    print("\n=== Test P25-36: cve_get_trust_summary tool works ===")
     from mcp.core.mcp_tools import dispatch_tool_call
-    result = dispatch_tool_call("cve.get_trust_summary", {"vault": "demo-vault"})
+    result = dispatch_tool_call("cve_get_trust_summary", {"vault": "demo-vault"})
     assert result.get("isError") is False, f"Tool returned error: {result}"
     data = result["structuredContent"]
     assert data["status"] == "ok"
     assert data["vault"] == "demo-vault"
     assert "counts_by_trust_level" in data
-    print("  cve.get_trust_summary tool works ✓")
+    print("  cve_get_trust_summary tool works ✓")
 
 
 def test_p25_37():
-    """P25-37: MCP tool cve.get_stale_notes works for demo-vault."""
-    print("\n=== Test P25-37: cve.get_stale_notes tool works ===")
+    """P25-37: MCP tool cve_get_stale_notes works for demo-vault."""
+    print("\n=== Test P25-37: cve_get_stale_notes tool works ===")
     from mcp.core.mcp_tools import dispatch_tool_call
-    result = dispatch_tool_call("cve.get_stale_notes", {"vault": "demo-vault"})
+    result = dispatch_tool_call("cve_get_stale_notes", {"vault": "demo-vault"})
     assert result.get("isError") is False, f"Tool returned error: {result}"
     data = result["structuredContent"]
     assert data["status"] == "ok"
     assert data["vault"] == "demo-vault"
     assert "stale_notes" in data
-    print("  cve.get_stale_notes tool works ✓")
+    print("  cve_get_stale_notes tool works ✓")
 
 
 def test_p25_38():
-    """P25-38: MCP tool cve.build_evidence works for demo-vault."""
-    print("\n=== Test P25-38: cve.build_evidence tool works ===")
+    """P25-38: MCP tool cve_build_evidence works for demo-vault."""
+    print("\n=== Test P25-38: cve_build_evidence tool works ===")
     from mcp.core.mcp_tools import dispatch_tool_call
-    result = dispatch_tool_call("cve.build_evidence", {
+    result = dispatch_tool_call("cve_build_evidence", {
         "vault": "demo-vault",
         "q": "algorithm",
         "max_notes": 5,
@@ -12728,7 +12736,7 @@ def test_p25_38():
     assert "evidence_id" in data
     assert "notes" in data
     assert "confidence_disclaimer" in data
-    print("  cve.build_evidence tool works and includes confidence_disclaimer ✓")
+    print("  cve_build_evidence tool works and includes confidence_disclaimer ✓")
 
 
 def test_p25_39():
@@ -16659,37 +16667,37 @@ def test_p24_28():
 
 
 def test_p24_29():
-    """P24-29: MCP cve.list_context_profiles tool is registered."""
-    print("\n=== Test P24-29: cve.list_context_profiles tool registered ===")
+    """P24-29: MCP cve_list_context_profiles tool is registered."""
+    print("\n=== Test P24-29: cve_list_context_profiles tool registered ===")
     from mcp.core.mcp_tools import TOOLS
     tool_names = {t["name"] for t in TOOLS}
-    assert "cve.list_context_profiles" in tool_names, \
-        "cve.list_context_profiles not registered"
-    print("  cve.list_context_profiles tool registered ✓")
+    assert "cve_list_context_profiles" in tool_names, \
+        "cve_list_context_profiles not registered"
+    print("  cve_list_context_profiles tool registered ✓")
 
 
 def test_p24_30():
-    """P24-30: MCP cve.build_context_bundle accepts profile and mode parameters."""
-    print("\n=== Test P24-30: cve.build_context_bundle accepts profile/mode ===")
+    """P24-30: MCP cve_build_context_bundle accepts profile and mode parameters."""
+    print("\n=== Test P24-30: cve_build_context_bundle accepts profile/mode ===")
     from mcp.core.mcp_tools import TOOLS
-    tool = next((t for t in TOOLS if t["name"] == "cve.build_context_bundle"), None)
-    assert tool is not None, "cve.build_context_bundle not found"
+    tool = next((t for t in TOOLS if t["name"] == "cve_build_context_bundle"), None)
+    assert tool is not None, "cve_build_context_bundle not found"
     props = tool["inputSchema"].get("properties", {})
-    assert "profile" in props, "profile parameter missing from cve.build_context_bundle"
-    assert "mode" in props, "mode parameter missing from cve.build_context_bundle"
-    print("  cve.build_context_bundle has profile and mode parameters ✓")
+    assert "profile" in props, "profile parameter missing from cve_build_context_bundle"
+    assert "mode" in props, "mode parameter missing from cve_build_context_bundle"
+    print("  cve_build_context_bundle has profile and mode parameters ✓")
 
 
 def test_p24_31():
-    """P24-31: MCP cve.security_scan accepts profile and mode parameters."""
-    print("\n=== Test P24-31: cve.security_scan accepts profile/mode ===")
+    """P24-31: MCP cve_security_scan accepts profile and mode parameters."""
+    print("\n=== Test P24-31: cve_security_scan accepts profile/mode ===")
     from mcp.core.mcp_tools import TOOLS
-    tool = next((t for t in TOOLS if t["name"] == "cve.security_scan"), None)
-    assert tool is not None, "cve.security_scan not found"
+    tool = next((t for t in TOOLS if t["name"] == "cve_security_scan"), None)
+    assert tool is not None, "cve_security_scan not found"
     props = tool["inputSchema"].get("properties", {})
-    assert "profile" in props, "profile parameter missing from cve.security_scan"
-    assert "mode" in props, "mode parameter missing from cve.security_scan"
-    print("  cve.security_scan has profile and mode parameters ✓")
+    assert "profile" in props, "profile parameter missing from cve_security_scan"
+    assert "mode" in props, "mode parameter missing from cve_security_scan"
+    print("  cve_security_scan has profile and mode parameters ✓")
 
 
 def test_p24_32():
@@ -16778,14 +16786,14 @@ def test_p24_38():
     from mcp.core.mcp_tools import TOOLS
     tool_names = {t["name"] for t in TOOLS}
     # Phase 21 tool
-    assert "cve.list_vaults" in tool_names
+    assert "cve_list_vaults" in tool_names
     # Phase 22 tool (session)
     session_tools = [n for n in tool_names if "session" in n]
     assert len(session_tools) > 0, "Session tools missing"
     # Phase 23 tool (pending)
-    assert "cve.create_note_draft" in tool_names, "cve.create_note_draft missing"
+    assert "cve_create_note_draft" in tool_names, "cve_create_note_draft missing"
     # Phase 24 tool
-    assert "cve.list_context_profiles" in tool_names, "cve.list_context_profiles missing"
+    assert "cve_list_context_profiles" in tool_names, "cve_list_context_profiles missing"
     # Check context_profiles module doesn't break existing imports
     from mcp.core import context_profiles as _cp
     from mcp.core import pending_changes as _pc
@@ -17519,13 +17527,13 @@ def test_p23_mcp_pending_tools_registered():
     from mcp.core.mcp_tools import TOOLS
     tool_names = {t["name"] for t in TOOLS}
     expected = {
-        "cve.create_note_draft",
-        "cve.suggest_note_update",
-        "cve.update_note_section_draft",
-        "cve.list_pending_changes",
-        "cve.review_pending_change",
-        "cve.accept_pending_change",
-        "cve.reject_pending_change",
+        "cve_create_note_draft",
+        "cve_suggest_note_update",
+        "cve_update_note_section_draft",
+        "cve_list_pending_changes",
+        "cve_review_pending_change",
+        "cve_accept_pending_change",
+        "cve_reject_pending_change",
     }
     for name in expected:
         assert name in tool_names, f"Tool {name!r} not registered"
@@ -17643,10 +17651,10 @@ def test_p23_existing_tests_unaffected():
     # Check original tool names still present
     from mcp.core.mcp_tools import TOOLS
     original_tool_names = {
-        "cve.list_vaults", "cve.get_note", "cve.query_notes",
-        "cve.get_context_state", "cve.build_context_bundle", "cve.get_tasks",
-        "cve.get_missing_concepts", "cve.security_scan", "cve.validate_vault",
-        "cve.get_context_plan",
+        "cve_list_vaults", "cve_get_note", "cve_query_notes",
+        "cve_get_context_state", "cve_build_context_bundle", "cve_get_tasks",
+        "cve_get_missing_concepts", "cve_security_scan", "cve_validate_vault",
+        "cve_get_context_plan",
     }
     registered = {t["name"] for t in TOOLS}
     for name in original_tool_names:
@@ -17835,22 +17843,31 @@ def test_p20_tools_list_deterministic():
 
 
 def test_p20_tool_names_prefixed():
-    """P20-T2: All tool names are prefixed with 'cve.'."""
-    print("\n=== Test P20-T2: tool names prefixed with cve. ===")
+    """P20-T2: All tool names are prefixed with 'cve_' and Copilot-compatible.
+
+    VS Code Copilot rejects names outside ``[a-z0-9_-]``. Advertised tool names
+    must use the underscored ``cve_<action>`` form.
+    """
+    import re
+    print("\n=== Test P20-T2: tool names use cve_ prefix (Copilot-compatible) ===")
     responses, _ = _mcp_call([{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}])
     tools = responses[0]["result"]["tools"]
+    pattern = re.compile(r"^[a-z0-9_-]+$")
     for tool in tools:
-        assert tool["name"].startswith("cve."), f"Tool name not prefixed: {tool['name']!r}"
-    print(f"  All {len(tools)} tools prefixed with 'cve.' ✓")
+        name = tool["name"]
+        assert name.startswith("cve_"), f"Tool name not prefixed with cve_: {name!r}"
+        assert "." not in name, f"Advertised tool name must not contain '.': {name!r}"
+        assert pattern.match(name), f"Tool name not Copilot-compatible: {name!r}"
+    print(f"  All {len(tools)} tools use Copilot-compatible cve_ names ✓")
 
 
 def test_p20_tools_list_required_tools():
     """P20-T3: tools/list includes all 10 required tools."""
     print("\n=== Test P20-T3: all required tools present ===")
     required = {
-        "cve.list_vaults", "cve.get_context_state", "cve.get_context_plan",
-        "cve.query_notes", "cve.get_note", "cve.validate_vault", "cve.get_tasks",
-        "cve.get_missing_concepts", "cve.security_scan", "cve.build_context_bundle",
+        "cve_list_vaults", "cve_get_context_state", "cve_get_context_plan",
+        "cve_query_notes", "cve_get_note", "cve_validate_vault", "cve_get_tasks",
+        "cve_get_missing_concepts", "cve_security_scan", "cve_build_context_bundle",
     }
     responses, _ = _mcp_call([{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}])
     tool_names = {t["name"] for t in responses[0]["result"]["tools"]}
@@ -17889,11 +17906,11 @@ def test_p20_tools_call_unknown_returns_error():
 
 
 def test_p20_tool_list_vaults_works():
-    """P20-T6: cve.list_vaults returns vaults list."""
-    print("\n=== Test P20-T6: cve.list_vaults works ===")
+    """P20-T6: cve_list_vaults returns vaults list."""
+    print("\n=== Test P20-T6: cve_list_vaults works ===")
     responses, _ = _mcp_call([{
         "jsonrpc": "2.0", "id": 1, "method": "tools/call",
-        "params": {"name": "cve.list_vaults", "arguments": {}},
+        "params": {"name": "cve_list_vaults", "arguments": {}},
     }])
     assert len(responses) == 1
     result = responses[0]["result"]
@@ -17902,16 +17919,16 @@ def test_p20_tool_list_vaults_works():
     assert "vaults" in data
     assert isinstance(data["vaults"], list)
     assert len(data["vaults"]) > 0
-    print(f"  cve.list_vaults: {data['vaults']} ✓")
+    print(f"  cve_list_vaults: {data['vaults']} ✓")
 
 
 def test_p20_tool_get_context_state_works():
-    """P20-T7: cve.get_context_state works for demo-vault."""
-    print("\n=== Test P20-T7: cve.get_context_state for demo-vault ===")
+    """P20-T7: cve_get_context_state works for demo-vault."""
+    print("\n=== Test P20-T7: cve_get_context_state for demo-vault ===")
     vault = list_vaults()[0]
     responses, _ = _mcp_call([{
         "jsonrpc": "2.0", "id": 1, "method": "tools/call",
-        "params": {"name": "cve.get_context_state", "arguments": {"vault": vault}},
+        "params": {"name": "cve_get_context_state", "arguments": {"vault": vault}},
     }])
     result = responses[0]["result"]
     assert result.get("isError") is False
@@ -17919,16 +17936,16 @@ def test_p20_tool_get_context_state_works():
     assert "vault" in data
     assert "readiness" in data
     assert data["vault"] == vault
-    print(f"  cve.get_context_state: vault={data['vault']!r}, readiness keys={list(data['readiness'].keys())} ✓")
+    print(f"  cve_get_context_state: vault={data['vault']!r}, readiness keys={list(data['readiness'].keys())} ✓")
 
 
 def test_p20_tool_get_context_plan_works():
-    """P20-T8: cve.get_context_plan works for demo-vault."""
-    print("\n=== Test P20-T8: cve.get_context_plan for demo-vault ===")
+    """P20-T8: cve_get_context_plan works for demo-vault."""
+    print("\n=== Test P20-T8: cve_get_context_plan for demo-vault ===")
     vault = list_vaults()[0]
     responses, _ = _mcp_call([{
         "jsonrpc": "2.0", "id": 1, "method": "tools/call",
-        "params": {"name": "cve.get_context_plan", "arguments": {
+        "params": {"name": "cve_get_context_plan", "arguments": {
             "vault": vault, "intent": "review",
         }},
     }])
@@ -17939,17 +17956,17 @@ def test_p20_tool_get_context_plan_works():
     assert "intent" in data
     assert "recommendations" in data
     assert data["intent"] == "review"
-    print(f"  cve.get_context_plan: vault={data['vault']!r}, intent={data['intent']!r}, "
+    print(f"  cve_get_context_plan: vault={data['vault']!r}, intent={data['intent']!r}, "
           f"recommendations={len(data['recommendations'])} ✓")
 
 
 def test_p20_tool_query_notes_lexical():
-    """P20-T9: cve.query_notes works with a lexical query."""
-    print("\n=== Test P20-T9: cve.query_notes with lexical query ===")
+    """P20-T9: cve_query_notes works with a lexical query."""
+    print("\n=== Test P20-T9: cve_query_notes with lexical query ===")
     vault = list_vaults()[0]
     responses, _ = _mcp_call([{
         "jsonrpc": "2.0", "id": 1, "method": "tools/call",
-        "params": {"name": "cve.query_notes", "arguments": {
+        "params": {"name": "cve_query_notes", "arguments": {
             "vault": vault, "q": "algorithm", "limit": 5,
         }},
     }])
@@ -17958,12 +17975,12 @@ def test_p20_tool_query_notes_lexical():
     data = result["structuredContent"]
     assert data.get("status") == "ok"
     assert "results" in data
-    print(f"  cve.query_notes (q=algorithm): {data.get('count', 0)} results ✓")
+    print(f"  cve_query_notes (q=algorithm): {data.get('count', 0)} results ✓")
 
 
 def test_p20_tool_get_note_path_traversal_blocked():
-    """P20-T10: cve.get_note rejects path traversal attempts."""
-    print("\n=== Test P20-T10: cve.get_note path traversal blocked ===")
+    """P20-T10: cve_get_note rejects path traversal attempts."""
+    print("\n=== Test P20-T10: cve_get_note path traversal blocked ===")
     vault = list_vaults()[0]
     attacks = [
         "../../../etc/passwd",
@@ -17973,7 +17990,7 @@ def test_p20_tool_get_note_path_traversal_blocked():
     for path in attacks:
         responses, _ = _mcp_call([{
             "jsonrpc": "2.0", "id": 1, "method": "tools/call",
-            "params": {"name": "cve.get_note", "arguments": {
+            "params": {"name": "cve_get_note", "arguments": {
                 "vault": vault, "path": path,
             }},
         }])
@@ -17983,12 +18000,12 @@ def test_p20_tool_get_note_path_traversal_blocked():
 
 
 def test_p20_tool_security_scan_full_vault():
-    """P20-T11: cve.security_scan uses full-vault scan defaults."""
-    print("\n=== Test P20-T11: cve.security_scan full-vault defaults ===")
+    """P20-T11: cve_security_scan uses full-vault scan defaults."""
+    print("\n=== Test P20-T11: cve_security_scan full-vault defaults ===")
     vault = list_vaults()[0]
     responses, _ = _mcp_call([{
         "jsonrpc": "2.0", "id": 1, "method": "tools/call",
-        "params": {"name": "cve.security_scan", "arguments": {"vault": vault}},
+        "params": {"name": "cve_security_scan", "arguments": {"vault": vault}},
     }])
     result = responses[0]["result"]
     assert result.get("isError") is False, f"Security scan returned error: {result}"
@@ -17999,12 +18016,12 @@ def test_p20_tool_security_scan_full_vault():
     assert "coverage" in data or "notes_scanned" in data or "findings" in data, (
         "Security scan must return meaningful data"
     )
-    print(f"  cve.security_scan: status={data['status']!r} ✓")
+    print(f"  cve_security_scan: status={data['status']!r} ✓")
 
 
 def test_p20_tool_build_context_bundle_no_write():
-    """P20-T12: cve.build_context_bundle does not write export packages."""
-    print("\n=== Test P20-T12: cve.build_context_bundle does not write files ===")
+    """P20-T12: cve_build_context_bundle does not write export packages."""
+    print("\n=== Test P20-T12: cve_build_context_bundle does not write files ===")
     import os
     vault = list_vaults()[0]
 
@@ -18013,7 +18030,7 @@ def test_p20_tool_build_context_bundle_no_write():
 
     responses, _ = _mcp_call([{
         "jsonrpc": "2.0", "id": 1, "method": "tools/call",
-        "params": {"name": "cve.build_context_bundle", "arguments": {
+        "params": {"name": "cve_build_context_bundle", "arguments": {
             "vault": vault, "allow_partial": True, "max_notes": 5,
         }},
     }])
@@ -18201,20 +18218,20 @@ def test_p20_no_destructive_tools():
     ]
     # Phase 22 write tools are intentionally exposed (state-only, not note-mutation)
     _state_write_tools = {
-        "cve.start_session", "cve.close_session", "cve.attach_note_to_session",
-        "cve.update_project_state",
+        "cve_start_session", "cve_close_session", "cve_attach_note_to_session",
+        "cve_update_project_state",
     }
     # Phase 23 pending-change tools are intentionally exposed (safe write queue)
     _pending_write_tools = {
-        "cve.create_note_draft", "cve.suggest_note_update", "cve.update_note_section_draft",
-        "cve.list_pending_changes", "cve.review_pending_change",
-        "cve.accept_pending_change", "cve.reject_pending_change",
+        "cve_create_note_draft", "cve_suggest_note_update", "cve_update_note_section_draft",
+        "cve_list_pending_changes", "cve_review_pending_change",
+        "cve_accept_pending_change", "cve_reject_pending_change",
     }
     for pattern in forbidden_patterns:
         matching = [n for n in tool_names if pattern in n.lower()
-                    and n not in {"cve.get_context_state", "cve.get_context_plan",
-                                  "cve.get_tasks", "cve.get_note",
-                                  "cve.get_missing_concepts"}
+                    and n not in {"cve_get_context_state", "cve_get_context_plan",
+                                  "cve_get_tasks", "cve_get_note",
+                                  "cve_get_missing_concepts"}
                     and n not in _state_write_tools
                     and n not in _pending_write_tools]
         assert not matching, (
@@ -18230,14 +18247,14 @@ def test_p20_tool_calls_deterministic():
     vault = list_vaults()[0]
     msg = {
         "jsonrpc": "2.0", "id": 1, "method": "tools/call",
-        "params": {"name": "cve.list_vaults", "arguments": {}},
+        "params": {"name": "cve_list_vaults", "arguments": {}},
     }
     r1, _ = _mcp_call([msg])
     r2, _ = _mcp_call([msg])
     data1 = r1[0]["result"]["structuredContent"]
     data2 = r2[0]["result"]["structuredContent"]
     assert data1 == data2, f"Tool call not deterministic: {data1} vs {data2}"
-    print(f"  cve.list_vaults: same result on repeated calls ✓")
+    print(f"  cve_list_vaults: same result on repeated calls ✓")
 
 
 # ============================================================
@@ -19382,7 +19399,7 @@ def test_p22_http_read_routes_allowed_read_only():
 
 
 def test_p22_mcp_session_tools_registered():
-    """P22-26: MCP stdio server lists cve.start_session and cve.get_project_state tools."""
+    """P22-26: MCP stdio server lists cve_start_session and cve_get_project_state tools."""
     print("\n=== Test P22-26: MCP session tools registered ===")
     import json as _json
 
@@ -19397,9 +19414,9 @@ def test_p22_mcp_session_tools_registered():
     tools_resp = next((r for r in responses if r.get("id") == 2), None)
     assert tools_resp is not None, f"No tools/list response; stderr: {stderr}"
     tool_names = {t["name"] for t in tools_resp["result"]["tools"]}
-    for expected in ("cve.start_session", "cve.get_project_state", "cve.resume_session",
-                     "cve.summarise_session", "cve.close_session",
-                     "cve.attach_note_to_session", "cve.update_project_state"):
+    for expected in ("cve_start_session", "cve_get_project_state", "cve_resume_session",
+                     "cve_summarise_session", "cve_close_session",
+                     "cve_attach_note_to_session", "cve_update_project_state"):
         assert expected in tool_names, (
             f"Tool {expected!r} not registered; available: {sorted(tool_names)}"
         )
@@ -19506,9 +19523,9 @@ def test_p22_existing_tests_unaffected():
     # Verify mcp_tools still has all original tools
     from mcp.core.mcp_tools import TOOLS
     original_tool_names = {
-        "cve.get_context_state", "cve.build_context_bundle", "cve.get_tasks",
-        "cve.get_missing_concepts", "cve.security_scan", "cve.validate_vault",
-        "cve.get_context_plan",
+        "cve_get_context_state", "cve_build_context_bundle", "cve_get_tasks",
+        "cve_get_missing_concepts", "cve_security_scan", "cve_validate_vault",
+        "cve_get_context_plan",
     }
     registered = {t["name"] for t in TOOLS}
     for name in original_tool_names:
@@ -25283,7 +25300,112 @@ def test_p31c_7_no_em_dashes_in_phase31c_docs():
     print("  No em dashes in Phase 31C docs \u2713")
 
 
+
+
+# ============================================================
+# Copilot-compatible MCP tool naming (cve_*) — Phase: dot-to-underscore
+# ============================================================
+
+_CANONICAL_TOOL_NAMES = {
+    "cve_accept_pending_change",
+    "cve_attach_note_to_session",
+    "cve_build_context_bundle",
+    "cve_build_evidence",
+    "cve_close_session",
+    "cve_create_note_draft",
+    "cve_get_context_plan",
+    "cve_get_context_state",
+    "cve_get_missing_concepts",
+    "cve_get_note",
+    "cve_get_project_state",
+    "cve_get_stale_notes",
+    "cve_get_tasks",
+    "cve_get_trust_summary",
+    "cve_list_context_profiles",
+    "cve_list_pending_changes",
+    "cve_list_vaults",
+    "cve_query_notes",
+    "cve_reject_pending_change",
+    "cve_resume_session",
+    "cve_review_pending_change",
+    "cve_security_scan",
+    "cve_start_session",
+    "cve_suggest_note_update",
+    "cve_summarise_session",
+    "cve_update_note_section_draft",
+    "cve_update_project_state",
+    "cve_validate_vault",
+}
+
+
+def _advertised_tool_names():
+    from mcp.core.mcp_tools import TOOLS
+    return [t["name"] for t in TOOLS]
+
+
+def test_copilot_tool_names_underscore_only():
+    """tools/list must not advertise any name containing '.'."""
+    print("\n=== Test Copilot-1: no '.' in advertised tool names ===")
+    names = _advertised_tool_names()
+    offenders = [n for n in names if "." in n]
+    assert not offenders, f"Advertised names must not contain '.': {offenders}"
+    print(f"  {len(names)} advertised names — none contain '.' \u2713")
+
+
+def test_copilot_tool_names_match_charset():
+    """All advertised tool names match ^[a-z0-9_-]+$ (Copilot charset)."""
+    import re
+    print("\n=== Test Copilot-2: tool names match [a-z0-9_-] ===")
+    pattern = re.compile(r"^[a-z0-9_-]+$")
+    names = _advertised_tool_names()
+    offenders = [n for n in names if not pattern.match(n)]
+    assert not offenders, f"Names violate [a-z0-9_-]: {offenders}"
+    print(f"  All {len(names)} advertised names match the Copilot charset \u2713")
+
+
+def test_copilot_all_28_canonical_tools_advertised():
+    """All 28 expected cve_* tool names are advertised."""
+    print("\n=== Test Copilot-3: all 28 canonical cve_* tools advertised ===")
+    advertised = set(_advertised_tool_names())
+    missing = _CANONICAL_TOOL_NAMES - advertised
+    extra = advertised - _CANONICAL_TOOL_NAMES
+    assert not missing, f"Missing canonical tools: {sorted(missing)}"
+    assert not extra, f"Unexpected advertised tools: {sorted(extra)}"
+    assert len(advertised) == 28, f"Expected 28 tools, got {len(advertised)}"
+    print("  All 28 cve_* tools advertised exactly \u2713")
+
+
+def test_copilot_old_dotted_names_not_advertised():
+    """Old dotted cve.* aliases must NOT appear in tools/list."""
+    print("\n=== Test Copilot-4: dotted aliases hidden from tools/list ===")
+    advertised = set(_advertised_tool_names())
+    dotted = {n.replace("cve_", "cve.", 1) for n in _CANONICAL_TOOL_NAMES}
+    leaked = dotted & advertised
+    assert not leaked, f"Dotted aliases must not be advertised: {sorted(leaked)}"
+    print("  No dotted aliases leaked into tools/list \u2713")
+
+
+def test_copilot_new_underscore_call_works():
+    """tools/call works with the new underscored cve_list_vaults name."""
+    print("\n=== Test Copilot-5: dispatch accepts cve_list_vaults ===")
+    from mcp.core.mcp_tools import dispatch_tool_call
+    result = dispatch_tool_call("cve_list_vaults", {})
+    assert isinstance(result, dict), "dispatch must return a dict"
+    assert result.get("isError") is False, f"Underscored call failed: {result}"
+    print("  cve_list_vaults dispatched successfully \u2713")
+
+
+def test_copilot_old_dotted_call_works_via_alias():
+    """tools/call still accepts the legacy dotted cve.list_vaults alias."""
+    print("\n=== Test Copilot-6: dispatch accepts cve.list_vaults alias ===")
+    from mcp.core.mcp_tools import dispatch_tool_call, _TOOL_ALIASES
+    assert "cve.list_vaults" in _TOOL_ALIASES, "alias map must include cve.list_vaults"
+    assert _TOOL_ALIASES["cve.list_vaults"] == "cve_list_vaults"
+    result = dispatch_tool_call("cve.list_vaults", {})
+    assert isinstance(result, dict)
+    assert result.get("isError") is False, f"Dotted alias call failed: {result}"
+    print("  cve.list_vaults alias dispatched successfully \u2713")
+
+
 if __name__ == "__main__":
     main()
-
-

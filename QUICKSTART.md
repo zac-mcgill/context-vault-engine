@@ -1039,20 +1039,22 @@ py run.py mcp
 
 The server reads JSON-RPC messages from stdin and writes responses to stdout. Log output goes to stderr. Press `Ctrl+C` or close stdin to exit.
 
-### MCP Tools (10 tools, all prefixed `cve.`)
+### MCP Tools (10 tools, all prefixed `cve_`)
+
+> Older dotted `cve.*` tool names are accepted as deprecated compatibility aliases, but `tools/list` advertises Copilot-compatible `cve_*` names (VS Code Copilot only accepts characters in `[a-z0-9_-]`).
 
 | Tool | Purpose |
 |------|---------|
-| `cve.list_vaults` | List all registered vault names |
-| `cve.get_context_state` | Deterministic readiness snapshot for a vault |
-| `cve.get_context_plan` | Prioritised recommendations for a vault + intent |
-| `cve.query_notes` | Lexical search across vault notes |
-| `cve.get_note` | Read a single note by vault-relative path (path traversal blocked) |
-| `cve.validate_vault` | Schema validation result for a vault |
-| `cve.get_tasks` | Prioritised improvement tasks |
-| `cve.get_missing_concepts` | Concepts expected but absent from the vault |
-| `cve.security_scan` | Full-vault security scan (secrets, injection, suspicious content) |
-| `cve.build_context_bundle` | Generate a context bundle in-memory (no files written) |
+| `cve_list_vaults` | List all registered vault names |
+| `cve_get_context_state` | Deterministic readiness snapshot for a vault |
+| `cve_get_context_plan` | Prioritised recommendations for a vault + intent |
+| `cve_query_notes` | Lexical search across vault notes |
+| `cve_get_note` | Read a single note by vault-relative path (path traversal blocked) |
+| `cve_validate_vault` | Schema validation result for a vault |
+| `cve_get_tasks` | Prioritised improvement tasks |
+| `cve_get_missing_concepts` | Concepts expected but absent from the vault |
+| `cve_security_scan` | Full-vault security scan (secrets, injection, suspicious content) |
+| `cve_build_context_bundle` | Generate a context bundle in-memory (no files written) |
 
 ### MCP Resources (9 URI patterns)
 
@@ -1167,7 +1169,7 @@ Write routes (`POST /session/start`, `POST /session/attach-note`, `POST /session
 
 ### MCP tools
 
-The MCP stdio server exposes 7 new tools: `cve.start_session`, `cve.resume_session`, `cve.summarise_session`, `cve.attach_note_to_session`, `cve.close_session`, `cve.get_project_state`, `cve.update_project_state`.
+The MCP stdio server exposes 7 new tools: `cve_start_session`, `cve_resume_session`, `cve_summarise_session`, `cve_attach_note_to_session`, `cve_close_session`, `cve_get_project_state`, `cve_update_project_state`.
 
 A new `cve.resume_work` prompt guides an LLM through reading the current session summary and project state to answer "where was I up to?".
 
@@ -1197,7 +1199,7 @@ A proposal includes:
 
 ### Change lifecycle
 
-1. LLM calls `cve.create_note_draft`, `cve.suggest_note_update`, or `cve.update_note_section_draft`
+1. LLM calls `cve_create_note_draft`, `cve_suggest_note_update`, or `cve_update_note_section_draft`
 2. Proposal is validated and stored as JSON under `Vault Files/State/pending-changes/`
 3. Human reviews via UI, CLI, API, or MCP
 4. Human explicitly accepts (→ applies to vault, archived) or rejects (→ archived)
@@ -1225,9 +1227,9 @@ Write routes are blocked when `CVE_REMOTE_READ_ONLY=true`.
 
 ### MCP tools
 
-Seven new tools: `cve.create_note_draft`, `cve.suggest_note_update`, `cve.update_note_section_draft`, `cve.list_pending_changes`, `cve.review_pending_change`, `cve.accept_pending_change`, `cve.reject_pending_change`.
+Seven new tools: `cve_create_note_draft`, `cve_suggest_note_update`, `cve_update_note_section_draft`, `cve_list_pending_changes`, `cve_review_pending_change`, `cve_accept_pending_change`, `cve_reject_pending_change`.
 
-A new `cve.review_pending_change` prompt guides a reviewer through examining a diff and deciding to accept or reject.
+A new `cve_review_pending_change` prompt guides a reviewer through examining a diff and deciding to accept or reject.
 
 ### Storage
 
@@ -1307,8 +1309,8 @@ The response includes a `profile_metadata` object describing which profile/mode 
 
 ### MCP tools
 
-- `cve.list_context_profiles` - list all profiles and modes (no vault required)
-- `cve.build_context_bundle` now accepts `profile` and `mode` parameters
+- `cve_list_context_profiles` - list all profiles and modes (no vault required)
+- `cve_build_context_bundle` now accepts `profile` and `mode` parameters
 
 ### Bundle Builder UI
 
@@ -1387,9 +1389,9 @@ Visit `/app/trust` in the browser UI to:
 
 ### MCP tools
 
-- `cve.get_trust_summary` - vault-level trust/confidence summary
-- `cve.get_stale_notes` - stale and freshness-unknown notes
-- `cve.build_evidence` - trust-ranked evidence with source paths and section excerpts
+- `cve_get_trust_summary` - vault-level trust/confidence summary
+- `cve_get_stale_notes` - stale and freshness-unknown notes
+- `cve_build_evidence` - trust-ranked evidence with source paths and section excerpts
 
 ### MCP resources
 

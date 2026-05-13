@@ -7,7 +7,7 @@ No destructive, vault-content-write, or arbitrary file-write tools are exposed.
 Session and project state tools write only to <vault>/Vault Files/State/.
 Path traversal is blocked in the service module.
 
-Tool naming convention: cve.<action>
+Tool naming convention: cve_<action>
 Tool ordering: alphabetical by name (deterministic listing).
 
 Excluded tools (not exposed):
@@ -34,7 +34,7 @@ logger = logging.getLogger("mcp.tools")
 
 TOOLS = [
     {
-        "name": "cve.accept_pending_change",
+        "name": "cve_accept_pending_change",
         "description": (
             "[WRITE — REQUIRES EXPLICIT REVIEW] Accept and apply a pending change "
             "proposal to a vault note. "
@@ -58,7 +58,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.attach_note_to_session",
+        "name": "cve_attach_note_to_session",
         "description": (
             "[WRITE] Attach a vault note to the current session's recent_notes list. "
             "Validates that the note exists and is inside the vault. "
@@ -78,7 +78,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.build_context_bundle",
+        "name": "cve_build_context_bundle",
         "description": (
             "Build a deterministic context bundle in memory. "
             "Does not write export packages. "
@@ -117,7 +117,7 @@ TOOLS = [
     },
     # Phase 25 — Evidence tool (alphabetical: build_evidence after build_context_bundle)
     {
-        "name": "cve.build_evidence",
+        "name": "cve_build_evidence",
         "description": (
             "Build a structured evidence response with trust metadata and source refs. "
             "Returns source note paths, sections, confidence metadata, and trust/staleness "
@@ -147,7 +147,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.close_session",
+        "name": "cve_close_session",
         "description": (
             "[WRITE] Mark a session as closed (status=closed). "
             "Does not delete the session file. "
@@ -164,13 +164,13 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.create_note_draft",
+        "name": "cve_create_note_draft",
         "description": (
             "[PROPOSAL — writes only to pending queue] "
             "Propose creation of a new vault note. "
             "Stores the proposal as a pending change object for human review. "
             "Nothing is written to vault note files until an explicit "
-            "cve.accept_pending_change call is made by a reviewer. "
+            "cve_accept_pending_change call is made by a reviewer. "
             "The proposal is validated against the vault schema before storage. "
             "Invalid proposals are stored but cannot be accepted until corrected."
         ),
@@ -191,7 +191,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.get_context_plan",
+        "name": "cve_get_context_plan",
         "description": "Get deterministic next-action plan for a vault.",
         "inputSchema": {
             "type": "object",
@@ -207,7 +207,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.get_context_state",
+        "name": "cve_get_context_state",
         "description": "Get deterministic vault state and readiness.",
         "inputSchema": {
             "type": "object",
@@ -219,7 +219,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.get_missing_concepts",
+        "name": "cve_get_missing_concepts",
         "description": "Get missing expected concepts for a vault.",
         "inputSchema": {
             "type": "object",
@@ -231,7 +231,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.get_note",
+        "name": "cve_get_note",
         "description": "Retrieve one note by vault-relative path.",
         "inputSchema": {
             "type": "object",
@@ -244,7 +244,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.get_project_state",
+        "name": "cve_get_project_state",
         "description": (
             "Get the project state for a vault (current_phase, completed_work, "
             "next_actions, blockers, decisions, risks). "
@@ -261,7 +261,7 @@ TOOLS = [
     },
     # Phase 25 — Stale notes tool (alphabetical: get_stale_notes after get_project_state)
     {
-        "name": "cve.get_stale_notes",
+        "name": "cve_get_stale_notes",
         "description": (
             "Return stale/review information for a vault. "
             "Lists notes where review_after is before today (stale), "
@@ -281,7 +281,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.get_tasks",
+        "name": "cve_get_tasks",
         "description": "Get deterministic improvement tasks.",
         "inputSchema": {
             "type": "object",
@@ -295,7 +295,7 @@ TOOLS = [
     },
     # Phase 25 — Trust summary tool (alphabetical: get_trust_summary after get_tasks)
     {
-        "name": "cve.get_trust_summary",
+        "name": "cve_get_trust_summary",
         "description": (
             "Return vault-level trust/source/staleness summary. "
             "Counts notes by trust_level, source_type, and confidence level. "
@@ -313,12 +313,12 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.list_context_profiles",
+        "name": "cve_list_context_profiles",
         "description": (
             "List all available context profiles and bundle modes. "
             "Profiles are named device configurations (e.g. phone-local-llm, desktop-agent). "
             "Modes are named budget presets (tiny, small, medium, large, agent). "
-            "Use these names with cve.build_context_bundle profile/mode parameters."
+            "Use these names with cve_build_context_bundle profile/mode parameters."
         ),
         "inputSchema": {
             "type": "object",
@@ -326,7 +326,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.list_pending_changes",
+        "name": "cve_list_pending_changes",
         "description": (
             "List pending change proposals for a vault. "
             "Returns metadata for pending, accepted, rejected, or invalid changes. "
@@ -347,7 +347,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.list_vaults",
+        "name": "cve_list_vaults",
         "description": "List registered vaults.",
         "inputSchema": {
             "type": "object",
@@ -355,7 +355,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.query_notes",
+        "name": "cve_query_notes",
         "description": "Run deterministic lexical/filter query over notes.",
         "inputSchema": {
             "type": "object",
@@ -377,7 +377,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.reject_pending_change",
+        "name": "cve_reject_pending_change",
         "description": (
             "[WRITE — archives the change record] "
             "Reject a pending change proposal. "
@@ -398,7 +398,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.resume_session",
+        "name": "cve_resume_session",
         "description": (
             "Return the most recent active session or a session by explicit ID. "
             "Use this to answer 'where was I up to?' for a vault."
@@ -414,7 +414,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.review_pending_change",
+        "name": "cve_review_pending_change",
         "description": (
             "Retrieve the full details of a single pending change proposal "
             "including diff, validation status, validation errors, and all metadata. "
@@ -431,7 +431,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.security_scan",
+        "name": "cve_security_scan",
         "description": (
             "Run deterministic security scan over vault notes. "
             "Accepts an optional profile or mode to apply budget constraints "
@@ -456,7 +456,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.start_session",
+        "name": "cve_start_session",
         "description": (
             "[WRITE] Create a new active session for a vault. "
             "Records active_vault, current_project, current_topic, and user_goal. "
@@ -476,7 +476,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.suggest_note_update",
+        "name": "cve_suggest_note_update",
         "description": (
             "[PROPOSAL — writes only to pending queue] "
             "Propose an update to an existing vault note. "
@@ -502,7 +502,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.summarise_session",
+        "name": "cve_summarise_session",
         "description": (
             "Return a compact deterministic session summary suitable for LLM context. "
             "Answers 'where was I up to?' with session ID, vault, project, topic, goal, "
@@ -519,7 +519,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.update_note_section_draft",
+        "name": "cve_update_note_section_draft",
         "description": (
             "[PROPOSAL — writes only to pending queue] "
             "Propose a targeted update to one section of an existing vault note. "
@@ -545,7 +545,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.update_project_state",
+        "name": "cve_update_project_state",
         "description": (
             "[WRITE] Update project state fields for a vault. "
             "Allowed fields only: current_phase, completed_work, next_actions, "
@@ -568,7 +568,7 @@ TOOLS = [
         },
     },
     {
-        "name": "cve.validate_vault",
+        "name": "cve_validate_vault",
         "description": "Run validation summary for a vault.",
         "inputSchema": {
             "type": "object",
@@ -590,6 +590,24 @@ _TOOL_REQUIRED_ARGS: dict[str, set[str]] = {
     t["name"]: set(t["inputSchema"].get("required", []))
     for t in TOOLS
 }
+
+# ---------------------------------------------------------------------------
+# Hidden compatibility aliases
+# ---------------------------------------------------------------------------
+# VS Code Copilot rejects tool names containing characters outside
+# ``[a-z0-9_-]``. Advertised tool names use ``cve_<action>`` underscored form.
+# Older dotted ``cve.<action>`` names remain accepted at dispatch time as
+# deprecated, hidden aliases. Aliases are intentionally NOT included in
+# ``tools/list`` output.
+_TOOL_ALIASES: dict[str, str] = {
+    f"cve.{name[len('cve_'):]}": name
+    for name in _TOOL_NAMES
+}
+
+
+def _canonical_tool_name(tool_name: str) -> str:
+    """Normalise an incoming tool name through the hidden alias map."""
+    return _TOOL_ALIASES.get(tool_name, tool_name)
 
 
 # ---------------------------------------------------------------------------
@@ -644,6 +662,7 @@ def dispatch_tool_call(tool_name: str, args: dict) -> dict:
 
     Never raises — errors are returned as isError=True tool results.
     """
+    tool_name = _canonical_tool_name(tool_name)
     if tool_name not in _TOOL_NAMES:
         return _tool_error(f"Unknown tool: {tool_name!r}")
 
@@ -661,34 +680,34 @@ def dispatch_tool_call(tool_name: str, args: dict) -> dict:
 def _execute_tool(tool_name: str, args: dict) -> dict:
     """Execute a named tool with pre-validated args."""
     dispatch = {
-        "cve.accept_pending_change": _tool_accept_pending_change,
-        "cve.attach_note_to_session": _tool_attach_note_to_session,
-        "cve.build_context_bundle": _tool_build_context_bundle,
-        "cve.build_evidence": _tool_build_evidence,
-        "cve.close_session": _tool_close_session,
-        "cve.create_note_draft": _tool_create_note_draft,
-        "cve.get_context_plan": _tool_get_context_plan,
-        "cve.get_context_state": _tool_get_context_state,
-        "cve.get_missing_concepts": _tool_get_missing_concepts,
-        "cve.get_note": _tool_get_note,
-        "cve.get_project_state": _tool_get_project_state,
-        "cve.get_stale_notes": _tool_get_stale_notes,
-        "cve.get_tasks": _tool_get_tasks,
-        "cve.get_trust_summary": _tool_get_trust_summary,
-        "cve.list_context_profiles": _tool_list_context_profiles,
-        "cve.list_pending_changes": _tool_list_pending_changes,
-        "cve.list_vaults": _tool_list_vaults,
-        "cve.query_notes": _tool_query_notes,
-        "cve.reject_pending_change": _tool_reject_pending_change,
-        "cve.resume_session": _tool_resume_session,
-        "cve.review_pending_change": _tool_review_pending_change,
-        "cve.security_scan": _tool_security_scan,
-        "cve.start_session": _tool_start_session,
-        "cve.suggest_note_update": _tool_suggest_note_update,
-        "cve.summarise_session": _tool_summarise_session,
-        "cve.update_note_section_draft": _tool_update_note_section_draft,
-        "cve.update_project_state": _tool_update_project_state,
-        "cve.validate_vault": _tool_validate_vault,
+        "cve_accept_pending_change": _tool_accept_pending_change,
+        "cve_attach_note_to_session": _tool_attach_note_to_session,
+        "cve_build_context_bundle": _tool_build_context_bundle,
+        "cve_build_evidence": _tool_build_evidence,
+        "cve_close_session": _tool_close_session,
+        "cve_create_note_draft": _tool_create_note_draft,
+        "cve_get_context_plan": _tool_get_context_plan,
+        "cve_get_context_state": _tool_get_context_state,
+        "cve_get_missing_concepts": _tool_get_missing_concepts,
+        "cve_get_note": _tool_get_note,
+        "cve_get_project_state": _tool_get_project_state,
+        "cve_get_stale_notes": _tool_get_stale_notes,
+        "cve_get_tasks": _tool_get_tasks,
+        "cve_get_trust_summary": _tool_get_trust_summary,
+        "cve_list_context_profiles": _tool_list_context_profiles,
+        "cve_list_pending_changes": _tool_list_pending_changes,
+        "cve_list_vaults": _tool_list_vaults,
+        "cve_query_notes": _tool_query_notes,
+        "cve_reject_pending_change": _tool_reject_pending_change,
+        "cve_resume_session": _tool_resume_session,
+        "cve_review_pending_change": _tool_review_pending_change,
+        "cve_security_scan": _tool_security_scan,
+        "cve_start_session": _tool_start_session,
+        "cve_suggest_note_update": _tool_suggest_note_update,
+        "cve_summarise_session": _tool_summarise_session,
+        "cve_update_note_section_draft": _tool_update_note_section_draft,
+        "cve_update_project_state": _tool_update_project_state,
+        "cve_validate_vault": _tool_validate_vault,
     }
     fn = dispatch.get(tool_name)
     if fn is None:
@@ -898,7 +917,7 @@ def _tool_build_context_bundle(args: dict) -> dict:
     if profile_meta.get("require_security_scan"):
         result.setdefault("warnings", [])
         result["warnings"].append(
-            "Profile requires security scan. Use cve.security_scan to verify content."
+            "Profile requires security scan. Use cve_security_scan to verify content."
         )
     return _tool_ok(result)
 

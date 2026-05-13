@@ -157,7 +157,7 @@ The next planned phase is **Phase 32 (Human Release QA and Evidence Capture)**, 
 | 37    | Local Diagnostics and Support Report    | Planned  |
 | 38    | Backup, Restore, and Migration Safety   | Planned  |
 | 39    | MCP Client Setup and Connection Testing | Planned  |
-| 40    | Public Security Posture and Release Trust | Planned |
+| 40    | Public Security Posture and Release     | Planned  |
 | 41    | Example Vaults and Demonstration Packs  | Planned  |
 | 27    | Registry and Reuse Layer                | Deferred |
 | 28    | Optional Semantic Retrieval             | Deferred |

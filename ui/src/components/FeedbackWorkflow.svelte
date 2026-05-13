@@ -10,19 +10,19 @@
     fetchTasks,
     isOk,
     type FeedbackEntry,
-    type FeedbackData,
-    type FeedbackResponse,
-    type FeedbackDeleteResponse,
-    type FeedbackNormaliseResponse,
-    type FeedbackCreateRequest,
-    type FeedbackUpdateRequest,
     type FeedbackSource,
     type FeedbackSignal,
     type FeedbackSeverity,
-    type TasksData,
     type Task,
   } from '../lib/api.ts';
   import { getStoredVault } from '../lib/vaultState.ts';
+  import {
+    buildRawDeepLink,
+    severityWeight,
+    isResolvedSignal,
+  } from '../lib/phase30e1.ts';
+
+  type LoadState = 'idle' | 'loading' | 'ok' | 'error';
 
   // ---------------------------------------------------------------------------
   // Vault state
@@ -34,54 +34,43 @@
   let selectedVault = '';
 
   // ---------------------------------------------------------------------------
-  // Feedback state
+  // Feedback + tasks state
   // ---------------------------------------------------------------------------
-
-  type LoadState = 'idle' | 'loading' | 'ok' | 'error';
 
   let feedbackState: LoadState = 'idle';
-  let feedbackData: FeedbackData | null = null;
-  let feedbackLoadError = '';
-
-  // ---------------------------------------------------------------------------
-  // Task state
-  // ---------------------------------------------------------------------------
+  let entries: FeedbackEntry[] = [];
+  let feedbackError = '';
+  let feedbackWarnings: string[] = [];
 
   let tasksState: LoadState = 'idle';
-  let tasksData: TasksData | null = null;
+  let tasks: Task[] = [];
   let tasksError = '';
 
   // ---------------------------------------------------------------------------
-  // Filter state
+  // Filters
   // ---------------------------------------------------------------------------
 
-  let filterPath = '';
-  let filterSignal = '';
-  let filterSeverity = '';
-  let filterSource = '';
+  let filterSeverity: '' | FeedbackSeverity = '';
+  let filterSignal: '' | string = '';
+  let filterSource: '' | FeedbackSource = '';
+  let filterText = '';
+  let filterResolved: 'all' | 'open' | 'resolved' = 'open';
 
   // ---------------------------------------------------------------------------
-  // Add form state
+  // Add slide-over
   // ---------------------------------------------------------------------------
 
+  let addOpen = false;
   let addPath = '';
   let addSource: FeedbackSource = 'human';
   let addSignal: FeedbackSignal = 'unclear';
   let addSeverity: FeedbackSeverity = 'medium';
   let addComment = '';
-
-  type WriteState = 'idle' | 'loading' | 'ok' | 'error';
-  let addState: WriteState = 'idle';
+  let addState: LoadState = 'idle';
   let addError = '';
-  let addErrorCode = '';
-  let addResult: FeedbackResponse | null = null;
-
-  // Validation errors
-  let addPathError = '';
-  let addCommentError = '';
 
   // ---------------------------------------------------------------------------
-  // Edit state
+  // Edit / delete inline state
   // ---------------------------------------------------------------------------
 
   let editingId: string | null = null;
@@ -90,977 +79,720 @@
   let editSignal: FeedbackSignal = 'unclear';
   let editSeverity: FeedbackSeverity = 'medium';
   let editComment = '';
-  let editState: WriteState = 'idle';
+  let editState: LoadState = 'idle';
   let editError = '';
-  let editErrorCode = '';
 
-  let editPathError = '';
-  let editCommentError = '';
-
-  // ---------------------------------------------------------------------------
-  // Delete state
-  // ---------------------------------------------------------------------------
-
-  let deletingId: string | null = null;
-  let deleteState: WriteState = 'idle';
-  let deleteError = '';
-  let deleteErrorCode = '';
-
-  // ---------------------------------------------------------------------------
-  // Normalise state
-  // ---------------------------------------------------------------------------
-
-  let normaliseState: WriteState = 'idle';
+  let normaliseState: LoadState = 'idle';
   let normaliseError = '';
-  let normaliseResult: FeedbackNormaliseResponse | null = null;
-
-  // ---------------------------------------------------------------------------
-  // Raw JSON toggles
-  // ---------------------------------------------------------------------------
-
-  let showRawFeedback = false;
-  let showRawTasks = false;
-  let showRawWriteResult = false;
-  let writeResultForRaw: unknown = null;
-
-  // ---------------------------------------------------------------------------
-  // Constants
-  // ---------------------------------------------------------------------------
-
-  const SOURCES: FeedbackSource[] = ['human', 'agent', 'system'];
-  const SIGNALS: FeedbackSignal[] = [
-    'unclear',
-    'incomplete',
-    'outdated',
-    'incorrect',
-    'agent_failed',
-    'needs_example',
-    'needs_constraints',
-    'useful',
-    'agent_succeeded',
-  ];
-  const SEVERITIES: FeedbackSeverity[] = ['low', 'medium', 'high', 'critical'];
-
-  // ---------------------------------------------------------------------------
-  // Derived / reactive
-  // ---------------------------------------------------------------------------
-
-  $: filteredEntries = (() => {
-    if (!feedbackData) return [];
-    let entries = [...feedbackData.entries];
-    const pathQ = filterPath.trim().toLowerCase();
-    if (pathQ) entries = entries.filter(e => e.path.toLowerCase().includes(pathQ));
-    if (filterSignal) entries = entries.filter(e => e.signal === filterSignal);
-    if (filterSeverity) entries = entries.filter(e => e.severity === filterSeverity);
-    if (filterSource) entries = entries.filter(e => e.source === filterSource);
-    // newest first
-    entries.sort((a, b) => b.created_at.localeCompare(a.created_at));
-    return entries;
-  })();
-
-  $: feedbackCount = feedbackData?.entries.length ?? 0;
-  $: warningCount = feedbackData?.warnings.length ?? 0;
-  $: errorCount = Array.isArray(feedbackData?.errors) ? (feedbackData!.errors as unknown[]).length : 0;
-  $: taskCount = tasksData?.total ?? 0;
-  $: feedbackAdjustedCount = (() => {
-    if (!tasksData) return 0;
-    return (tasksData.tasks ?? []).filter(t => t.feedback_weight !== undefined).length;
-  })();
-  $: highestPriorityTask = (() => {
-    if (!tasksData || !tasksData.tasks || tasksData.tasks.length === 0) return null;
-    return tasksData.tasks.reduce((a, b) => (b.priority > a.priority ? b : a));
-  })();
-
-  $: hasFilters = !!(filterPath || filterSignal || filterSeverity || filterSource);
-
-  // Add form validation
-  $: {
-    const p = addPath.trim();
-    if (!p) {
-      addPathError = 'Path is required.';
-    } else if (p.includes('..')) {
-      addPathError = 'Path must not contain ".." traversal.';
-    } else {
-      addPathError = '';
-    }
-  }
-  $: {
-    const c = addComment.trim();
-    if (!c) {
-      addCommentError = 'Comment is required.';
-    } else if (c.length > 2000) {
-      addCommentError = `Comment too long (${c.length}/2000).`;
-    } else {
-      addCommentError = '';
-    }
-  }
-  $: canAdd =
-    !addPathError &&
-    !addCommentError &&
-    addPath.trim() !== '' &&
-    addComment.trim() !== '' &&
-    addState !== 'loading';
-
-  // Edit form validation
-  $: {
-    const p = editPath.trim();
-    if (editingId !== null) {
-      if (!p) {
-        editPathError = 'Path is required.';
-      } else if (p.includes('..')) {
-        editPathError = 'Path must not contain ".." traversal.';
-      } else {
-        editPathError = '';
-      }
-    } else {
-      editPathError = '';
-    }
-  }
-  $: {
-    const c = editComment.trim();
-    if (editingId !== null) {
-      if (!c) {
-        editCommentError = 'Comment is required.';
-      } else if (c.length > 2000) {
-        editCommentError = `Comment too long (${c.length}/2000).`;
-      } else {
-        editCommentError = '';
-      }
-    } else {
-      editCommentError = '';
-    }
-  }
-  $: canEdit =
-    editingId !== null &&
-    !editPathError &&
-    !editCommentError &&
-    editPath.trim() !== '' &&
-    editComment.trim() !== '' &&
-    editState !== 'loading';
 
   // ---------------------------------------------------------------------------
   // Lifecycle
   // ---------------------------------------------------------------------------
 
   onMount(async () => {
-    const result = await fetchVaults();
+    const stored = getStoredVault();
+    const resp = await fetchVaults();
     vaultsLoading = false;
-    if (isOk(result)) {
-      vaultList = result.data.vaults;
-      if (vaultList.length > 0) {
-        const stored = getStoredVault();
-        selectedVault = (stored && vaultList.includes(stored)) ? stored : vaultList[0];
-        await loadAll();
-      }
-    } else {
-      vaultsError = result.error?.message ?? 'Failed to load vaults';
+    if (!isOk(resp)) {
+      vaultsError = resp.error?.message ?? 'Failed to load vaults';
+      return;
     }
+    vaultList = resp.data.vaults;
+    selectedVault = stored && vaultList.includes(stored) ? stored : (vaultList[0] ?? '');
+    if (selectedVault) await loadAll();
   });
 
   async function loadAll() {
-    await Promise.all([loadFeedback(), loadTasks()]);
-  }
-
-  async function loadFeedback() {
     if (!selectedVault) return;
     feedbackState = 'loading';
-    feedbackLoadError = '';
-    const result = await fetchFeedback(selectedVault);
-    if (isOk(result)) {
-      feedbackData = result.data;
+    tasksState = 'loading';
+    entries = [];
+    tasks = [];
+    feedbackError = '';
+    tasksError = '';
+    feedbackWarnings = [];
+
+    const [fr, tr] = await Promise.all([
+      fetchFeedback(selectedVault),
+      fetchTasks(selectedVault, { include_feedback: true }),
+    ]);
+
+    if (isOk(fr)) {
+      entries = fr.data.entries;
+      feedbackWarnings = fr.data.warnings;
       feedbackState = 'ok';
     } else {
-      feedbackLoadError = result.error?.message ?? 'Failed to load feedback';
+      feedbackError = fr.error?.message ?? 'Failed to load feedback';
       feedbackState = 'error';
     }
-  }
 
-  async function loadTasks() {
-    if (!selectedVault) return;
-    tasksState = 'loading';
-    tasksError = '';
-    const result = await fetchTasks(selectedVault, { include_feedback: true, limit: 10 });
-    if (isOk(result)) {
-      tasksData = result.data;
+    if (isOk(tr)) {
+      tasks = tr.data.tasks;
       tasksState = 'ok';
     } else {
-      tasksError = result.error?.message ?? 'Failed to load tasks';
+      tasksError = tr.error?.message ?? 'Failed to load tasks';
       tasksState = 'error';
     }
   }
 
-  async function onVaultChange() {
-    editingId = null;
-    deletingId = null;
-    addState = 'idle';
-    normaliseState = 'idle';
-    await loadAll();
+  function handleVaultChange() {
+    if (selectedVault) loadAll();
   }
 
-  // ---------------------------------------------------------------------------
-  // Add feedback
-  // ---------------------------------------------------------------------------
-
-  async function handleAdd() {
-    if (!canAdd) return;
+  async function submitAdd() {
+    if (!selectedVault || !addPath.trim() || !addComment.trim()) return;
     addState = 'loading';
     addError = '';
-    addErrorCode = '';
-    addResult = null;
-
-    const req: FeedbackCreateRequest = {
+    const resp = await createFeedback({
       vault: selectedVault,
       path: addPath.trim(),
       source: addSource,
       signal: addSignal,
       severity: addSeverity,
       comment: addComment.trim(),
-    };
-    const result = await createFeedback(req);
-    if (isOk(result)) {
-      addState = 'ok';
-      addResult = result.data;
-      writeResultForRaw = result.data;
-      // Reset form
-      addPath = '';
-      addSource = 'human';
-      addSignal = 'unclear';
-      addSeverity = 'medium';
-      addComment = '';
-      // Update local state from server response
-      if (result.data.feedback) {
-        feedbackData = result.data.feedback;
-        feedbackState = 'ok';
-      } else {
-        await loadFeedback();
-      }
-      await loadTasks();
-    } else {
+    });
+    if (!isOk(resp)) {
       addState = 'error';
-      addError = result.error?.message ?? 'Failed to add feedback';
-      addErrorCode = result.error?.code ?? '';
+      addError = resp.error?.message ?? 'Failed to add feedback';
+      return;
     }
+    addState = 'ok';
+    addPath = '';
+    addComment = '';
+    addOpen = false;
+    entries = resp.data.feedback.entries;
   }
-
-  // ---------------------------------------------------------------------------
-  // Edit feedback
-  // ---------------------------------------------------------------------------
 
   function startEdit(entry: FeedbackEntry) {
     editingId = entry.id ?? null;
-    if (!editingId) return; // cannot edit without id
     editPath = entry.path;
-    editSource = (entry.source as FeedbackSource) || 'human';
-    editSignal = (entry.signal as FeedbackSignal) || 'unclear';
-    editSeverity = (entry.severity as FeedbackSeverity) || 'medium';
+    editSource = (entry.source as FeedbackSource) ?? 'human';
+    editSignal = (entry.signal as FeedbackSignal) ?? 'unclear';
+    editSeverity = (entry.severity as FeedbackSeverity) ?? 'medium';
     editComment = entry.comment;
     editState = 'idle';
     editError = '';
-    editErrorCode = '';
-    deletingId = null;
   }
 
   function cancelEdit() {
     editingId = null;
-    editState = 'idle';
     editError = '';
   }
 
-  async function handleUpdate() {
-    if (!canEdit || !editingId) return;
+  async function submitEdit() {
+    if (!editingId) return;
     editState = 'loading';
     editError = '';
-    editErrorCode = '';
-
-    const req: FeedbackUpdateRequest = {
+    const resp = await updateFeedback(editingId, {
       vault: selectedVault,
-      path: editPath.trim(),
+      path: editPath,
       source: editSource,
       signal: editSignal,
       severity: editSeverity,
-      comment: editComment.trim(),
-    };
-    const result = await updateFeedback(editingId, req);
-    if (isOk(result)) {
-      editState = 'ok';
-      writeResultForRaw = result.data;
-      if (result.data.feedback) {
-        feedbackData = result.data.feedback;
-        feedbackState = 'ok';
-      } else {
-        await loadFeedback();
-      }
-      await loadTasks();
-      editingId = null;
-    } else {
+      comment: editComment,
+    });
+    if (!isOk(resp)) {
       editState = 'error';
-      editError = result.error?.message ?? 'Failed to update feedback';
-      editErrorCode = result.error?.code ?? '';
+      editError = resp.error?.message ?? 'Failed to update feedback';
+      return;
     }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Delete feedback
-  // ---------------------------------------------------------------------------
-
-  function confirmDelete(entry: FeedbackEntry) {
-    deletingId = entry.id ?? null;
-    if (!deletingId) return;
-    deleteState = 'idle';
-    deleteError = '';
+    editState = 'ok';
     editingId = null;
+    entries = resp.data.feedback.entries;
   }
 
-  function cancelDelete() {
-    deletingId = null;
-    deleteState = 'idle';
-    deleteError = '';
-  }
-
-  async function handleDelete() {
-    if (!deletingId) return;
-    deleteState = 'loading';
-    deleteError = '';
-    deleteErrorCode = '';
-
-    const result = await deleteFeedback(deletingId, selectedVault);
-    if (isOk(result)) {
-      writeResultForRaw = result.data;
-      if (result.data.feedback) {
-        feedbackData = result.data.feedback;
-        feedbackState = 'ok';
-      } else {
-        await loadFeedback();
-      }
-      await loadTasks();
-      deletingId = null;
-      deleteState = 'idle';
-    } else {
-      deleteState = 'error';
-      deleteError = result.error?.message ?? 'Failed to delete feedback';
-      deleteErrorCode = result.error?.code ?? '';
+  async function submitDelete(entry: FeedbackEntry) {
+    if (!entry.id) return;
+    const ok = window.confirm(`Delete feedback for "${entry.path}"?`);
+    if (!ok) return;
+    const resp = await deleteFeedback(entry.id, selectedVault);
+    if (!isOk(resp)) {
+      feedbackError = resp.error?.message ?? 'Failed to delete feedback';
+      feedbackState = 'error';
+      return;
     }
+    entries = resp.data.feedback.entries;
   }
 
-  // ---------------------------------------------------------------------------
-  // Normalise
-  // ---------------------------------------------------------------------------
-
-  async function handleNormalise() {
+  async function runNormalise() {
     normaliseState = 'loading';
     normaliseError = '';
-    normaliseResult = null;
-    const result = await normaliseFeedback(selectedVault);
-    if (isOk(result)) {
-      normaliseState = 'ok';
-      normaliseResult = result.data;
-      writeResultForRaw = result.data;
-      if (result.data.feedback) {
-        feedbackData = result.data.feedback;
-        feedbackState = 'ok';
-      } else {
-        await loadFeedback();
-      }
-    } else {
+    const resp = await normaliseFeedback(selectedVault);
+    if (!isOk(resp)) {
       normaliseState = 'error';
-      normaliseError = result.error?.message ?? 'Normalise failed';
+      normaliseError = resp.error?.message ?? 'Failed to normalise feedback';
+      return;
     }
+    normaliseState = 'ok';
+    entries = resp.data.feedback.entries;
   }
+
+  // ---------------------------------------------------------------------------
+  // Derived
+  // ---------------------------------------------------------------------------
+
+  $: rawDeepLink = buildRawDeepLink('feedback', selectedVault, 'feedback');
+
+  $: counts = (() => {
+    const c = {
+      total: entries.length,
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      resolved: 0,
+      open: 0,
+      tasks: tasks.length,
+      feedback_adjusted: 0,
+    };
+    for (const e of entries) {
+      if (e.severity === 'critical') c.critical += 1;
+      else if (e.severity === 'high') c.high += 1;
+      else if (e.severity === 'medium') c.medium += 1;
+      else if (e.severity === 'low') c.low += 1;
+      if (isResolvedSignal(String(e.signal))) c.resolved += 1;
+      else c.open += 1;
+    }
+    for (const t of tasks) {
+      if (t.feedback_weight) c.feedback_adjusted += 1;
+    }
+    return c;
+  })();
+
+  $: filteredEntries = (() => {
+    let rows = entries.slice();
+    if (filterSeverity) rows = rows.filter((e) => e.severity === filterSeverity);
+    if (filterSignal) rows = rows.filter((e) => e.signal === filterSignal);
+    if (filterSource) rows = rows.filter((e) => e.source === filterSource);
+    if (filterResolved === 'open') rows = rows.filter((e) => !isResolvedSignal(String(e.signal)));
+    if (filterResolved === 'resolved') rows = rows.filter((e) => isResolvedSignal(String(e.signal)));
+    const q = filterText.trim().toLowerCase();
+    if (q) rows = rows.filter((e) => e.path.toLowerCase().includes(q) || e.comment.toLowerCase().includes(q));
+
+    // Deterministic sort: severity first (severityWeight), then open before resolved, then path.
+    rows.sort((a, b) => {
+      const wa = severityWeight(String(a.severity));
+      const wb = severityWeight(String(b.severity));
+      if (wa !== wb) return wa - wb;
+      const ra = isResolvedSignal(String(a.signal)) ? 1 : 0;
+      const rb = isResolvedSignal(String(b.signal)) ? 1 : 0;
+      if (ra !== rb) return ra - rb;
+      if (a.path < b.path) return -1;
+      if (a.path > b.path) return 1;
+      return 0;
+    });
+    return rows;
+  })();
+
+  $: banner = (() => {
+    if (feedbackState === 'error') {
+      return { severity: 'danger' as const, title: 'Could not load feedback', body: feedbackError };
+    }
+    if (counts.critical > 0) {
+      return {
+        severity: 'danger' as const,
+        title: `${counts.critical} critical feedback entries`,
+        body: 'Critical entries should be triaged before relying on this vault.',
+      };
+    }
+    if (counts.high > 0) {
+      return {
+        severity: 'warning' as const,
+        title: `${counts.high} high-severity feedback entries`,
+        body: 'High-severity entries indicate notes that may be unreliable.',
+      };
+    }
+    if (feedbackState === 'ok' && entries.length === 0) {
+      return {
+        severity: 'info' as const,
+        title: 'No feedback entries',
+        body: 'No human, agent, or system feedback has been logged for this vault.',
+      };
+    }
+    return null;
+  })();
 
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
 
-  function clearFilters() {
-    filterPath = '';
-    filterSignal = '';
-    filterSeverity = '';
-    filterSource = '';
+  function severityTag(s: string): string {
+    if (s === 'critical') return 'cve-p30e1-tag cve-p30e1-tag--critical';
+    if (s === 'high') return 'cve-p30e1-tag cve-p30e1-tag--high';
+    if (s === 'medium') return 'cve-p30e1-tag cve-p30e1-tag--medium';
+    if (s === 'low') return 'cve-p30e1-tag cve-p30e1-tag--low';
+    return 'cve-p30e1-tag';
   }
 
-  function severityClass(s: string): string {
-    if (s === 'critical') return 'bg-red-900 text-red-300 border border-red-700';
-    if (s === 'high') return 'bg-orange-900 text-orange-300 border border-orange-700';
-    if (s === 'medium') return 'bg-yellow-900 text-yellow-300 border border-yellow-700';
-    return 'bg-zinc-800 text-zinc-400 border border-zinc-600';
+  function signalTag(sig: string): string {
+    if (isResolvedSignal(sig)) return 'cve-p30e1-tag cve-p30e1-tag--resolved';
+    return 'cve-p30e1-tag cve-p30e1-tag--pending';
   }
 
-  function signalClass(s: string): string {
-    if (s === 'useful' || s === 'agent_succeeded') return 'bg-emerald-900 text-emerald-300 border border-emerald-700';
-    if (s === 'incorrect' || s === 'agent_failed') return 'bg-red-900 text-red-300 border border-red-700';
-    return 'bg-sky-900 text-sky-300 border border-sky-700';
+  function notesLink(path: string): string {
+    const params = new URLSearchParams();
+    if (selectedVault) params.set('vault', selectedVault);
+    params.set('path', path);
+    return `/app/notes?${params.toString()}`;
   }
 
-  function fmtDate(dt: string | undefined): string {
-    if (!dt) return '—';
+  function tasksLink(): string {
+    const params = new URLSearchParams();
+    if (selectedVault) params.set('vault', selectedVault);
+    return `/app/tasks?${params.toString()}`;
+  }
+
+  function validationLink(): string {
+    const params = new URLSearchParams();
+    if (selectedVault) params.set('vault', selectedVault);
+    return `/app/validation?${params.toString()}`;
+  }
+
+  function fmtDate(iso: string | undefined): string {
+    if (!iso) return '-';
     try {
-      return new Date(dt).toLocaleString();
+      return new Date(iso).toLocaleString();
     } catch {
-      return dt;
+      return iso;
     }
   }
 </script>
 
-<!-- ═══════════════════════════════════════════════════════════════════════════
-     TEMPLATE
-     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="cve-page cve-p30e1-page">
 
-<!-- Loading / error state -->
-{#if vaultsLoading}
-  <div class="text-zinc-400 text-sm py-8 text-center">Loading vaults...</div>
-{:else if vaultsError}
-  <div class="rounded-md bg-red-950 border border-red-700 px-4 py-3 text-sm text-red-300">{vaultsError}</div>
-{:else if vaultList.length === 0}
-  <div class="rounded-md bg-zinc-900 border border-zinc-700 px-4 py-6 text-center text-zinc-400 text-sm">
-    No vaults registered. Use Vault Setup to create one.
-  </div>
-{:else}
-
-<!-- ── Vault selector ─────────────────────────────────────────────────────── -->
-<div class="cve-page-header mb-6 flex flex-wrap items-center gap-3">
-  <label class="text-sm text-zinc-400 shrink-0" for="vault-select">Vault</label>
-  <select
-    id="vault-select"
-    class="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-sky-600"
-    bind:value={selectedVault}
-    on:change={onVaultChange}
-  >
-    {#each vaultList as v}
-      <option value={v}>{v}</option>
-    {/each}
-  </select>
-  <button
-    class="ml-auto px-3 py-1.5 rounded-md bg-zinc-800 text-zinc-300 text-sm hover:bg-zinc-700 transition-colors"
-    on:click={loadAll}
-    disabled={feedbackState === 'loading' || tasksState === 'loading'}
-  >
-    Refresh
-  </button>
-</div>
-
-<!-- ── Summary cards ─────────────────────────────────────────────────────── -->
-<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-  <div class="rounded-md bg-zinc-900 border border-zinc-800 px-3 py-3">
-    <div class="text-xs text-zinc-500 mb-1">Feedback entries</div>
-    <div class="text-xl font-semibold text-zinc-100">{feedbackCount}</div>
-  </div>
-  <div class="rounded-md bg-zinc-900 border border-zinc-800 px-3 py-3">
-    <div class="text-xs text-zinc-500 mb-1">Warnings</div>
-    <div class="text-xl font-semibold {warningCount > 0 ? 'text-yellow-400' : 'text-zinc-100'}">{warningCount}</div>
-  </div>
-  <div class="rounded-md bg-zinc-900 border border-zinc-800 px-3 py-3">
-    <div class="text-xs text-zinc-500 mb-1">Errors</div>
-    <div class="text-xl font-semibold {errorCount > 0 ? 'text-red-400' : 'text-zinc-100'}">{errorCount}</div>
-  </div>
-  <div class="rounded-md bg-zinc-900 border border-zinc-800 px-3 py-3">
-    <div class="text-xs text-zinc-500 mb-1">Tasks</div>
-    <div class="text-xl font-semibold text-zinc-100">{taskCount}</div>
-  </div>
-  <div class="rounded-md bg-zinc-900 border border-zinc-800 px-3 py-3">
-    <div class="text-xs text-zinc-500 mb-1">Feedback-adjusted</div>
-    <div class="text-xl font-semibold text-sky-400">{feedbackAdjustedCount}</div>
-  </div>
-  <div class="rounded-md bg-zinc-900 border border-zinc-800 px-3 py-3">
-    <div class="text-xs text-zinc-500 mb-1">Top priority</div>
-    <div class="text-sm font-semibold text-zinc-100 truncate" title={highestPriorityTask?.path ?? '—'}>
-      {#if highestPriorityTask}
-        <span class="text-orange-400">{highestPriorityTask.priority}</span>
-        <span class="text-zinc-500 ml-1 text-xs font-normal">{highestPriorityTask.path.split('/').pop()}</span>
-      {:else}
-        —
-      {/if}
-    </div>
-  </div>
-</div>
-
-<!-- ── Main two-column layout ─────────────────────────────────────────────── -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-  <!-- ── LEFT COLUMN ───────────────────────────────────────────────────────── -->
-  <div class="flex flex-col gap-6">
-
-    <!-- Feedback list panel -->
-    <div class="rounded-lg bg-zinc-900 border border-zinc-800">
-      <div class="px-4 py-3 border-b border-zinc-800 flex items-center justify-between gap-2 flex-wrap">
-        <h2 class="text-sm font-semibold text-zinc-200">Feedback Entries</h2>
-        {#if feedbackState === 'loading'}
-          <span class="text-xs text-zinc-500">Loading...</span>
+  <!-- Toolbar -->
+  <header class="cve-toolbar">
+    <div class="cve-toolbar__main">
+      <h1 class="cve-toolbar__title">Feedback Triage</h1>
+      <div class="cve-toolbar__meta">
+        <span
+          class="cve-p30e1-pill"
+          class:cve-p30e1-pill--pending={counts.open > 0}
+          data-testid="feedback-state-pill"
+        >{counts.open} open</span>
+        {#if selectedVault}
+          <span>Vault: <code class="cve-p30e1-mono">{selectedVault}</code></span>
         {/if}
+        <span>Tasks: {counts.tasks}</span>
       </div>
-
-      <!-- Filters -->
-      <div class="px-4 py-3 border-b border-zinc-800 grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <input
-          type="text"
-          class="bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-sky-600"
-          placeholder="Filter by path…"
-          bind:value={filterPath}
-        />
-        <select
-          class="bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-600"
-          bind:value={filterSignal}
-        >
-          <option value="">All signals</option>
-          {#each SIGNALS as s}
-            <option value={s}>{s}</option>
-          {/each}
-        </select>
-        <select
-          class="bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-600"
-          bind:value={filterSeverity}
-        >
-          <option value="">All severities</option>
-          {#each SEVERITIES as s}
-            <option value={s}>{s}</option>
-          {/each}
-        </select>
-        <select
-          class="bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-600"
-          bind:value={filterSource}
-        >
-          <option value="">All sources</option>
-          {#each SOURCES as s}
-            <option value={s}>{s}</option>
-          {/each}
-        </select>
-        {#if hasFilters}
-          <button
-            class="sm:col-span-2 text-xs text-sky-400 hover:text-sky-300 text-left"
-            on:click={clearFilters}
+      <div class="cve-toolbar__actions">
+        {#if vaultList.length > 1}
+          <label class="cve-label cve-p30e1-inline-label" for="feedback-vault-select">Vault</label>
+          <select
+            id="feedback-vault-select"
+            class="cve-select cve-p30e1-inline-select"
+            bind:value={selectedVault}
+            on:change={handleVaultChange}
+            aria-label="Active vault"
           >
-            Clear filters
-          </button>
-        {/if}
-      </div>
-
-      <!-- Backend warnings/errors -->
-      {#if feedbackData?.warnings && feedbackData.warnings.length > 0}
-        <div class="mx-4 mt-3 rounded bg-yellow-950 border border-yellow-800 px-3 py-2 text-xs text-yellow-300">
-          <strong>Warnings:</strong>
-          <ul class="mt-1 space-y-0.5 list-disc list-inside">
-            {#each feedbackData.warnings as w}
-              <li>{w}</li>
+            {#each vaultList as v}
+              <option value={v}>{v}</option>
             {/each}
+          </select>
+        {/if}
+        <button
+          type="button"
+          class="cve-btn cve-btn-primary"
+          data-testid="feedback-add-action"
+          on:click={() => { addOpen = true; addState = 'idle'; addError = ''; }}
+          disabled={!selectedVault}
+        >Add Feedback</button>
+        <button
+          type="button"
+          class="cve-btn cve-btn-secondary"
+          on:click={loadAll}
+          disabled={!selectedVault || feedbackState === 'loading'}
+          aria-label="Refresh feedback"
+        >
+          {feedbackState === 'loading' ? 'Refreshing' : 'Refresh'}
+        </button>
+        <button
+          type="button"
+          class="cve-btn cve-btn-ghost"
+          on:click={runNormalise}
+          disabled={!selectedVault || normaliseState === 'loading'}
+        >
+          {normaliseState === 'loading' ? 'Normalising' : 'Normalise IDs'}
+        </button>
+        <a class="cve-details__developer-link" href={rawDeepLink}>Open in Developer</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Vault load states -->
+  {#if vaultsLoading}
+    <div class="cve-banner cve-banner--info"><div class="cve-banner__body">Loading vaults...</div></div>
+  {:else if vaultsError}
+    <div class="cve-banner cve-banner--danger">
+      <div>
+        <div class="cve-banner__title">Could not load vaults</div>
+        <div class="cve-banner__body">{vaultsError}</div>
+      </div>
+    </div>
+  {:else if vaultList.length === 0}
+    <div class="cve-banner cve-banner--info">
+      <div>
+        <div class="cve-banner__title">No vaults registered</div>
+        <div class="cve-banner__body">
+          Use <a class="cve-link" href="/app/vault-setup">Vault Setup</a> to create one.
+        </div>
+      </div>
+    </div>
+  {:else}
+
+    {#if banner}
+      <section
+        class="cve-banner cve-banner--{banner.severity}"
+        role="status"
+        aria-live="polite"
+      >
+        <div>
+          <div class="cve-banner__title">{banner.title}</div>
+          <div class="cve-banner__body">{banner.body}</div>
+        </div>
+      </section>
+    {/if}
+
+    {#if feedbackWarnings.length > 0}
+      <section class="cve-banner cve-banner--warning" role="status">
+        <div>
+          <div class="cve-banner__title">Feedback warnings</div>
+          <ul class="cve-banner__body">
+            {#each feedbackWarnings as w}<li>{w}</li>{/each}
           </ul>
         </div>
-      {/if}
-      {#if feedbackData?.errors && (feedbackData.errors as unknown[]).length > 0}
-        <div class="mx-4 mt-2 rounded bg-red-950 border border-red-800 px-3 py-2 text-xs text-red-300">
-          <strong>Errors:</strong>
-          <ul class="mt-1 space-y-0.5 list-disc list-inside">
-            {#each feedbackData.errors as e}
-              <li>{typeof e === 'string' ? e : JSON.stringify(e)}</li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
+      </section>
+    {/if}
 
-      <!-- Error state -->
-      {#if feedbackState === 'error'}
-        <div class="mx-4 my-3 rounded bg-red-950 border border-red-700 px-3 py-2 text-sm text-red-300">{feedbackLoadError}</div>
-      {/if}
+    {#if normaliseState === 'error'}
+      <div class="cve-banner cve-banner--danger"><div><div class="cve-banner__body">{normaliseError}</div></div></div>
+    {/if}
 
-      <!-- Entry list -->
-      <div class="divide-y divide-zinc-800">
-        {#if feedbackState !== 'loading' && filteredEntries.length === 0}
-          <div class="px-4 py-8 text-center text-sm text-zinc-500">
-            {feedbackData && feedbackData.entries.length > 0 ? 'No entries match current filters.' : 'No feedback entries found.'}
-          </div>
-        {/if}
-        {#each filteredEntries as entry (entry.id ?? entry.created_at + entry.path)}
-          <div class="px-4 py-3 text-sm {editingId === entry.id ? 'bg-zinc-800/60' : 'hover:bg-zinc-800/30'} transition-colors">
-            <!-- Entry header row -->
-            <div class="flex items-start gap-2 flex-wrap">
-              <div class="flex-1 min-w-0">
-                <div class="font-mono text-xs text-zinc-500 mb-0.5">
-                  {#if entry.id}
-                    <span class="text-zinc-600">id:</span> {entry.id}
-                  {:else}
-                    <span class="text-yellow-600 italic">no id</span>
-                  {/if}
-                </div>
-                <div class="text-zinc-200 font-medium truncate" title={entry.path}>{entry.path}</div>
-              </div>
-              <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
-                <span class="text-xs px-1.5 py-0.5 rounded font-mono {severityClass(entry.severity)}">{entry.severity}</span>
-                <span class="text-xs px-1.5 py-0.5 rounded font-mono {signalClass(entry.signal)}">{entry.signal}</span>
-                <span class="text-xs px-1.5 py-0.5 rounded font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">{entry.source}</span>
-              </div>
-            </div>
-            <!-- Comment -->
-            <p class="mt-1.5 text-zinc-400 text-xs leading-relaxed">{entry.comment}</p>
-            <!-- Dates -->
-            <div class="mt-1 flex gap-3 text-xs text-zinc-600">
-              <span>Created: {fmtDate(entry.created_at)}</span>
-              {#if entry.updated_at}
-                <span>Updated: {fmtDate(entry.updated_at)}</span>
-              {/if}
-            </div>
-            <!-- Actions -->
-            <div class="mt-2 flex gap-2">
-              {#if entry.id}
-                <button
-                  class="text-xs px-2 py-1 rounded bg-zinc-800 text-sky-400 hover:bg-sky-900 hover:text-sky-200 transition-colors border border-zinc-700"
-                  on:click={() => startEdit(entry)}
-                  disabled={editingId === entry.id || deleteState === 'loading'}
-                >
-                  Edit
-                </button>
-                <button
-                  class="text-xs px-2 py-1 rounded bg-zinc-800 text-red-400 hover:bg-red-900 hover:text-red-200 transition-colors border border-zinc-700"
-                  on:click={() => confirmDelete(entry)}
-                  disabled={deletingId === entry.id || deleteState === 'loading'}
-                >
-                  Delete
-                </button>
-              {:else}
-                <span class="text-xs text-yellow-600 italic">Normalise IDs to enable edit/delete</span>
-              {/if}
-            </div>
-
-            <!-- Delete confirmation -->
-            {#if deletingId === entry.id}
-              <div class="mt-3 rounded-md bg-red-950 border border-red-700 px-3 py-3">
-                <p class="text-sm text-red-300 mb-3">
-                  Delete this feedback entry permanently?
-                  <br /><span class="font-mono text-xs text-red-400">{entry.id}</span>
-                </p>
-                {#if deleteState === 'error'}
-                  <div class="mb-2 text-xs text-red-400">
-                    {deleteError}
-                    {#if deleteErrorCode}<span class="ml-1 font-mono text-red-600">[{deleteErrorCode}]</span>{/if}
-                  </div>
-                {/if}
-                <div class="flex gap-2">
-                  <button
-                    class="px-3 py-1.5 rounded bg-red-700 text-white text-xs hover:bg-red-600 transition-colors"
-                    on:click={handleDelete}
-                    disabled={deleteState === 'loading'}
-                  >
-                    {deleteState === 'loading' ? 'Deleting…' : 'Confirm Delete'}
-                  </button>
-                  <button
-                    class="px-3 py-1.5 rounded bg-zinc-800 text-zinc-300 text-xs hover:bg-zinc-700 transition-colors"
-                    on:click={cancelDelete}
-                    disabled={deleteState === 'loading'}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            {/if}
-
-            <!-- Inline edit form -->
-            {#if editingId === entry.id}
-              <div class="mt-3 rounded-md bg-zinc-800 border border-zinc-700 px-3 py-3">
-                <h3 class="text-xs font-semibold text-zinc-300 mb-3">Edit feedback</h3>
-                <!-- Path -->
-                <div class="mb-2">
-                  <label class="block text-xs text-zinc-400 mb-1">Path <span class="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    class="w-full bg-zinc-900 border border-zinc-600 rounded px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-600 {editPathError ? 'border-red-600' : ''}"
-                    bind:value={editPath}
-                  />
-                  {#if editPathError}<p class="text-xs text-red-400 mt-1">{editPathError}</p>{/if}
-                </div>
-                <!-- Source / Signal / Severity row -->
-                <div class="grid grid-cols-3 gap-2 mb-2">
-                  <div>
-                    <label class="block text-xs text-zinc-400 mb-1">Source</label>
-                    <select class="w-full bg-zinc-900 border border-zinc-600 rounded px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-600" bind:value={editSource}>
-                      {#each SOURCES as s}<option value={s}>{s}</option>{/each}
-                    </select>
-                  </div>
-                  <div>
-                    <label class="block text-xs text-zinc-400 mb-1">Signal</label>
-                    <select class="w-full bg-zinc-900 border border-zinc-600 rounded px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-600" bind:value={editSignal}>
-                      {#each SIGNALS as s}<option value={s}>{s}</option>{/each}
-                    </select>
-                  </div>
-                  <div>
-                    <label class="block text-xs text-zinc-400 mb-1">Severity</label>
-                    <select class="w-full bg-zinc-900 border border-zinc-600 rounded px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-600" bind:value={editSeverity}>
-                      {#each SEVERITIES as s}<option value={s}>{s}</option>{/each}
-                    </select>
-                  </div>
-                </div>
-                <!-- Comment -->
-                <div class="mb-2">
-                  <label class="block text-xs text-zinc-400 mb-1">Comment <span class="text-red-500">*</span></label>
-                  <textarea
-                    rows="3"
-                    class="w-full bg-zinc-900 border border-zinc-600 rounded px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-600 resize-y {editCommentError ? 'border-red-600' : ''}"
-                    bind:value={editComment}
-                  ></textarea>
-                  {#if editCommentError}
-                    <p class="text-xs text-red-400 mt-1">{editCommentError}</p>
-                  {:else}
-                    <p class="text-xs text-zinc-600 mt-1">{editComment.trim().length}/2000</p>
-                  {/if}
-                </div>
-                {#if editState === 'error'}
-                  <div class="mb-2 text-xs text-red-400">
-                    {editError}
-                    {#if editErrorCode}<span class="ml-1 font-mono text-red-600">[{editErrorCode}]</span>{/if}
-                  </div>
-                {/if}
-                <div class="flex gap-2">
-                  <button
-                    class="px-3 py-1.5 rounded bg-sky-700 text-white text-xs hover:bg-sky-600 transition-colors disabled:opacity-50"
-                    on:click={handleUpdate}
-                    disabled={!canEdit}
-                  >
-                    {editState === 'loading' ? 'Saving…' : 'Save changes'}
-                  </button>
-                  <button
-                    class="px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 text-xs hover:bg-zinc-600 transition-colors"
-                    on:click={cancelEdit}
-                    disabled={editState === 'loading'}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            {/if}
-          </div>
-        {/each}
+    <!-- Status strip -->
+    <div class="cve-status-strip" aria-label="Feedback summary">
+      <div class="cve-status-tile" data-zero={counts.total === 0}>
+        <span class="cve-status-tile__label">Total</span>
+        <span class="cve-status-tile__value">{counts.total}</span>
       </div>
-
-      <!-- Raw feedback JSON -->
-      <div class="px-4 py-3 border-t border-zinc-800">
-        <details>
-          <summary class="text-xs text-zinc-500 cursor-pointer hover:text-zinc-400">Raw feedback response</summary>
-          <pre class="mt-2 text-xs text-zinc-400 bg-zinc-950 rounded p-3 overflow-auto max-h-64">{JSON.stringify(feedbackData, null, 2)}</pre>
-        </details>
+      <div class="cve-status-tile" data-zero={counts.critical === 0}>
+        <span class="cve-status-tile__label">Critical</span>
+        <span class="cve-status-tile__value">{counts.critical}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.high === 0}>
+        <span class="cve-status-tile__label">High</span>
+        <span class="cve-status-tile__value">{counts.high}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.open === 0}>
+        <span class="cve-status-tile__label">Open</span>
+        <span class="cve-status-tile__value">{counts.open}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.resolved === 0}>
+        <span class="cve-status-tile__label">Resolved</span>
+        <span class="cve-status-tile__value">{counts.resolved}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.tasks === 0}>
+        <span class="cve-status-tile__label">Tasks</span>
+        <span class="cve-status-tile__value">{counts.tasks}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.feedback_adjusted === 0}>
+        <span class="cve-status-tile__label">Feedback-adjusted</span>
+        <span class="cve-status-tile__value">{counts.feedback_adjusted}</span>
       </div>
     </div>
 
-    <!-- Add feedback panel -->
-    <div class="rounded-lg bg-zinc-900 border border-zinc-800">
-      <div class="px-4 py-3 border-b border-zinc-800">
-        <h2 class="text-sm font-semibold text-zinc-200">Add Feedback</h2>
-      </div>
-      <div class="px-4 py-4">
-        <!-- Path -->
-        <div class="mb-3">
-          <label class="block text-xs text-zinc-400 mb-1" for="add-path">Path <span class="text-red-500">*</span></label>
-          <input
-            id="add-path"
-            type="text"
-            class="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-sky-600 {addPathError && addPath !== '' ? 'border-red-600' : ''}"
-            placeholder="Fundamentals/Algorithms.md"
-            bind:value={addPath}
-          />
-          {#if addPathError && addPath !== ''}<p class="text-xs text-red-400 mt-1">{addPathError}</p>{/if}
+    <!-- Workbench: triage table + tasks panel -->
+    <div class="cve-workbench">
+
+      <section class="cve-workbench__rail cve-p30e1-rail" aria-label="Feedback triage queue">
+
+        <div class="cve-p30e1-rail__head">
+          <div class="cve-p30e1-filter-row" role="group" aria-label="Feedback filters">
+            <div class="cve-field">
+              <label class="cve-label" for="feedback-filter-severity">Severity</label>
+              <select id="feedback-filter-severity" class="cve-select" bind:value={filterSeverity}>
+                <option value="">All</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+            <div class="cve-field">
+              <label class="cve-label" for="feedback-filter-signal">Signal</label>
+              <select id="feedback-filter-signal" class="cve-select" bind:value={filterSignal}>
+                <option value="">All</option>
+                <option value="unclear">unclear</option>
+                <option value="incomplete">incomplete</option>
+                <option value="outdated">outdated</option>
+                <option value="incorrect">incorrect</option>
+                <option value="agent_failed">agent_failed</option>
+                <option value="needs_example">needs_example</option>
+                <option value="needs_constraints">needs_constraints</option>
+                <option value="useful">useful</option>
+                <option value="agent_succeeded">agent_succeeded</option>
+              </select>
+            </div>
+            <div class="cve-field">
+              <label class="cve-label" for="feedback-filter-source">Source</label>
+              <select id="feedback-filter-source" class="cve-select" bind:value={filterSource}>
+                <option value="">All</option>
+                <option value="human">human</option>
+                <option value="agent">agent</option>
+                <option value="system">system</option>
+              </select>
+            </div>
+            <div class="cve-field">
+              <label class="cve-label" for="feedback-filter-resolved">State</label>
+              <select id="feedback-filter-resolved" class="cve-select" bind:value={filterResolved}>
+                <option value="open">Open</option>
+                <option value="resolved">Resolved</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+            <div class="cve-field">
+              <label class="cve-label" for="feedback-filter-text">Search</label>
+              <input
+                id="feedback-filter-text"
+                class="cve-input"
+                type="search"
+                bind:value={filterText}
+                placeholder="path or comment"
+              />
+            </div>
+          </div>
         </div>
-        <!-- Source / Signal / Severity -->
-        <div class="grid grid-cols-3 gap-2 mb-3">
-          <div>
-            <label class="block text-xs text-zinc-400 mb-1" for="add-source">Source</label>
-            <select
-              id="add-source"
-              class="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-600"
-              bind:value={addSource}
-            >
-              {#each SOURCES as s}<option value={s}>{s}</option>{/each}
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs text-zinc-400 mb-1" for="add-signal">Signal</label>
-            <select
-              id="add-signal"
-              class="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-600"
-              bind:value={addSignal}
-            >
-              {#each SIGNALS as s}<option value={s}>{s}</option>{/each}
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs text-zinc-400 mb-1" for="add-severity">Severity</label>
-            <select
-              id="add-severity"
-              class="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-600"
-              bind:value={addSeverity}
-            >
-              {#each SEVERITIES as s}<option value={s}>{s}</option>{/each}
-            </select>
-          </div>
-        </div>
-        <!-- Comment -->
-        <div class="mb-3">
-          <label class="block text-xs text-zinc-400 mb-1" for="add-comment">Comment <span class="text-red-500">*</span></label>
-          <textarea
-            id="add-comment"
-            rows="3"
-            class="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-sky-600 resize-y {addCommentError && addComment !== '' ? 'border-red-600' : ''}"
-            placeholder="Describe the feedback…"
-            bind:value={addComment}
-          ></textarea>
-          {#if addCommentError && addComment !== ''}
-            <p class="text-xs text-red-400 mt-1">{addCommentError}</p>
+
+        <div class="cve-p30e1-rail__body" data-testid="feedback-triage-scroll">
+          {#if feedbackState === 'loading'}
+            <div class="cve-loading">Loading feedback...</div>
+          {:else if filteredEntries.length === 0}
+            <div class="cve-empty">No feedback matches the current filters.</div>
           {:else}
-            <p class="text-xs text-zinc-600 mt-1">{addComment.trim().length}/2000</p>
+            <div class="cve-table-wrap">
+              <table class="cve-table" data-testid="feedback-triage-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Severity</th>
+                    <th scope="col">Signal</th>
+                    <th scope="col">Source</th>
+                    <th scope="col">Path</th>
+                    <th scope="col">Comment</th>
+                    <th scope="col">Created</th>
+                    <th scope="col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each filteredEntries as entry (entry.id ?? entry.path + entry.created_at)}
+                    {#if editingId && entry.id === editingId}
+                      <tr>
+                        <td colspan="7">
+                          <div class="cve-p30e1-edit-form" role="form" aria-label="Edit feedback entry">
+                            <div class="cve-p30e1-filter-row">
+                              <div class="cve-field">
+                                <label class="cve-label" for="edit-path">Path</label>
+                                <input id="edit-path" class="cve-input" bind:value={editPath} />
+                              </div>
+                              <div class="cve-field">
+                                <label class="cve-label" for="edit-source">Source</label>
+                                <select id="edit-source" class="cve-select" bind:value={editSource}>
+                                  <option value="human">human</option>
+                                  <option value="agent">agent</option>
+                                  <option value="system">system</option>
+                                </select>
+                              </div>
+                              <div class="cve-field">
+                                <label class="cve-label" for="edit-signal">Signal</label>
+                                <select id="edit-signal" class="cve-select" bind:value={editSignal}>
+                                  <option value="unclear">unclear</option>
+                                  <option value="incomplete">incomplete</option>
+                                  <option value="outdated">outdated</option>
+                                  <option value="incorrect">incorrect</option>
+                                  <option value="agent_failed">agent_failed</option>
+                                  <option value="needs_example">needs_example</option>
+                                  <option value="needs_constraints">needs_constraints</option>
+                                  <option value="useful">useful</option>
+                                  <option value="agent_succeeded">agent_succeeded</option>
+                                </select>
+                              </div>
+                              <div class="cve-field">
+                                <label class="cve-label" for="edit-severity">Severity</label>
+                                <select id="edit-severity" class="cve-select" bind:value={editSeverity}>
+                                  <option value="critical">critical</option>
+                                  <option value="high">high</option>
+                                  <option value="medium">medium</option>
+                                  <option value="low">low</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div class="cve-field">
+                              <label class="cve-label" for="edit-comment">Comment</label>
+                              <textarea id="edit-comment" class="cve-textarea" bind:value={editComment} rows="3"></textarea>
+                            </div>
+                            {#if editState === 'error'}
+                              <div class="cve-error">{editError}</div>
+                            {/if}
+                            <div class="cve-p30e1-action-row">
+                              <button type="button" class="cve-btn cve-btn-primary" on:click={submitEdit} disabled={editState === 'loading'}>
+                                {editState === 'loading' ? 'Saving' : 'Save'}
+                              </button>
+                              <button type="button" class="cve-btn cve-btn-ghost" on:click={cancelEdit}>Cancel</button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    {:else}
+                      <tr>
+                        <td><span class={severityTag(String(entry.severity))}>{entry.severity}</span></td>
+                        <td><span class={signalTag(String(entry.signal))}>{entry.signal}</span></td>
+                        <td>{entry.source}</td>
+                        <td><a class="cve-link" href={notesLink(entry.path)}><code class="cve-p30e1-mono">{entry.path}</code></a></td>
+                        <td>{entry.comment}</td>
+                        <td>{fmtDate(entry.created_at)}</td>
+                        <td>
+                          <button type="button" class="cve-btn cve-btn-ghost cve-p30e1-row-btn" on:click={() => startEdit(entry)} disabled={!entry.id}>Edit</button>
+                          <button type="button" class="cve-btn cve-btn-ghost cve-p30e1-row-btn" on:click={() => submitDelete(entry)} disabled={!entry.id}>Delete</button>
+                          <a class="cve-link cve-p30e1-row-link" href={tasksLink()}>Tasks</a>
+                          <a class="cve-link cve-p30e1-row-link" href={validationLink()}>Validation</a>
+                        </td>
+                      </tr>
+                    {/if}
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
+        </div>
+      </section>
+
+      <!-- Tasks side panel (never empty) -->
+      <aside class="cve-workbench__inspector cve-p30e1-side-panel" aria-label="Related tasks" data-testid="feedback-tasks-panel">
+        <header class="cve-p30e1-inspector__head">
+          <h2 class="cve-p30e1-section__title">Related tasks</h2>
+          <p class="cve-helper">
+            Highest-priority improvement tasks for this vault. Feedback-adjusted
+            tasks include a score delta from related feedback entries.
+          </p>
+        </header>
+        <div class="cve-p30e1-rail__body">
+          {#if tasksState === 'loading'}
+            <div class="cve-loading">Loading tasks...</div>
+          {:else if tasksState === 'error'}
+            <div class="cve-error">{tasksError}</div>
+          {:else if tasks.length === 0}
+            <p class="cve-empty">
+              No improvement tasks are pending for this vault. Run
+              <a class="cve-link" href={tasksLink()}>Tasks</a> to refresh, or
+              add Feedback to surface new tasks.
+            </p>
+          {:else}
+            <ul class="cve-p30e1-task-list" role="list">
+              {#each tasks.slice(0, 10) as t (t.path + t.target)}
+                <li class="cve-p30e1-task">
+                  <div class="cve-p30e1-task__head">
+                    <span class="cve-p30e1-tag">priority {t.priority}</span>
+                    <span class="cve-p30e1-tag cve-p30e1-tag--pending">{t.type}</span>
+                    {#if t.feedback_weight}
+                      <span class="cve-p30e1-tag cve-p30e1-tag--high">feedback delta {t.feedback_weight.score_delta}</span>
+                    {/if}
+                  </div>
+                  <a class="cve-link" href={notesLink(t.path)}><code class="cve-p30e1-mono">{t.path}</code></a>
+                  <p class="cve-helper">{t.instruction}</p>
+                </li>
+              {/each}
+            </ul>
+            <p class="cve-helper">
+              See <a class="cve-link" href={tasksLink()}>Tasks</a> for the full
+              list.
+            </p>
           {/if}
         </div>
 
-        <!-- Error -->
-        {#if addState === 'error'}
-          <div class="mb-3 rounded bg-red-950 border border-red-700 px-3 py-2 text-sm text-red-300">
-            {addError}
-            {#if addErrorCode}<span class="ml-1 font-mono text-xs text-red-500">[{addErrorCode}]</span>{/if}
+        <!-- Raw deep-link -->
+        <details class="cve-details cve-details--inspector">
+          <summary>Raw feedback response</summary>
+          <div class="cve-details__body">
+            <p class="cve-helper">
+              The raw feedback JSON is intentionally not shown inline here.
+              Open the full payload in the Developer route:
+            </p>
+            <a class="cve-details__developer-link" href={rawDeepLink}
+              >Open this vault in /app/raw</a>
           </div>
-        {/if}
-        <!-- Success -->
-        {#if addState === 'ok' && addResult}
-          <div class="mb-3 rounded bg-emerald-950 border border-emerald-700 px-3 py-2 text-sm text-emerald-300">
-            Feedback added with id: <span class="font-mono">{addResult.entry.id}</span>
-          </div>
-        {/if}
-
-        <button
-          class="px-4 py-2 rounded-md bg-sky-700 text-white text-sm font-medium hover:bg-sky-600 transition-colors disabled:opacity-50"
-          on:click={handleAdd}
-          disabled={!canAdd}
-        >
-          {addState === 'loading' ? 'Adding…' : 'Add feedback'}
-        </button>
-
-        <!-- Raw write result -->
-        {#if writeResultForRaw && (addState === 'ok' || editState === 'ok' || normaliseState === 'ok' || deleteState === 'idle')}
-          <div class="mt-3">
-            <details>
-              <summary class="text-xs text-zinc-500 cursor-pointer hover:text-zinc-400">Raw write result</summary>
-              <pre class="mt-2 text-xs text-zinc-400 bg-zinc-950 rounded p-3 overflow-auto max-h-48">{JSON.stringify(writeResultForRaw, null, 2)}</pre>
-            </details>
-          </div>
-        {/if}
-      </div>
-    </div>
-
-    <!-- Maintenance panel -->
-    <div class="rounded-lg bg-zinc-900 border border-zinc-800">
-      <div class="px-4 py-3 border-b border-zinc-800">
-        <h2 class="text-sm font-semibold text-zinc-400">Maintenance</h2>
-      </div>
-      <div class="px-4 py-4">
-        <p class="text-xs text-zinc-500 mb-3">
-          <strong class="text-zinc-400">Normalise feedback IDs</strong> rewrites <code class="font-mono">feedback.md</code> atomically to assign stable hex IDs to any entries that lack them. Entries that already have IDs are unchanged.
-        </p>
-        {#if normaliseState === 'ok' && normaliseResult}
-          <div class="mb-3 rounded bg-emerald-950 border border-emerald-700 px-3 py-2 text-sm text-emerald-300">
-            {normaliseResult.normalised} {normaliseResult.normalised === 1 ? 'entry' : 'entries'} assigned new IDs.
-          </div>
-        {/if}
-        {#if normaliseState === 'error'}
-          <div class="mb-3 rounded bg-red-950 border border-red-700 px-3 py-2 text-sm text-red-300">{normaliseError}</div>
-        {/if}
-        <button
-          class="px-3 py-1.5 rounded bg-zinc-800 text-zinc-300 text-sm border border-zinc-700 hover:bg-zinc-700 transition-colors disabled:opacity-50"
-          on:click={handleNormalise}
-          disabled={normaliseState === 'loading'}
-        >
-          {normaliseState === 'loading' ? 'Running…' : 'Normalise IDs'}
-        </button>
-      </div>
-    </div>
-
-  </div><!-- end left column -->
-
-  <!-- ── RIGHT COLUMN ──────────────────────────────────────────────────────── -->
-  <div class="flex flex-col gap-6">
-
-    <!-- Task priority panel -->
-    <div class="rounded-lg bg-zinc-900 border border-zinc-800">
-      <div class="px-4 py-3 border-b border-zinc-800 flex items-center justify-between gap-2">
-        <h2 class="text-sm font-semibold text-zinc-200">Improvement Tasks <span class="text-xs text-zinc-500 font-normal ml-1">(feedback-adjusted)</span></h2>
-        {#if tasksState === 'loading'}
-          <span class="text-xs text-zinc-500">Loading...</span>
-        {/if}
-      </div>
-
-      {#if tasksData?.feedback_status === 'error' && tasksData.feedback_errors && (tasksData.feedback_errors as unknown[]).length > 0}
-        <div class="mx-4 mt-3 rounded bg-yellow-950 border border-yellow-800 px-3 py-2 text-xs text-yellow-300">
-          Feedback weighting unavailable:
-          <ul class="mt-1 list-disc list-inside">
-            {#each tasksData.feedback_errors as e}
-              <li>{typeof e === 'string' ? e : JSON.stringify(e)}</li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
-
-      {#if tasksState === 'error'}
-        <div class="mx-4 my-3 rounded bg-red-950 border border-red-700 px-3 py-2 text-sm text-red-300">{tasksError}</div>
-      {/if}
-
-      <div class="divide-y divide-zinc-800">
-        {#if tasksState !== 'loading' && (!tasksData || tasksData.tasks.length === 0)}
-          <div class="px-4 py-8 text-center text-sm text-zinc-500">No improvement tasks found.</div>
-        {/if}
-        {#each (tasksData?.tasks ?? []) as task, idx}
-          <div class="px-4 py-3 text-sm">
-            <!-- Task header -->
-            <div class="flex items-start gap-2 flex-wrap">
-              <span class="shrink-0 text-xs font-mono px-1.5 py-0.5 rounded border
-                {task.priority >= 4 ? 'bg-red-950 text-red-300 border-red-700' :
-                 task.priority >= 3 ? 'bg-orange-950 text-orange-300 border-orange-700' :
-                 task.priority >= 2 ? 'bg-yellow-950 text-yellow-300 border-yellow-700' :
-                 'bg-zinc-800 text-zinc-400 border-zinc-700'}">
-                P{task.priority}
-              </span>
-              <span class="flex-1 text-zinc-200 font-medium truncate" title={task.path}>{task.path}</span>
-            </div>
-            <!-- Note / instruction -->
-            {#if task.note}
-              <p class="mt-1 text-zinc-400 text-xs">{task.note}</p>
-            {/if}
-            {#if task.instruction}
-              <p class="mt-1 text-zinc-300 text-xs italic">{task.instruction}</p>
-            {/if}
-            <!-- Missing sections -->
-            {#if task.missing && task.missing.length > 0}
-              <div class="mt-1.5 flex flex-wrap gap-1">
-                {#each task.missing as m}
-                  <span class="text-xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">missing: {m}</span>
-                {/each}
-              </div>
-            {/if}
-            <!-- Constraints -->
-            {#if task.constraints && task.constraints.length > 0}
-              <div class="mt-1 text-xs text-zinc-500">
-                Constraints: {task.constraints.join(', ')}
-              </div>
-            {/if}
-            <!-- Feedback weight -->
-            {#if task.feedback_weight}
-              <details class="mt-2">
-                <summary class="text-xs text-sky-400 cursor-pointer hover:text-sky-300">
-                  Feedback weight
-                  {#if typeof task.feedback_weight === 'object' && task.feedback_weight !== null && 'score_delta' in task.feedback_weight}
-                    <span class="ml-1 font-mono text-sky-500">
-                      {(task.feedback_weight as {score_delta: number}).score_delta > 0 ? '+' : ''}{(task.feedback_weight as {score_delta: number}).score_delta}
-                    </span>
-                  {/if}
-                </summary>
-                <pre class="mt-1.5 text-xs text-zinc-400 bg-zinc-950 rounded p-2 overflow-auto max-h-32">{JSON.stringify(task.feedback_weight, null, 2)}</pre>
-              </details>
-            {/if}
-          </div>
-        {/each}
-      </div>
-
-      <!-- Raw tasks JSON -->
-      <div class="px-4 py-3 border-t border-zinc-800">
-        <details>
-          <summary class="text-xs text-zinc-500 cursor-pointer hover:text-zinc-400">Raw tasks response</summary>
-          <pre class="mt-2 text-xs text-zinc-400 bg-zinc-950 rounded p-3 overflow-auto max-h-64">{JSON.stringify(tasksData, null, 2)}</pre>
         </details>
-      </div>
+      </aside>
     </div>
 
-  </div><!-- end right column -->
+  {/if}
 
-</div><!-- end grid -->
+  <!-- Add Feedback slide-over -->
+  <div
+    class="cve-slide-over"
+    data-open={addOpen}
+    data-testid="feedback-add-slide-over"
+    aria-hidden={!addOpen}
+  >
+    <div class="cve-slide-over__backdrop" on:click={() => (addOpen = false)} role="presentation"></div>
+    <aside class="cve-slide-over__panel" role="dialog" aria-modal="true" aria-labelledby="feedback-add-title">
+      <header class="cve-slide-over__header">
+        <h2 id="feedback-add-title">Add Feedback</h2>
+        <button type="button" class="cve-btn cve-btn-ghost" on:click={() => (addOpen = false)} aria-label="Close add feedback">Close</button>
+      </header>
+      <div class="cve-slide-over__body">
+        <div class="cve-field">
+          <label class="cve-label" for="add-path">Note path</label>
+          <input id="add-path" class="cve-input" bind:value={addPath} placeholder="Fundamentals/Algorithms.md" />
+        </div>
+        <div class="cve-field">
+          <label class="cve-label" for="add-source">Source</label>
+          <select id="add-source" class="cve-select" bind:value={addSource}>
+            <option value="human">human</option>
+            <option value="agent">agent</option>
+            <option value="system">system</option>
+          </select>
+        </div>
+        <div class="cve-field">
+          <label class="cve-label" for="add-signal">Signal</label>
+          <select id="add-signal" class="cve-select" bind:value={addSignal}>
+            <option value="unclear">unclear</option>
+            <option value="incomplete">incomplete</option>
+            <option value="outdated">outdated</option>
+            <option value="incorrect">incorrect</option>
+            <option value="agent_failed">agent_failed</option>
+            <option value="needs_example">needs_example</option>
+            <option value="needs_constraints">needs_constraints</option>
+            <option value="useful">useful</option>
+            <option value="agent_succeeded">agent_succeeded</option>
+          </select>
+        </div>
+        <div class="cve-field">
+          <label class="cve-label" for="add-severity">Severity</label>
+          <select id="add-severity" class="cve-select" bind:value={addSeverity}>
+            <option value="critical">critical</option>
+            <option value="high">high</option>
+            <option value="medium">medium</option>
+            <option value="low">low</option>
+          </select>
+        </div>
+        <div class="cve-field">
+          <label class="cve-label" for="add-comment">Comment</label>
+          <textarea id="add-comment" class="cve-textarea" bind:value={addComment} rows="4"></textarea>
+        </div>
+        {#if addState === 'error'}
+          <div class="cve-banner cve-banner--danger"><div><div class="cve-banner__body">{addError}</div></div></div>
+        {/if}
+      </div>
+      <footer class="cve-slide-over__footer">
+        <button type="button" class="cve-btn cve-btn-ghost" on:click={() => (addOpen = false)}>Cancel</button>
+        <button
+          type="button"
+          class="cve-btn cve-btn-primary"
+          on:click={submitAdd}
+          disabled={addState === 'loading' || !addPath.trim() || !addComment.trim()}
+        >
+          {addState === 'loading' ? 'Adding' : 'Add Feedback'}
+        </button>
+      </footer>
+    </aside>
+  </div>
 
-{/if}<!-- end vault guard -->
+</div>

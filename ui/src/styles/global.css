@@ -1971,4 +1971,490 @@
   .cve-p30d3-btn-danger:hover {
     background-color: var(--cve-surface-muted);
   }
+
+  /* -------------------------------------------------------------------------
+   * Phase 30E1 - Pending, Trust, Feedback governance polish
+   * ----------------------------------------------------------------------- */
+  .cve-p30e1-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-4);
+  }
+  .cve-p30e1-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem var(--cve-space-2);
+    border-radius: 999px;
+    background-color: var(--cve-surface-muted);
+    color: var(--cve-text-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .cve-p30e1-pill--pending {
+    background-color: var(--cve-warning-soft, var(--cve-surface-muted));
+    color: var(--cve-warning);
+  }
+  .cve-p30e1-pill--stale {
+    background-color: var(--cve-danger-soft, var(--cve-surface-muted));
+    color: var(--cve-danger);
+  }
+  .cve-p30e1-pill--ready {
+    background-color: var(--cve-success-soft, var(--cve-surface-muted));
+    color: var(--cve-success);
+  }
+  .cve-p30e1-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    color: var(--cve-text);
+  }
+  .cve-p30e1-inline-label {
+    margin-right: var(--cve-space-1);
+  }
+  .cve-p30e1-inline-select {
+    min-width: 12rem;
+  }
+
+  /* Rail */
+  .cve-p30e1-rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-3);
+    min-width: 0;
+  }
+  .cve-p30e1-rail__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-2);
+    padding: var(--cve-space-3);
+    border-bottom: 1px solid var(--cve-border-soft);
+    background-color: var(--cve-surface);
+  }
+  .cve-p30e1-rail__body {
+    overflow-y: auto;
+    max-height: 32rem;
+    padding: var(--cve-space-2);
+  }
+  .cve-p30e1-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cve-space-2);
+    align-items: end;
+  }
+
+  /* Queue list */
+  .cve-p30e1-queue-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-1);
+  }
+  .cve-p30e1-queue-item {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-1);
+    padding: var(--cve-space-2);
+    background-color: var(--cve-surface);
+    border: 1px solid var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+    cursor: pointer;
+    color: var(--cve-text);
+  }
+  .cve-p30e1-queue-item:hover {
+    background-color: var(--cve-surface-muted);
+  }
+  .cve-p30e1-queue-item--active {
+    border-color: var(--cve-info);
+    background-color: var(--cve-surface-muted);
+  }
+  .cve-p30e1-queue-item__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cve-space-1);
+    align-items: center;
+  }
+  .cve-p30e1-queue-item__type {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--cve-text-muted);
+  }
+  .cve-p30e1-queue-item__path {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    color: var(--cve-text);
+    word-break: break-all;
+  }
+  .cve-p30e1-queue-item__section {
+    font-size: 0.75rem;
+    color: var(--cve-text-muted);
+  }
+  .cve-p30e1-queue-item__meta {
+    font-size: 0.6875rem;
+    color: var(--cve-text-muted);
+  }
+
+  /* Tags */
+  .cve-p30e1-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.0625rem var(--cve-space-2);
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    background-color: var(--cve-surface-muted);
+    color: var(--cve-text-muted);
+    border: 1px solid var(--cve-border-soft);
+  }
+  .cve-p30e1-tag--pending,
+  .cve-p30e1-tag--medium {
+    color: var(--cve-info);
+    border-color: var(--cve-info);
+  }
+  .cve-p30e1-tag--accepted,
+  .cve-p30e1-tag--resolved {
+    color: var(--cve-success);
+    border-color: var(--cve-success);
+  }
+  .cve-p30e1-tag--rejected,
+  .cve-p30e1-tag--high {
+    color: var(--cve-warning);
+    border-color: var(--cve-warning);
+  }
+  .cve-p30e1-tag--invalid,
+  .cve-p30e1-tag--critical {
+    color: var(--cve-danger);
+    border-color: var(--cve-danger);
+  }
+  .cve-p30e1-tag--low {
+    color: var(--cve-text-muted);
+    border-color: var(--cve-border-soft);
+  }
+
+  /* Inspector */
+  .cve-p30e1-inspector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-3);
+    min-width: 0;
+  }
+  .cve-p30e1-inspector__empty {
+    padding: var(--cve-space-4);
+    background-color: var(--cve-surface);
+    border: 1px dashed var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+    color: var(--cve-text-muted);
+    text-align: center;
+  }
+  .cve-p30e1-inspector__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-1);
+    padding: var(--cve-space-3);
+    border-bottom: 1px solid var(--cve-border-soft);
+    background-color: var(--cve-surface);
+  }
+  .cve-p30e1-inspector__title-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cve-space-2);
+    align-items: center;
+  }
+  .cve-p30e1-inspector__path {
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9375rem;
+    color: var(--cve-text-strong);
+    word-break: break-all;
+  }
+  .cve-p30e1-inspector__section {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--cve-text-muted);
+  }
+  .cve-p30e1-inspector__id {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--cve-text-muted);
+  }
+  .cve-p30e1-inspector__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-4);
+    padding: var(--cve-space-3);
+    overflow-y: auto;
+    max-height: 40rem;
+  }
+  .cve-p30e1-validation {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.0625rem var(--cve-space-2);
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    background-color: var(--cve-surface-muted);
+    color: var(--cve-text-muted);
+    border: 1px solid var(--cve-border-soft);
+  }
+  .cve-p30e1-validation--pass {
+    color: var(--cve-success);
+    border-color: var(--cve-success);
+  }
+  .cve-p30e1-validation--fail {
+    color: var(--cve-danger);
+    border-color: var(--cve-danger);
+  }
+  .cve-p30e1-validation--not_checked {
+    color: var(--cve-text-muted);
+  }
+
+  /* Sections */
+  .cve-p30e1-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-2);
+  }
+  .cve-p30e1-section__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-1);
+  }
+  .cve-p30e1-section--actions {
+    padding: var(--cve-space-3);
+    background-color: var(--cve-surface);
+    border: 1px solid var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+  }
+  .cve-p30e1-section__title {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--cve-text-strong);
+  }
+  .cve-p30e1-section__subtitle {
+    margin: var(--cve-space-2) 0 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--cve-text);
+  }
+
+  /* Key-value grid */
+  .cve-p30e1-kv {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: var(--cve-space-1) var(--cve-space-3);
+    margin: 0;
+  }
+  .cve-p30e1-kv > div {
+    display: contents;
+  }
+  .cve-p30e1-kv dt {
+    font-size: 0.75rem;
+    color: var(--cve-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .cve-p30e1-kv dd {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--cve-text);
+  }
+  .cve-p30e1-kv-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-1);
+  }
+  .cve-p30e1-kv-list > li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--cve-space-2);
+    font-size: 0.8125rem;
+    color: var(--cve-text);
+  }
+
+  /* Trust impact + stale warning */
+  .cve-p30e1-trust-impact {
+    margin: 0;
+    padding: var(--cve-space-3);
+    background-color: var(--cve-surface);
+    border: 1px solid var(--cve-border-soft);
+    border-left: 3px solid var(--cve-info);
+    border-radius: var(--cve-radius);
+    font-size: 0.8125rem;
+    color: var(--cve-text);
+  }
+  .cve-p30e1-stale {
+    margin: 0;
+    padding: var(--cve-space-3);
+    background-color: var(--cve-surface);
+    border: 1px solid var(--cve-warning);
+    border-left: 3px solid var(--cve-warning);
+    border-radius: var(--cve-radius);
+    font-size: 0.8125rem;
+    color: var(--cve-text);
+  }
+
+  /* Validation errors */
+  .cve-p30e1-validation-list {
+    list-style: disc inside;
+    margin: 0;
+    padding: 0;
+    color: var(--cve-danger);
+    font-size: 0.8125rem;
+  }
+
+  /* Diff */
+  .cve-p30e1-diff {
+    max-height: 24rem;
+    overflow: auto;
+  }
+
+  /* Action row */
+  .cve-p30e1-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cve-space-2);
+    align-items: end;
+  }
+
+  /* Decision panes */
+  .cve-p30e1-decision {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--cve-space-3);
+  }
+  .cve-p30e1-decision__pane {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-2);
+    padding: var(--cve-space-3);
+    background-color: var(--cve-surface);
+    border: 1px solid var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+  }
+  .cve-p30e1-decision__pane--accept {
+    border-left: 3px solid var(--cve-success);
+  }
+  .cve-p30e1-decision__pane--reject {
+    border-left: 3px solid var(--cve-danger);
+  }
+  .cve-p30e1-decision__title {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--cve-text-strong);
+  }
+
+  /* Trust two-column layout */
+  .cve-p30e1-twocol {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: var(--cve-space-4);
+    align-items: start;
+  }
+  @media (max-width: 960px) {
+    .cve-p30e1-twocol {
+      grid-template-columns: 1fr;
+    }
+  }
+  .cve-p30e1-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-3);
+    min-width: 0;
+  }
+  .cve-p30e1-aside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-3);
+    min-width: 0;
+  }
+  .cve-p30e1-queue-table-wrap {
+    max-height: 32rem;
+    overflow-y: auto;
+  }
+  .cve-p30e1-row-link {
+    margin-right: var(--cve-space-2);
+    white-space: nowrap;
+  }
+  .cve-p30e1-row-btn {
+    margin-right: var(--cve-space-1);
+  }
+
+  /* Evidence Builder disclosure */
+  .cve-p30e1-evidence-disclosure {
+    border: 1px solid var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+    background-color: var(--cve-surface);
+  }
+  .cve-p30e1-evidence-disclosure > summary {
+    cursor: pointer;
+    padding: var(--cve-space-2) var(--cve-space-3);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--cve-text);
+    list-style: none;
+  }
+  .cve-p30e1-evidence-disclosure > summary::-webkit-details-marker {
+    display: none;
+  }
+  .cve-p30e1-evidence-disclosure[open] > summary {
+    border-bottom: 1px solid var(--cve-border-soft);
+  }
+  .cve-p30e1-checkbox-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cve-space-3);
+  }
+  .cve-p30e1-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--cve-space-1);
+    font-size: 0.8125rem;
+    color: var(--cve-text);
+  }
+
+  /* Feedback side panel + edit form + task list */
+  .cve-p30e1-side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-3);
+  }
+  .cve-p30e1-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-2);
+    padding: var(--cve-space-3);
+    background-color: var(--cve-surface-muted);
+    border-radius: var(--cve-radius);
+  }
+  .cve-p30e1-task-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-2);
+  }
+  .cve-p30e1-task {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-1);
+    padding: var(--cve-space-2);
+    background-color: var(--cve-surface);
+    border: 1px solid var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+  }
+  .cve-p30e1-task__head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cve-space-1);
+  }
 }

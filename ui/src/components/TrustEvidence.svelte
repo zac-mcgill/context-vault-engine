@@ -9,13 +9,15 @@
     type TrustSummaryData,
     type StaleSummaryData,
     type EvidenceData,
-    type EvidenceNote,
     type TrustNoteSummary,
   } from '../lib/api.ts';
   import { getStoredVault } from '../lib/vaultState.ts';
+  import { buildRawDeepLink } from '../lib/phase30e1.ts';
+
+  type LoadState = 'idle' | 'loading' | 'ok' | 'error';
 
   // ---------------------------------------------------------------------------
-  // Vault selector state
+  // Vault state
   // ---------------------------------------------------------------------------
 
   let vaultList: string[] = [];
@@ -24,10 +26,8 @@
   let selectedVault = '';
 
   // ---------------------------------------------------------------------------
-  // Trust / Stale state
+  // Trust + stale state
   // ---------------------------------------------------------------------------
-
-  type LoadState = 'idle' | 'loading' | 'ok' | 'error';
 
   let trustState: LoadState = 'idle';
   let trustData: TrustSummaryData | null = null;
@@ -38,7 +38,7 @@
   let staleError = '';
 
   // ---------------------------------------------------------------------------
-  // Evidence builder form state
+  // Evidence Builder (demoted)
   // ---------------------------------------------------------------------------
 
   let evidenceQuery = '';
@@ -50,7 +50,26 @@
   let evidenceState: LoadState = 'idle';
   let evidenceData: EvidenceData | null = null;
   let evidenceError = '';
-  let showEvidenceRaw = false;
+
+  // ---------------------------------------------------------------------------
+  // Filtering for governance queue
+  // ---------------------------------------------------------------------------
+
+  type GovernanceCategory = 'deprecated' | 'stale' | 'freshness_unknown' | 'low_trust';
+
+  interface GovernanceRow {
+    category: GovernanceCategory;
+    severity: number;
+    path: string;
+    trust_level: string | null;
+    confidence: string;
+    review_after: string | null;
+    last_reviewed: string | null;
+    trust_score: number;
+  }
+
+  let filterCategory: '' | GovernanceCategory = '';
+  let filterText = '';
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -68,10 +87,6 @@
     selectedVault = stored && vaultList.includes(stored) ? stored : (vaultList[0] ?? '');
     if (selectedVault) await loadTrustData();
   });
-
-  // ---------------------------------------------------------------------------
-  // Loaders
-  // ---------------------------------------------------------------------------
 
   async function loadTrustData() {
     if (!selectedVault) return;
@@ -94,7 +109,6 @@
       trustError = tr.error?.message ?? 'Failed to load trust summary';
       trustState = 'error';
     }
-
     if (isOk(sr)) {
       staleData = sr.data;
       staleState = 'ok';
@@ -109,7 +123,6 @@
     evidenceState = 'loading';
     evidenceData = null;
     evidenceError = '';
-    showEvidenceRaw = false;
 
     const resp = await buildEvidence({
       vault: selectedVault,
@@ -129,8 +142,7 @@
     }
   }
 
-  function handleVaultChange(e: Event) {
-    selectedVault = (e.target as HTMLSelectElement).value;
+  function handleVaultChange() {
     trustData = null;
     staleData = null;
     evidenceData = null;
@@ -141,331 +153,471 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Helpers
+  // Derived governance queue
   // ---------------------------------------------------------------------------
 
-  function confidenceBadge(c: string): string {
-    if (c === 'high') return 'bg-emerald-700 text-emerald-100';
-    if (c === 'medium') return 'bg-yellow-700 text-yellow-100';
-    if (c === 'low') return 'bg-orange-700 text-orange-100';
-    if (c === 'deprecated') return 'bg-red-800 text-red-100';
-    return 'bg-zinc-600 text-zinc-200';
+  $: rawDeepLink = buildRawDeepLink('trust', selectedVault, 'trust');
+
+  $: governanceRows = (() => {
+    if (!trustData || !staleData) return [] as GovernanceRow[];
+
+    const rows: GovernanceRow[] = [];
+    const seen = new Set<string>();
+
+    const push = (note: TrustNoteSummary, category: GovernanceCategory, severity: number) => {
+      const key = `${category}::${note.path}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      rows.push({
+        category,
+        severity,
+        path: note.path,
+        trust_level: note.trust_level,
+        confidence: note.confidence,
+        review_after: note.review_after,
+        last_reviewed: note.last_reviewed,
+        trust_score: note.trust_score,
+      });
+    };
+
+    for (const n of staleData.deprecated) push(n, 'deprecated', 0);
+    for (const n of staleData.stale) push(n, 'stale', 1);
+    for (const n of staleData.freshness_unknown) push(n, 'freshness_unknown', 2);
+    for (const n of trustData.notes) {
+      if (n.confidence === 'low' || n.trust_level === 'draft') {
+        push(n, 'low_trust', 3);
+      }
+    }
+
+    // Deterministic sort: severity ascending (0 first), then path.
+    rows.sort((a, b) => {
+      if (a.severity !== b.severity) return a.severity - b.severity;
+      if (a.path < b.path) return -1;
+      if (a.path > b.path) return 1;
+      return 0;
+    });
+    return rows;
+  })();
+
+  $: filteredRows = (() => {
+    let rows = governanceRows;
+    if (filterCategory) rows = rows.filter((r) => r.category === filterCategory);
+    const q = filterText.trim().toLowerCase();
+    if (q) rows = rows.filter((r) => r.path.toLowerCase().includes(q));
+    return rows;
+  })();
+
+  $: counts = (() => {
+    const c = {
+      total: trustData?.total_notes ?? 0,
+      stale: trustData?.stale_count ?? staleData?.stale.length ?? 0,
+      deprecated: trustData?.deprecated_count ?? staleData?.deprecated.length ?? 0,
+      missing: trustData?.missing_trust_metadata ?? 0,
+      low_trust: 0,
+      draft: 0,
+    };
+    if (trustData) {
+      for (const n of trustData.notes) {
+        if (n.confidence === 'low') c.low_trust += 1;
+        if (n.trust_level === 'draft') c.draft += 1;
+      }
+    }
+    return c;
+  })();
+
+  $: governanceBanner = (() => {
+    if (trustState === 'error') {
+      return { severity: 'danger' as const, title: 'Could not load trust summary', body: trustError };
+    }
+    if (staleState === 'error') {
+      return { severity: 'danger' as const, title: 'Could not load stale summary', body: staleError };
+    }
+    if (counts.deprecated > 0 || counts.stale > 0 || counts.low_trust > 0) {
+      const parts: string[] = [];
+      if (counts.deprecated > 0) parts.push(`${counts.deprecated} deprecated`);
+      if (counts.stale > 0) parts.push(`${counts.stale} stale`);
+      if (counts.low_trust > 0) parts.push(`${counts.low_trust} low-trust`);
+      return {
+        severity: 'warning' as const,
+        title: 'Governance attention needed',
+        body: parts.join(', ') + '. Review and update before relying on this vault.',
+      };
+    }
+    if (counts.missing > 0) {
+      return {
+        severity: 'info' as const,
+        title: 'Trust metadata gaps',
+        body: `${counts.missing} note(s) have no trust metadata. Confidence falls back to 'unknown'.`,
+      };
+    }
+    if (trustState === 'ok' && staleState === 'ok') {
+      return {
+        severity: 'success' as const,
+        title: 'Governance clean',
+        body: 'No deprecated, stale, or low-trust notes detected.',
+      };
+    }
+    return null;
+  })();
+
+  // ---------------------------------------------------------------------------
+  // Per-row links
+  // ---------------------------------------------------------------------------
+
+  function notesLink(path: string): string {
+    const params = new URLSearchParams();
+    if (selectedVault) params.set('vault', selectedVault);
+    params.set('path', path);
+    return `/app/notes?${params.toString()}`;
   }
 
-  function trustBadge(t: string | null): string {
-    if (t === 'verified') return 'bg-emerald-700 text-emerald-100';
-    if (t === 'working') return 'bg-blue-700 text-blue-100';
-    if (t === 'draft') return 'bg-yellow-700 text-yellow-100';
-    if (t === 'external') return 'bg-purple-700 text-purple-100';
-    if (t === 'deprecated') return 'bg-red-800 text-red-100';
-    return 'bg-zinc-600 text-zinc-200';
+  function feedbackLink(): string {
+    const params = new URLSearchParams();
+    if (selectedVault) params.set('vault', selectedVault);
+    return `/app/feedback?${params.toString()}`;
   }
 
-  function countBadge(n: number): string {
-    return n === 0 ? 'text-zinc-400' : 'text-zinc-100 font-semibold';
+  function pendingLink(): string {
+    const params = new URLSearchParams();
+    if (selectedVault) params.set('vault', selectedVault);
+    return `/app/pending?${params.toString()}`;
+  }
+
+  function categoryLabel(c: GovernanceCategory): string {
+    if (c === 'deprecated') return 'Deprecated';
+    if (c === 'stale') return 'Stale';
+    if (c === 'freshness_unknown') return 'Freshness unknown';
+    if (c === 'low_trust') return 'Low trust';
+    return c;
+  }
+
+  function categoryTag(c: GovernanceCategory): string {
+    if (c === 'deprecated') return 'cve-p30e1-tag cve-p30e1-tag--invalid';
+    if (c === 'stale') return 'cve-p30e1-tag cve-p30e1-tag--rejected';
+    if (c === 'freshness_unknown') return 'cve-p30e1-tag cve-p30e1-tag--pending';
+    return 'cve-p30e1-tag';
   }
 </script>
 
-<div class="cve-page p-6 space-y-8">
+<div class="cve-page cve-p30e1-page">
 
-  <!-- Page Header -->
-  <div class="cve-page-header">
-    <h1 class="cve-page-title text-2xl font-bold text-zinc-100">Trust &amp; Evidence</h1>
-    <p class="mt-1 text-sm text-zinc-400">
-      View trust metadata, staleness, and build evidence responses from vault notes.
-      Confidence levels reflect note maintenance status, not factual accuracy.
-    </p>
-  </div>
-
-  <!-- Trust disclaimer: trust metadata reflects review and maintenance state only -->
-  <div class="cve-trust-warning">
-    <strong>Trust metadata is informational.</strong> It records review and maintenance state.
-    It does not prove factual correctness of any note content.
-  </div>
-
-  <!-- Vault Selector -->
-  <div class="flex items-center gap-3">
-    <label for="vault-select" class="text-sm font-medium text-zinc-300">Vault:</label>
-    {#if vaultsLoading}
-      <span class="text-sm text-zinc-500">Loading vaults…</span>
-    {:else if vaultsError}
-      <span class="text-sm text-red-400">{vaultsError}</span>
-    {:else}
-      <select
-        id="vault-select"
-        value={selectedVault}
-        on:change={handleVaultChange}
-        class="bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-      >
-        {#each vaultList as vault}
-          <option value={vault}>{vault}</option>
-        {/each}
-      </select>
-    {/if}
-  </div>
-
-  <!-- Trust Summary Cards -->
-  {#if trustState === 'loading'}
-    <p class="text-sm text-zinc-400">Loading trust summary…</p>
-  {:else if trustState === 'error'}
-    <div class="rounded bg-red-900/40 border border-red-700 p-4 text-sm text-red-300">{trustError}</div>
-  {:else if trustState === 'ok' && trustData}
-    <section>
-      <h2 class="text-lg font-semibold text-zinc-200 mb-3">Trust Summary</h2>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div class="rounded bg-zinc-800 border border-zinc-700 p-4">
-          <div class="text-2xl font-bold text-zinc-100">{trustData.total_notes}</div>
-          <div class="text-xs text-zinc-400 mt-1">Total Notes</div>
-        </div>
-        <div class="rounded bg-zinc-800 border border-zinc-700 p-4">
-          <div class="text-2xl font-bold text-red-400">{trustData.stale_count}</div>
-          <div class="text-xs text-zinc-400 mt-1">Stale</div>
-        </div>
-        <div class="rounded bg-zinc-800 border border-zinc-700 p-4">
-          <div class="text-2xl font-bold text-orange-400">{trustData.deprecated_count}</div>
-          <div class="text-xs text-zinc-400 mt-1">Deprecated</div>
-        </div>
-        <div class="rounded bg-zinc-800 border border-zinc-700 p-4">
-          <div class="text-2xl font-bold text-zinc-400">{trustData.missing_trust_metadata}</div>
-          <div class="text-xs text-zinc-400 mt-1">Missing Metadata</div>
-        </div>
+  <!-- Toolbar -->
+  <header class="cve-toolbar">
+    <div class="cve-toolbar__main">
+      <h1 class="cve-toolbar__title">Trust and Governance</h1>
+      <div class="cve-toolbar__meta">
+        <span
+          class="cve-p30e1-pill"
+          class:cve-p30e1-pill--pending={counts.deprecated > 0 || counts.stale > 0 || counts.low_trust > 0}
+          data-testid="trust-state-pill"
+        >{counts.stale + counts.deprecated + counts.low_trust} flagged</span>
+        {#if selectedVault}
+          <span>Vault: <code class="cve-p30e1-mono">{selectedVault}</code></span>
+        {/if}
+        <span>Total notes: {counts.total}</span>
       </div>
-
-      <!-- By Trust Level -->
-      <div class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {#each Object.entries(trustData.by_trust_level) as [level, count]}
-          <div class="rounded bg-zinc-800 border border-zinc-700 p-3 flex items-center gap-2">
-            <span class="text-xs px-2 py-0.5 rounded-full font-medium {trustBadge(level)}">{level}</span>
-            <span class="{countBadge(count)}">{count}</span>
-          </div>
-        {/each}
-      </div>
-
-      <!-- By Confidence -->
-      <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {#each Object.entries(trustData.by_confidence) as [conf, count]}
-          <div class="rounded bg-zinc-800 border border-zinc-700 p-3 flex items-center gap-2">
-            <span class="text-xs px-2 py-0.5 rounded-full font-medium {confidenceBadge(conf)}">{conf}</span>
-            <span class="{countBadge(count)}">{count}</span>
-          </div>
-        {/each}
-      </div>
-    </section>
-  {/if}
-
-  <!-- Stale Notes Table -->
-  {#if staleState === 'ok' && staleData}
-    <section>
-      <h2 class="text-lg font-semibold text-zinc-200 mb-3">
-        Stale Notes
-        <span class="text-sm font-normal text-zinc-400 ml-2">({staleData.stale.length} stale)</span>
-      </h2>
-
-      {#if staleData.stale.length === 0}
-        <p class="text-sm text-zinc-500">No stale notes — all notes are within their review dates.</p>
-      {:else}
-        <div class="overflow-x-auto">
-          <table class="cve-table w-full text-sm border-collapse">
-            <thead>
-              <tr class="border-b border-zinc-700 text-left text-zinc-400">
-                <th class="py-2 pr-4 font-medium">Path</th>
-                <th class="py-2 pr-4 font-medium">Trust</th>
-                <th class="py-2 pr-4 font-medium">Confidence</th>
-                <th class="py-2 pr-4 font-medium">Review After</th>
-                <th class="py-2 font-medium">Last Reviewed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each staleData.stale as note}
-                <tr class="border-b border-zinc-800 hover:bg-zinc-800/50">
-                  <td class="py-2 pr-4 text-zinc-300 font-mono text-xs">{note.path}</td>
-                  <td class="py-2 pr-4">
-                    <span class="text-xs px-1.5 py-0.5 rounded {trustBadge(note.trust_level)}">{note.trust_level ?? '—'}</span>
-                  </td>
-                  <td class="py-2 pr-4">
-                    <span class="text-xs px-1.5 py-0.5 rounded {confidenceBadge(note.confidence)}">{note.confidence}</span>
-                  </td>
-                  <td class="py-2 pr-4 text-red-400 text-xs">{note.review_after ?? '—'}</td>
-                  <td class="py-2 text-zinc-400 text-xs">{note.last_reviewed ?? '—'}</td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {/if}
-
-      <!-- Missing review_after -->
-      {#if staleData.freshness_unknown.length > 0}
-        <div class="mt-4">
-          <h3 class="text-sm font-semibold text-zinc-300 mb-2">
-            Freshness Unknown ({staleData.freshness_unknown.length})
-            <span class="text-xs font-normal text-zinc-500 ml-1">— no review_after set</span>
-          </h3>
-          <ul class="space-y-1">
-            {#each staleData.freshness_unknown as note}
-              <li class="text-xs text-zinc-400 font-mono">{note.path}</li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
-
-      <!-- Deprecated -->
-      {#if staleData.deprecated.length > 0}
-        <div class="mt-4">
-          <h3 class="text-sm font-semibold text-zinc-300 mb-2">
-            Deprecated ({staleData.deprecated.length})
-          </h3>
-          <ul class="space-y-1">
-            {#each staleData.deprecated as note}
-              <li class="text-xs font-mono">
-                <span class="text-red-400">{note.path}</span>
-              </li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
-    </section>
-  {:else if staleState === 'error'}
-    <div class="rounded bg-red-900/40 border border-red-700 p-4 text-sm text-red-300">{staleError}</div>
-  {/if}
-
-  <!-- Evidence Builder -->
-  <section>
-    <h2 class="text-lg font-semibold text-zinc-200 mb-3">Evidence Builder</h2>
-    <p class="text-sm text-zinc-400 mb-4">
-      Build a trust-ranked evidence response. Notes are sorted by trust score (verified first) when prefer_verified is on.
-    </p>
-
-    <div class="grid gap-4 sm:grid-cols-2">
-      <div>
-        <label class="block text-xs font-medium text-zinc-400 mb-1" for="ev-query">Query (optional)</label>
-        <input
-          id="ev-query"
-          type="text"
-          bind:value={evidenceQuery}
-          placeholder="e.g. sorting algorithms"
-          class="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-zinc-400 mb-1" for="ev-max-notes">Max Notes</label>
-        <input
-          id="ev-max-notes"
-          type="number"
-          min="1"
-          max="100"
-          bind:value={evidenceMaxNotes}
-          class="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-    </div>
-
-    <div class="flex flex-wrap gap-4 mt-4">
-      <label class="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
-        <input type="checkbox" bind:checked={evidencePreferVerified} class="rounded" />
-        Prefer verified
-      </label>
-      <label class="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
-        <input type="checkbox" bind:checked={evidenceIncludeStale} class="rounded" />
-        Include stale
-      </label>
-      <label class="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
-        <input type="checkbox" bind:checked={evidenceIncludeDeprecated} class="rounded" />
-        Include deprecated
-      </label>
-    </div>
-
-    <div class="mt-4">
-      <button
-        on:click={runBuildEvidence}
-        disabled={!selectedVault || evidenceState === 'loading'}
-        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm rounded font-medium transition-colors"
-      >
-        {evidenceState === 'loading' ? 'Building…' : 'Build Evidence'}
-      </button>
-    </div>
-
-    {#if evidenceState === 'error'}
-      <div class="mt-4 rounded bg-red-900/40 border border-red-700 p-4 text-sm text-red-300">{evidenceError}</div>
-    {/if}
-
-    {#if evidenceState === 'ok' && evidenceData}
-      <div class="mt-6 space-y-4">
-        <!-- Disclaimer -->
-        <div class="rounded bg-yellow-900/30 border border-yellow-700/50 px-4 py-3 text-xs text-yellow-300">
-          <strong>Confidence Disclaimer:</strong> {evidenceData.confidence_disclaimer}
-        </div>
-
-        <!-- Summary -->
-        <div class="flex flex-wrap gap-3 text-sm">
-          <span class="text-zinc-400">
-            <span class="font-semibold text-zinc-200">{evidenceData.summary.total_notes}</span> note(s)
-          </span>
-          {#if evidenceData.summary.deprecated_excluded > 0}
-            <span class="text-orange-400">{evidenceData.summary.deprecated_excluded} deprecated excluded</span>
-          {/if}
-          {#if evidenceData.summary.stale_excluded > 0}
-            <span class="text-red-400">{evidenceData.summary.stale_excluded} stale excluded</span>
-          {/if}
-          {#each Object.entries(evidenceData.summary.by_confidence) as [conf, count]}
-            <span class="text-xs px-2 py-0.5 rounded-full {confidenceBadge(conf)}">{conf}: {count}</span>
-          {/each}
-        </div>
-
-        <!-- Evidence notes list -->
-        <div class="space-y-3">
-          {#each evidenceData.evidence as note}
-            <div class="rounded bg-zinc-800 border border-zinc-700 p-4">
-              <div class="flex flex-wrap items-center gap-2 mb-2">
-                <span class="font-mono text-sm text-zinc-200 font-semibold">{note.path}</span>
-                {#if note.trust_level}
-                  <span class="text-xs px-1.5 py-0.5 rounded {trustBadge(note.trust_level)}">{note.trust_level}</span>
-                {/if}
-                <span class="text-xs px-1.5 py-0.5 rounded {confidenceBadge(note.confidence)}">{note.confidence}</span>
-                {#if note.stale}
-                  <span class="text-xs px-1.5 py-0.5 rounded bg-red-800 text-red-200">stale</span>
-                {/if}
-                {#if note.source_type}
-                  <span class="text-xs text-zinc-500">{note.source_type}</span>
-                {/if}
-              </div>
-
-              {#if Object.keys(note.sections).length > 0}
-                <div class="mt-2 space-y-2">
-                  {#each Object.entries(note.sections) as [sectionName, sectionBody]}
-                    <div>
-                      <div class="text-xs font-semibold text-zinc-400 mb-0.5">{sectionName}</div>
-                      <div class="text-xs text-zinc-300 whitespace-pre-wrap line-clamp-4">{sectionBody}</div>
-                    </div>
-                  {/each}
-                </div>
-              {:else if note.body_excerpt}
-                <p class="mt-1 text-xs text-zinc-400 line-clamp-3">{note.body_excerpt}</p>
-              {/if}
-
-              <div class="mt-2 text-xs text-zinc-500">
-                Trust score: {note.trust_score}
-                {#if note.last_reviewed} · last reviewed: {note.last_reviewed}{/if}
-                {#if note.review_after} · review after: {note.review_after}{/if}
-              </div>
-            </div>
-          {/each}
-        </div>
-
-        <!-- Raw JSON toggle -->
-        <div class="mt-4">
-          <button
-            on:click={() => (showEvidenceRaw = !showEvidenceRaw)}
-            class="text-xs text-zinc-500 hover:text-zinc-300 underline"
+      <div class="cve-toolbar__actions">
+        {#if vaultList.length > 1}
+          <label class="cve-label cve-p30e1-inline-label" for="trust-vault-select">Vault</label>
+          <select
+            id="trust-vault-select"
+            class="cve-select cve-p30e1-inline-select"
+            bind:value={selectedVault}
+            on:change={handleVaultChange}
+            aria-label="Active vault"
           >
-            {showEvidenceRaw ? 'Hide' : 'Show'} raw JSON
-          </button>
-          {#if showEvidenceRaw}
-            <pre class="mt-2 text-xs bg-zinc-900 border border-zinc-700 rounded p-4 overflow-x-auto text-zinc-300">{JSON.stringify(evidenceData, null, 2)}</pre>
-          {/if}
+            {#each vaultList as v}
+              <option value={v}>{v}</option>
+            {/each}
+          </select>
+        {/if}
+        <button
+          type="button"
+          class="cve-btn cve-btn-secondary"
+          on:click={loadTrustData}
+          disabled={!selectedVault || trustState === 'loading'}
+          aria-label="Refresh trust summary"
+        >
+          {trustState === 'loading' ? 'Refreshing' : 'Refresh'}
+        </button>
+        <a class="cve-details__developer-link" href={rawDeepLink}>Open in Developer</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Vault load states -->
+  {#if vaultsLoading}
+    <div class="cve-banner cve-banner--info"><div class="cve-banner__body">Loading vaults...</div></div>
+  {:else if vaultsError}
+    <div class="cve-banner cve-banner--danger">
+      <div>
+        <div class="cve-banner__title">Could not load vaults</div>
+        <div class="cve-banner__body">{vaultsError}</div>
+      </div>
+    </div>
+  {:else if vaultList.length === 0}
+    <div class="cve-banner cve-banner--info">
+      <div>
+        <div class="cve-banner__title">No vaults registered</div>
+        <div class="cve-banner__body">
+          Use <a class="cve-link" href="/app/vault-setup">Vault Setup</a> to create one.
         </div>
       </div>
+    </div>
+  {:else}
+
+    <!-- Trust disclaimer (kept prominent above all queues) -->
+    <div class="cve-trust-warning" data-testid="trust-disclaimer">
+      <strong>Trust metadata is informational.</strong> It reflects review
+      and maintenance state. It does not prove factual correctness of any
+      note content.
+    </div>
+
+    {#if governanceBanner}
+      <section
+        class="cve-banner cve-banner--{governanceBanner.severity}"
+        role="status"
+        aria-live="polite"
+      >
+        <div>
+          <div class="cve-banner__title">{governanceBanner.title}</div>
+          <div class="cve-banner__body">{governanceBanner.body}</div>
+        </div>
+      </section>
     {/if}
-  </section>
+
+    <!-- Status strip -->
+    <div class="cve-status-strip" aria-label="Trust summary">
+      <div class="cve-status-tile" data-zero={counts.total === 0}>
+        <span class="cve-status-tile__label">Total notes</span>
+        <span class="cve-status-tile__value">{counts.total}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.stale === 0}>
+        <span class="cve-status-tile__label">Stale</span>
+        <span class="cve-status-tile__value">{counts.stale}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.low_trust === 0}>
+        <span class="cve-status-tile__label">Low trust</span>
+        <span class="cve-status-tile__value">{counts.low_trust}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.draft === 0}>
+        <span class="cve-status-tile__label">Draft</span>
+        <span class="cve-status-tile__value">{counts.draft}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.deprecated === 0}>
+        <span class="cve-status-tile__label">Deprecated</span>
+        <span class="cve-status-tile__value">{counts.deprecated}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.missing === 0}>
+        <span class="cve-status-tile__label">Missing metadata</span>
+        <span class="cve-status-tile__value">{counts.missing}</span>
+      </div>
+    </div>
+
+    <!-- Two-column governance layout -->
+    <div class="cve-p30e1-twocol">
+
+      <!-- Main: governance queue (leads the page) -->
+      <section class="cve-p30e1-main" aria-labelledby="trust-queue-head">
+        <header class="cve-p30e1-section__head">
+          <h2 id="trust-queue-head" class="cve-p30e1-section__title">Stale and low-trust queue</h2>
+          <p class="cve-helper">
+            Notes that need governance attention. Rows link to Notes for
+            inspection, Pending for related write proposals, and Feedback
+            for triage.
+          </p>
+        </header>
+
+        <div class="cve-p30e1-filter-row" role="group" aria-label="Governance queue filters">
+          <div class="cve-field">
+            <label class="cve-label" for="trust-filter-category">Category</label>
+            <select
+              id="trust-filter-category"
+              class="cve-select"
+              bind:value={filterCategory}
+            >
+              <option value="">All categories</option>
+              <option value="deprecated">Deprecated</option>
+              <option value="stale">Stale</option>
+              <option value="freshness_unknown">Freshness unknown</option>
+              <option value="low_trust">Low trust</option>
+            </select>
+          </div>
+          <div class="cve-field">
+            <label class="cve-label" for="trust-filter-text">Search path</label>
+            <input
+              id="trust-filter-text"
+              class="cve-input"
+              type="search"
+              bind:value={filterText}
+              placeholder="e.g. Fundamentals/"
+            />
+          </div>
+        </div>
+
+        {#if trustState === 'loading' || staleState === 'loading'}
+          <div class="cve-loading">Loading governance queue...</div>
+        {:else if filteredRows.length === 0}
+          <div class="cve-empty">
+            No notes match the current governance filters.
+          </div>
+        {:else}
+          <div class="cve-table-wrap cve-p30e1-queue-table-wrap">
+            <table class="cve-table" data-testid="trust-governance-table">
+              <thead>
+                <tr>
+                  <th scope="col">Category</th>
+                  <th scope="col">Path</th>
+                  <th scope="col">Trust</th>
+                  <th scope="col">Confidence</th>
+                  <th scope="col">Review after</th>
+                  <th scope="col">Last reviewed</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each filteredRows as row (row.category + '::' + row.path)}
+                  <tr>
+                    <td><span class={categoryTag(row.category)}>{categoryLabel(row.category)}</span></td>
+                    <td><code class="cve-p30e1-mono">{row.path}</code></td>
+                    <td>{row.trust_level ?? '-'}</td>
+                    <td>{row.confidence}</td>
+                    <td>{row.review_after ?? '-'}</td>
+                    <td>{row.last_reviewed ?? '-'}</td>
+                    <td>
+                      <a class="cve-link cve-p30e1-row-link" href={notesLink(row.path)} data-testid="trust-row-notes">Notes</a>
+                      <a class="cve-link cve-p30e1-row-link" href={pendingLink()} data-testid="trust-row-pending">Pending</a>
+                      <a class="cve-link cve-p30e1-row-link" href={feedbackLink()} data-testid="trust-row-feedback">Feedback</a>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
+      </section>
+
+      <!-- Secondary: trust breakdown + demoted evidence builder -->
+      <aside class="cve-p30e1-aside" aria-labelledby="trust-breakdown-head">
+
+        <section aria-labelledby="trust-breakdown-head">
+          <h2 id="trust-breakdown-head" class="cve-p30e1-section__title">Trust breakdown</h2>
+          {#if trustData}
+            <ul class="cve-p30e1-kv-list">
+              {#each Object.entries(trustData.by_trust_level) as [level, count]}
+                <li><span>{level}</span><span class="cve-p30e1-mono">{count}</span></li>
+              {/each}
+            </ul>
+            <h3 class="cve-p30e1-section__subtitle">By confidence</h3>
+            <ul class="cve-p30e1-kv-list">
+              {#each Object.entries(trustData.by_confidence) as [conf, count]}
+                <li><span>{conf}</span><span class="cve-p30e1-mono">{count}</span></li>
+              {/each}
+            </ul>
+          {:else}
+            <p class="cve-helper">Trust breakdown loads with the governance queue.</p>
+          {/if}
+        </section>
+
+        <!-- Demoted Evidence Builder -->
+        <details class="cve-details cve-p30e1-evidence-disclosure" data-testid="trust-evidence-builder">
+          <summary>Evidence Builder (secondary)</summary>
+          <div class="cve-details__body">
+            <p class="cve-helper">
+              Build a trust-ranked evidence response from this vault. Notes
+              are sorted by trust score when prefer_verified is on. This
+              tool is secondary to the governance queue above.
+            </p>
+
+            <div class="cve-field">
+              <label class="cve-label" for="ev-query">Query (optional)</label>
+              <input
+                id="ev-query"
+                class="cve-input"
+                type="search"
+                bind:value={evidenceQuery}
+                placeholder="e.g. sorting algorithms"
+              />
+            </div>
+            <div class="cve-field">
+              <label class="cve-label" for="ev-max-notes">Max notes</label>
+              <input
+                id="ev-max-notes"
+                class="cve-input"
+                type="number"
+                min="1"
+                max="100"
+                bind:value={evidenceMaxNotes}
+              />
+            </div>
+            <div class="cve-p30e1-checkbox-row">
+              <label class="cve-p30e1-checkbox">
+                <input type="checkbox" bind:checked={evidencePreferVerified} />
+                <span>Prefer verified</span>
+              </label>
+              <label class="cve-p30e1-checkbox">
+                <input type="checkbox" bind:checked={evidenceIncludeStale} />
+                <span>Include stale</span>
+              </label>
+              <label class="cve-p30e1-checkbox">
+                <input type="checkbox" bind:checked={evidenceIncludeDeprecated} />
+                <span>Include deprecated</span>
+              </label>
+            </div>
+            <button
+              type="button"
+              class="cve-btn cve-btn-secondary"
+              on:click={runBuildEvidence}
+              disabled={!selectedVault || evidenceState === 'loading'}
+            >
+              {evidenceState === 'loading' ? 'Building...' : 'Build evidence'}
+            </button>
+
+            {#if evidenceState === 'error'}
+              <div class="cve-banner cve-banner--danger" role="alert">
+                <div><div class="cve-banner__body">{evidenceError}</div></div>
+              </div>
+            {/if}
+            {#if evidenceState === 'ok' && evidenceData}
+              <p class="cve-helper">
+                {evidenceData.summary.total_notes} note(s) returned.
+                {evidenceData.confidence_disclaimer}
+              </p>
+              <ul class="cve-p30e1-kv-list">
+                {#each evidenceData.evidence.slice(0, 5) as note}
+                  <li>
+                    <a class="cve-link" href={notesLink(note.path)}>{note.path}</a>
+                    <span class="cve-p30e1-mono">{note.confidence}</span>
+                  </li>
+                {/each}
+              </ul>
+              {#if evidenceData.evidence.length > 5}
+                <p class="cve-helper">
+                  Showing 5 of {evidenceData.evidence.length}. Full payload via
+                  <a class="cve-link" href={buildRawDeepLink('evidence', selectedVault, 'trust-evidence')}
+                    >/app/raw</a>.
+                </p>
+              {/if}
+            {/if}
+          </div>
+        </details>
+
+        <!-- Developer raw deep-link -->
+        <details class="cve-details cve-details--inspector">
+          <summary>Raw trust response</summary>
+          <div class="cve-details__body">
+            <p class="cve-helper">
+              The raw trust JSON is intentionally not shown inline here. Open
+              the full payload in the Developer route:
+            </p>
+            <a class="cve-details__developer-link" href={rawDeepLink}
+              >Open this vault in /app/raw</a>
+          </div>
+        </details>
+
+      </aside>
+    </div>
+
+  {/if}
 
 </div>

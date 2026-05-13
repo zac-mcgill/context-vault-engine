@@ -8,44 +8,36 @@
     rejectPendingChange,
     isOk,
     type PendingChange,
-    type PendingChangesData,
-    type PendingChangeData,
   } from '../lib/api.ts';
   import { getStoredVault } from '../lib/vaultState.ts';
+  import {
+    buildRawDeepLink,
+    PENDING_ACCEPT_PHRASE,
+    PENDING_REJECT_PHRASE,
+    isConfirmed,
+  } from '../lib/phase30e1.ts';
 
   // ---------------------------------------------------------------------------
-  // Vault state
+  // State
   // ---------------------------------------------------------------------------
+
+  type LoadState = 'idle' | 'loading' | 'ok' | 'error';
 
   let vaultList: string[] = [];
   let vaultsLoading = true;
   let vaultsError = '';
   let selectedVault = '';
 
-  // ---------------------------------------------------------------------------
-  // Pending changes list state
-  // ---------------------------------------------------------------------------
-
-  type LoadState = 'idle' | 'loading' | 'ok' | 'error';
-
   let listState: LoadState = 'idle';
   let changes: PendingChange[] = [];
   let listError = '';
   let filterStatus = 'pending';
   let filterLimit = 50;
-
-  // ---------------------------------------------------------------------------
-  // Detail state
-  // ---------------------------------------------------------------------------
+  let filterText = '';
 
   let selectedChange: PendingChange | null = null;
   let detailState: LoadState = 'idle';
   let detailError = '';
-  let showRawJson = false;
-
-  // ---------------------------------------------------------------------------
-  // Accept / Reject form state
-  // ---------------------------------------------------------------------------
 
   type ActionState = 'idle' | 'loading' | 'ok' | 'error';
   let actionState: ActionState = 'idle';
@@ -53,8 +45,83 @@
   let actionErrorCode = '';
   let reviewerInput = '';
   let auditNoteInput = '';
-  let showAcceptConfirm = false;
-  let showRejectConfirm = false;
+  let acceptConfirmInput = '';
+  let rejectConfirmInput = '';
+  let activeAction: 'accept' | 'reject' | null = null;
+
+  // ---------------------------------------------------------------------------
+  // Derived
+  // ---------------------------------------------------------------------------
+
+  $: rawDeepLink = buildRawDeepLink('pending', selectedVault, 'pending');
+
+  $: counts = (() => {
+    const c = { pending: 0, accepted: 0, rejected: 0, invalid: 0, total: 0 };
+    for (const ch of changes) {
+      c.total += 1;
+      if (ch.status === 'pending') c.pending += 1;
+      else if (ch.status === 'accepted') c.accepted += 1;
+      else if (ch.status === 'rejected') c.rejected += 1;
+      else if (ch.status === 'invalid') c.invalid += 1;
+    }
+    return c;
+  })();
+
+  $: filteredChanges = (() => {
+    const q = filterText.trim().toLowerCase();
+    if (!q) return changes;
+    return changes.filter((ch) => {
+      return (
+        ch.path.toLowerCase().includes(q) ||
+        (ch.section ?? '').toLowerCase().includes(q) ||
+        ch.id.toLowerCase().includes(q)
+      );
+    });
+  })();
+
+  $: banner = (() => {
+    if (listState === 'error') {
+      return { severity: 'danger' as const, title: 'Could not load pending changes', body: listError };
+    }
+    if (detailState === 'error') {
+      return { severity: 'danger' as const, title: 'Could not load change detail', body: detailError };
+    }
+    if (actionState === 'error') {
+      return {
+        severity: 'danger' as const,
+        title: actionErrorCode ? `Action failed (${actionErrorCode})` : 'Action failed',
+        body: actionError,
+      };
+    }
+    if (selectedChange && selectedChange.validation_status === 'fail') {
+      return {
+        severity: 'warning' as const,
+        title: 'Selected change has validation errors',
+        body: 'Accepting is disabled until the proposal is re-validated upstream.',
+      };
+    }
+    if (listState === 'ok' && changes.length === 0) {
+      return {
+        severity: 'info' as const,
+        title: 'No pending changes',
+        body: 'No proposed memory writes match the current filters.',
+      };
+    }
+    return null;
+  })();
+
+  $: acceptReady =
+    !!selectedChange &&
+    selectedChange.status === 'pending' &&
+    selectedChange.validation_status !== 'fail' &&
+    isConfirmed(acceptConfirmInput, PENDING_ACCEPT_PHRASE) &&
+    actionState !== 'loading';
+
+  $: rejectReady =
+    !!selectedChange &&
+    selectedChange.status === 'pending' &&
+    isConfirmed(rejectConfirmInput, PENDING_REJECT_PHRASE) &&
+    actionState !== 'loading';
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -74,7 +141,7 @@
   });
 
   // ---------------------------------------------------------------------------
-  // Load list
+  // Loaders
   // ---------------------------------------------------------------------------
 
   async function loadChanges() {
@@ -83,6 +150,7 @@
     listError = '';
     changes = [];
     selectedChange = null;
+    detailState = 'idle';
     const statusArg = filterStatus === 'all' ? undefined : filterStatus;
     const resp = await listPendingChanges(selectedVault, statusArg, filterLimit);
     if (!isOk(resp)) {
@@ -96,16 +164,15 @@
 
   async function selectChange(change: PendingChange) {
     selectedChange = change;
-    showRawJson = false;
     actionState = 'idle';
     actionError = '';
     actionErrorCode = '';
-    showAcceptConfirm = false;
-    showRejectConfirm = false;
+    activeAction = null;
     reviewerInput = '';
     auditNoteInput = '';
+    acceptConfirmInput = '';
+    rejectConfirmInput = '';
 
-    // Reload full detail from server for freshest data
     detailState = 'loading';
     const resp = await getPendingChange(selectedVault, change.id);
     if (!isOk(resp)) {
@@ -118,11 +185,11 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Accept
+  // Actions
   // ---------------------------------------------------------------------------
 
   async function submitAccept() {
-    if (!selectedChange) return;
+    if (!selectedChange || !acceptReady) return;
     actionState = 'loading';
     actionError = '';
     actionErrorCode = '';
@@ -136,21 +203,17 @@
       actionState = 'error';
       actionError = resp.error?.message ?? 'Failed to accept change';
       actionErrorCode = resp.error?.code ?? '';
-      showAcceptConfirm = false;
       return;
     }
     actionState = 'ok';
     selectedChange = resp.data.change;
-    showAcceptConfirm = false;
+    activeAction = null;
+    acceptConfirmInput = '';
     await loadChanges();
   }
 
-  // ---------------------------------------------------------------------------
-  // Reject
-  // ---------------------------------------------------------------------------
-
   async function submitReject() {
-    if (!selectedChange) return;
+    if (!selectedChange || !rejectReady) return;
     actionState = 'loading';
     actionError = '';
     actionErrorCode = '';
@@ -164,12 +227,12 @@
       actionState = 'error';
       actionError = resp.error?.message ?? 'Failed to reject change';
       actionErrorCode = resp.error?.code ?? '';
-      showRejectConfirm = false;
       return;
     }
     actionState = 'ok';
     selectedChange = resp.data.change;
-    showRejectConfirm = false;
+    activeAction = null;
+    rejectConfirmInput = '';
     await loadChanges();
   }
 
@@ -177,43 +240,30 @@
   // Helpers
   // ---------------------------------------------------------------------------
 
-  function statusBadgeClass(status: string): string {
-    switch (status) {
-      case 'pending': return 'bg-amber-900/40 text-amber-300 border border-amber-700/50';
-      case 'accepted': return 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50';
-      case 'rejected': return 'bg-zinc-700/40 text-zinc-400 border border-zinc-600/50';
-      case 'invalid': return 'bg-red-900/40 text-red-300 border border-red-700/50';
-      default: return 'bg-zinc-800 text-zinc-400';
-    }
-  }
-
-  function validationBadgeClass(vs: string): string {
-    switch (vs) {
-      case 'pass': return 'text-emerald-400';
-      case 'fail': return 'text-red-400';
-      case 'not_checked': return 'text-zinc-500';
-      default: return 'text-zinc-500';
-    }
-  }
-
-  function typeBadge(type: string): string {
-    switch (type) {
-      case 'create_note_draft': return 'CREATE';
-      case 'suggest_note_update': return 'UPDATE';
-      case 'update_note_section_draft': return 'SECTION';
-      default: return type.toUpperCase();
-    }
-  }
-
   function diffLineClass(line: string): string {
-    if (line.startsWith('+') && !line.startsWith('+++')) return 'bg-emerald-950/50 text-emerald-300';
-    if (line.startsWith('-') && !line.startsWith('---')) return 'bg-red-950/50 text-red-300';
-    if (line.startsWith('@@')) return 'text-sky-400 bg-sky-950/30';
-    return 'text-zinc-400';
+    if (line.startsWith('@@')) return 'cve-diff__line cve-diff__line--hunk';
+    if (line.startsWith('+') && !line.startsWith('+++')) return 'cve-diff__line cve-diff__line--add';
+    if (line.startsWith('-') && !line.startsWith('---')) return 'cve-diff__line cve-diff__line--remove';
+    return 'cve-diff__line';
   }
 
-  function formatDate(iso: string | null): string {
-    if (!iso) return '—';
+  function statusTag(status: string): string {
+    if (status === 'pending') return 'cve-p30e1-tag cve-p30e1-tag--pending';
+    if (status === 'accepted') return 'cve-p30e1-tag cve-p30e1-tag--accepted';
+    if (status === 'rejected') return 'cve-p30e1-tag cve-p30e1-tag--rejected';
+    if (status === 'invalid') return 'cve-p30e1-tag cve-p30e1-tag--invalid';
+    return 'cve-p30e1-tag';
+  }
+
+  function typeLabel(type: string): string {
+    if (type === 'create_note_draft') return 'CREATE';
+    if (type === 'suggest_note_update') return 'UPDATE';
+    if (type === 'update_note_section_draft') return 'SECTION';
+    return type.toUpperCase();
+  }
+
+  function fmtDate(iso: string | null): string {
+    if (!iso) return '-';
     try {
       return new Date(iso).toLocaleString();
     } catch {
@@ -222,356 +272,459 @@
   }
 </script>
 
-<!-- ── Page ─────────────────────────────────────────────────────────────── -->
-<div class="cve-page space-y-6">
+<div class="cve-page cve-p30e1-page">
 
-  <!-- Header -->
-  <div class="cve-page-header flex items-center justify-between">
-    <div>
-      <h1 class="cve-page-title text-xl font-semibold text-zinc-100">Pending Changes</h1>
-      <p class="mt-1 text-sm text-zinc-400">
-        Review LLM-proposed note changes before they are written to the vault.
-        Nothing is applied without explicit acceptance.
-      </p>
-    </div>
-  </div>
-
-  <!-- Vault selector + filter bar -->
-  {#if vaultsLoading}
-    <p class="text-sm text-zinc-500">Loading vaults…</p>
-  {:else if vaultsError}
-    <p class="text-sm text-red-400">{vaultsError}</p>
-  {:else}
-    <div class="flex flex-wrap gap-3 items-end">
-      <div class="flex flex-col gap-1">
-        <label for="vault-select" class="text-xs text-zinc-400">Vault</label>
-        <select
-          id="vault-select"
-          bind:value={selectedVault}
-          on:change={loadChanges}
-          class="bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-sky-500"
-        >
-          {#each vaultList as v}
-            <option value={v}>{v}</option>
-          {/each}
-        </select>
-      </div>
-
-      <div class="flex flex-col gap-1">
-        <label for="status-filter" class="text-xs text-zinc-400">Status</label>
-        <select
-          id="status-filter"
-          bind:value={filterStatus}
-          on:change={loadChanges}
-          class="bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-sky-500"
-        >
-          <option value="pending">Pending</option>
-          <option value="accepted">Accepted</option>
-          <option value="rejected">Rejected</option>
-          <option value="all">All</option>
-        </select>
-      </div>
-
-      <button
-        on:click={loadChanges}
-        class="px-3 py-1.5 text-sm bg-zinc-800 border border-zinc-700 rounded text-zinc-200 hover:bg-zinc-700 transition-colors"
-      >
-        Refresh
-      </button>
-    </div>
-  {/if}
-
-  <!-- Main layout: list + detail -->
-  <div class="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
-
-    <!-- Change list -->
-    <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
-      <div class="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
-        <span class="text-sm font-medium text-zinc-300">Changes</span>
-        {#if listState === 'ok'}
-          <span class="text-xs text-zinc-500">{changes.length} result{changes.length !== 1 ? 's' : ''}</span>
+  <!-- Toolbar -->
+  <header class="cve-toolbar">
+    <div class="cve-toolbar__main">
+      <h1 class="cve-toolbar__title">Pending Changes</h1>
+      <div class="cve-toolbar__meta">
+        <span
+          class="cve-p30e1-pill"
+          class:cve-p30e1-pill--pending={counts.pending > 0}
+          data-testid="pending-state-pill"
+        >{counts.pending} pending</span>
+        {#if selectedVault}
+          <span>Vault: <code class="cve-p30e1-mono">{selectedVault}</code></span>
         {/if}
+        <span>Status filter: {filterStatus}</span>
       </div>
+      <div class="cve-toolbar__actions">
+        {#if vaultList.length > 1}
+          <label class="cve-label cve-p30e1-inline-label" for="pending-vault-select">Vault</label>
+          <select
+            id="pending-vault-select"
+            class="cve-select cve-p30e1-inline-select"
+            bind:value={selectedVault}
+            on:change={loadChanges}
+            aria-label="Active vault"
+          >
+            {#each vaultList as v}
+              <option value={v}>{v}</option>
+            {/each}
+          </select>
+        {/if}
+        <button
+          type="button"
+          class="cve-btn cve-btn-secondary"
+          on:click={loadChanges}
+          disabled={!selectedVault || listState === 'loading'}
+          aria-label="Refresh pending changes"
+        >
+          {listState === 'loading' ? 'Refreshing' : 'Refresh'}
+        </button>
+        <a class="cve-details__developer-link" href={rawDeepLink}>Open in Developer</a>
+      </div>
+    </div>
+  </header>
 
-      {#if listState === 'loading'}
-        <div class="cve-loading p-4 text-sm text-zinc-500">Loading…</div>
-      {:else if listState === 'error'}
-        <div class="cve-error p-4 text-sm text-red-400">{listError}</div>
-      {:else if listState === 'ok' && changes.length === 0}
-        <div class="cve-empty p-4 text-sm text-zinc-500">No changes found.</div>
-      {:else if listState === 'ok'}
-        <ul class="cve-list divide-y divide-zinc-800 max-h-[600px] overflow-y-auto">
-          {#each changes as ch}
-            <li>
-              <button
-                on:click={() => selectChange(ch)}
-                class:list={[
-                  'w-full text-left px-4 py-3 transition-colors',
-                  selectedChange?.id === ch.id
-                    ? 'bg-zinc-800'
-                    : 'hover:bg-zinc-800/50',
-                ]}
-              >
-                <!-- Type + status -->
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="cve-badge cve-badge-info text-xs font-mono font-semibold text-sky-400">{typeBadge(ch.type)}</span>
-                  <span class="cve-badge text-xs px-1.5 py-0.5 rounded-full font-medium {statusBadgeClass(ch.status)}">{ch.status}</span>
-                  {#if ch.validation_status === 'fail'}
-                    <span class="text-xs text-red-400">⚠ invalid</span>
-                  {/if}
-                </div>
-                <!-- Path -->
-                <div class="text-xs text-zinc-300 font-mono truncate" title={ch.path}>{ch.path}</div>
-                {#if ch.section}
-                  <div class="text-xs text-zinc-500 truncate">§ {ch.section}</div>
-                {/if}
-                <!-- Meta -->
-                <div class="text-xs text-zinc-600 mt-1">{formatDate(ch.created_at)}</div>
-              </button>
-            </li>
-          {/each}
-        </ul>
-      {:else}
-        <div class="p-4 text-sm text-zinc-500">Select a vault to load changes.</div>
-      {/if}
+  <!-- Vault load states -->
+  {#if vaultsLoading}
+    <div class="cve-banner cve-banner--info"><div class="cve-banner__body">Loading vaults...</div></div>
+  {:else if vaultsError}
+    <div class="cve-banner cve-banner--danger">
+      <div>
+        <div class="cve-banner__title">Could not load vaults</div>
+        <div class="cve-banner__body">{vaultsError}</div>
+      </div>
+    </div>
+  {:else if vaultList.length === 0}
+    <div class="cve-banner cve-banner--info">
+      <div>
+        <div class="cve-banner__title">No vaults registered</div>
+        <div class="cve-banner__body">
+          Use <a class="cve-link" href="/app/vault-setup">Vault Setup</a> to create one.
+        </div>
+      </div>
+    </div>
+  {:else}
+
+    <!-- State banner -->
+    {#if banner}
+      <section
+        class="cve-banner cve-banner--{banner.severity}"
+        role="status"
+        aria-live="polite"
+      >
+        <div>
+          <div class="cve-banner__title">{banner.title}</div>
+          <div class="cve-banner__body">{banner.body}</div>
+        </div>
+      </section>
+    {/if}
+
+    <!-- Status strip -->
+    <div class="cve-status-strip" aria-label="Pending queue summary">
+      <div class="cve-status-tile" data-zero={counts.total === 0}>
+        <span class="cve-status-tile__label">Total</span>
+        <span class="cve-status-tile__value">{counts.total}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.pending === 0}>
+        <span class="cve-status-tile__label">Pending</span>
+        <span class="cve-status-tile__value">{counts.pending}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.accepted === 0}>
+        <span class="cve-status-tile__label">Accepted</span>
+        <span class="cve-status-tile__value">{counts.accepted}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.rejected === 0}>
+        <span class="cve-status-tile__label">Rejected</span>
+        <span class="cve-status-tile__value">{counts.rejected}</span>
+      </div>
+      <div class="cve-status-tile" data-zero={counts.invalid === 0}>
+        <span class="cve-status-tile__label">Invalid</span>
+        <span class="cve-status-tile__value">{counts.invalid}</span>
+      </div>
     </div>
 
-    <!-- Detail panel -->
-    <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
-      {#if !selectedChange && detailState !== 'loading'}
-        <div class="p-8 text-sm text-zinc-500 text-center">
-          Select a change from the list to review it.
-        </div>
-      {:else if detailState === 'loading'}
-        <div class="p-8 text-sm text-zinc-500 text-center">Loading…</div>
-      {:else if detailState === 'error'}
-        <div class="p-4 text-sm text-red-400">{detailError}</div>
-      {:else if selectedChange}
-        {@const ch = selectedChange}
-        <div class="flex flex-col h-full">
+    <!-- Workbench: rail + inspector -->
+    <div class="cve-workbench">
 
-          <!-- Detail header -->
-          <div class="px-5 py-4 border-b border-zinc-800 flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <div class="flex items-center gap-2 flex-wrap mb-1">
-                <span class="text-xs font-mono font-semibold text-sky-400">{typeBadge(ch.type)}</span>
-                <span class="text-xs px-1.5 py-0.5 rounded-full font-medium {statusBadgeClass(ch.status)}">{ch.status}</span>
-                <span class="text-xs {validationBadgeClass(ch.validation_status)}">
-                  validation: {ch.validation_status}
-                </span>
-              </div>
-              <div class="text-sm font-mono text-zinc-200 break-all">{ch.path}</div>
-              {#if ch.section}
-                <div class="text-xs text-zinc-400 mt-0.5">Section: {ch.section}</div>
-              {/if}
-            </div>
-            <div class="text-xs text-zinc-600 shrink-0">{ch.id}</div>
+      <!-- Queue rail -->
+      <aside class="cve-workbench__rail cve-p30e1-rail" aria-label="Pending change queue">
+        <div class="cve-p30e1-rail__head">
+          <div class="cve-field">
+            <label class="cve-label" for="pending-filter-text">Search queue</label>
+            <input
+              id="pending-filter-text"
+              class="cve-input"
+              type="search"
+              bind:value={filterText}
+              placeholder="path, section, or id"
+            />
           </div>
-
-          <!-- Scrollable body -->
-          <div class="flex-1 overflow-y-auto divide-y divide-zinc-800">
-
-            <!-- Metadata -->
-            <div class="px-5 py-4 grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
-              <div><span class="text-zinc-500">Source:</span> <span class="text-zinc-300">{ch.source}</span></div>
-              <div><span class="text-zinc-500">Created:</span> <span class="text-zinc-300">{formatDate(ch.created_at)}</span></div>
-              {#if ch.session_id}
-                <div><span class="text-zinc-500">Session:</span> <span class="text-zinc-400 font-mono">{ch.session_id}</span></div>
-              {/if}
-              {#if ch.project}
-                <div><span class="text-zinc-500">Project:</span> <span class="text-zinc-300">{ch.project}</span></div>
-              {/if}
-              {#if ch.reviewer}
-                <div><span class="text-zinc-500">Reviewer:</span> <span class="text-zinc-300">{ch.reviewer}</span></div>
-              {/if}
-              {#if ch.applied_at}
-                <div><span class="text-zinc-500">Applied:</span> <span class="text-emerald-400">{formatDate(ch.applied_at)}</span></div>
-              {/if}
-              {#if ch.rejected_at}
-                <div><span class="text-zinc-500">Rejected:</span> <span class="text-zinc-400">{formatDate(ch.rejected_at)}</span></div>
-              {/if}
+          <div class="cve-p30e1-filter-row">
+            <div class="cve-field">
+              <label class="cve-label" for="pending-filter-status">Status</label>
+              <select
+                id="pending-filter-status"
+                class="cve-select"
+                bind:value={filterStatus}
+                on:change={loadChanges}
+              >
+                <option value="pending">Pending</option>
+                <option value="accepted">Accepted</option>
+                <option value="rejected">Rejected</option>
+                <option value="all">All</option>
+              </select>
             </div>
+            <div class="cve-field">
+              <label class="cve-label" for="pending-filter-limit">Limit</label>
+              <select
+                id="pending-filter-limit"
+                class="cve-select"
+                bind:value={filterLimit}
+                on:change={loadChanges}
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="cve-p30e1-rail__body" data-testid="pending-queue-scroll">
+          {#if listState === 'loading'}
+            <div class="cve-loading">Loading pending changes...</div>
+          {:else if listState === 'error'}
+            <div class="cve-error">{listError}</div>
+          {:else if filteredChanges.length === 0}
+            <div class="cve-empty">No changes match the current filters.</div>
+          {:else}
+            <ul class="cve-p30e1-queue-list" role="list">
+              {#each filteredChanges as ch (ch.id)}
+                <li>
+                  <button
+                    type="button"
+                    class="cve-p30e1-queue-item"
+                    class:cve-p30e1-queue-item--active={selectedChange?.id === ch.id}
+                    on:click={() => selectChange(ch)}
+                    aria-label={`Inspect change ${ch.id} for ${ch.path}`}
+                  >
+                    <span class="cve-p30e1-queue-item__row">
+                      <span class="cve-p30e1-queue-item__type">{typeLabel(ch.type)}</span>
+                      <span class={statusTag(ch.status)}>{ch.status}</span>
+                      {#if ch.validation_status === 'fail'}
+                        <span class="cve-p30e1-tag cve-p30e1-tag--invalid">validation fail</span>
+                      {/if}
+                    </span>
+                    <span class="cve-p30e1-queue-item__path">{ch.path}</span>
+                    {#if ch.section}
+                      <span class="cve-p30e1-queue-item__section">section: {ch.section}</span>
+                    {/if}
+                    <span class="cve-p30e1-queue-item__meta">{fmtDate(ch.created_at)}</span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      </aside>
+
+      <!-- Inspector -->
+      <section class="cve-workbench__inspector cve-p30e1-inspector" aria-label="Selected change inspector">
+
+        {#if !selectedChange && detailState !== 'loading'}
+          <div class="cve-p30e1-inspector__empty">
+            <p>Select a change from the queue to review provenance, diff, and accept or reject it.</p>
+          </div>
+        {:else if detailState === 'loading'}
+          <div class="cve-loading">Loading change detail...</div>
+        {:else if detailState === 'error'}
+          <div class="cve-error">{detailError}</div>
+        {:else if selectedChange}
+          {@const ch = selectedChange}
+
+          <header class="cve-p30e1-inspector__head">
+            <div class="cve-p30e1-inspector__title-row">
+              <span class="cve-p30e1-queue-item__type">{typeLabel(ch.type)}</span>
+              <span class={statusTag(ch.status)}>{ch.status}</span>
+              <span class="cve-p30e1-validation cve-p30e1-validation--{ch.validation_status}">
+                validation: {ch.validation_status}
+              </span>
+            </div>
+            <h2 class="cve-p30e1-inspector__path" data-testid="pending-inspector-path">{ch.path}</h2>
+            {#if ch.section}
+              <p class="cve-p30e1-inspector__section">Section: {ch.section}</p>
+            {/if}
+            <p class="cve-p30e1-inspector__id">id: <code class="cve-p30e1-mono">{ch.id}</code></p>
+          </header>
+
+          <div class="cve-p30e1-inspector__body" data-testid="pending-inspector-scroll">
+
+            <!-- Provenance / target / trust impact -->
+            <section class="cve-p30e1-section" aria-labelledby="pending-provenance-head">
+              <h3 id="pending-provenance-head" class="cve-p30e1-section__title">Provenance and target</h3>
+              <dl class="cve-p30e1-kv" data-testid="pending-provenance">
+                <div><dt>Source</dt><dd><code class="cve-p30e1-mono">{ch.source}</code></dd></div>
+                <div><dt>Target note</dt><dd><code class="cve-p30e1-mono">{ch.path}</code></dd></div>
+                {#if ch.section}
+                  <div><dt>Target section</dt><dd>{ch.section}</dd></div>
+                {/if}
+                <div><dt>Created</dt><dd>{fmtDate(ch.created_at)}</dd></div>
+                {#if ch.session_id}
+                  <div><dt>Session</dt><dd><code class="cve-p30e1-mono">{ch.session_id}</code></dd></div>
+                {/if}
+                {#if ch.project}
+                  <div><dt>Project</dt><dd>{ch.project}</dd></div>
+                {/if}
+                {#if ch.reviewer}
+                  <div><dt>Reviewer</dt><dd>{ch.reviewer}</dd></div>
+                {/if}
+                {#if ch.applied_at}
+                  <div><dt>Applied</dt><dd>{fmtDate(ch.applied_at)}</dd></div>
+                {/if}
+                {#if ch.rejected_at}
+                  <div><dt>Rejected</dt><dd>{fmtDate(ch.rejected_at)}</dd></div>
+                {/if}
+              </dl>
+              <!-- Trust impact: the backend pending API does not expose a
+                   trust-impact field. The note below is the deterministic
+                   fallback so reviewers always see the trust effect of
+                   accepting. -->
+              <p class="cve-p30e1-trust-impact" data-testid="pending-trust-impact">
+                <strong>Trust impact.</strong> Accepting writes proposed content to
+                the vault as a deterministic note edit. Trust metadata
+                (trust_level, last_reviewed, review_after) is not modified by
+                this action and must be reviewed separately on
+                <a class="cve-link" href="/app/trust">Trust</a>.
+              </p>
+              {#if ch.original_content_hash}
+                <p class="cve-p30e1-stale" data-testid="pending-hash-warning">
+                  <strong>Original hash recorded.</strong> The backend re-checks
+                  this hash on accept. If the target note has changed on disk
+                  since the proposal was created, the accept will be rejected
+                  as stale.
+                </p>
+              {/if}
+            </section>
 
             <!-- Reason -->
             {#if ch.reason}
-              <div class="px-5 py-4">
-                <div class="text-xs font-semibold text-zinc-400 mb-1 uppercase tracking-wider">Reason</div>
-                <p class="text-sm text-zinc-300">{ch.reason}</p>
-              </div>
+              <section class="cve-p30e1-section" aria-labelledby="pending-reason-head">
+                <h3 id="pending-reason-head" class="cve-p30e1-section__title">Reason</h3>
+                <p>{ch.reason}</p>
+              </section>
             {/if}
 
             <!-- Audit note -->
             {#if ch.audit_note}
-              <div class="px-5 py-4">
-                <div class="text-xs font-semibold text-zinc-400 mb-1 uppercase tracking-wider">Audit Note</div>
-                <p class="text-sm text-zinc-300">{ch.audit_note}</p>
-              </div>
+              <section class="cve-p30e1-section" aria-labelledby="pending-audit-head">
+                <h3 id="pending-audit-head" class="cve-p30e1-section__title">Audit note</h3>
+                <p>{ch.audit_note}</p>
+              </section>
             {/if}
 
             <!-- Validation errors -->
             {#if ch.validation_errors.length > 0}
-              <div class="px-5 py-4">
-                <div class="text-xs font-semibold text-red-400 mb-2 uppercase tracking-wider">Validation Errors</div>
-                <ul class="space-y-1">
+              <section class="cve-p30e1-section" aria-labelledby="pending-validation-head">
+                <h3 id="pending-validation-head" class="cve-p30e1-section__title">Validation errors</h3>
+                <ul class="cve-p30e1-validation-list">
                   {#each ch.validation_errors as err}
-                    <li class="text-xs text-red-300 bg-red-950/30 border border-red-800/50 rounded px-3 py-1.5 font-mono">{err}</li>
+                    <li><code class="cve-p30e1-mono">{err}</code></li>
                   {/each}
                 </ul>
-              </div>
+              </section>
             {/if}
 
             <!-- Diff -->
-            <div class="px-5 py-4">
-              <div class="text-xs font-semibold text-zinc-400 mb-2 uppercase tracking-wider">
-                Diff
-                {#if ch.diff.length === 0}
-                  <span class="text-zinc-600 font-normal ml-1">(no diff — new file)</span>
-                {/if}
-              </div>
-              {#if ch.diff.length > 0}
-                <pre class="text-xs rounded-lg bg-zinc-950 border border-zinc-800 overflow-x-auto p-3 leading-relaxed"><code>{#each ch.diff as line}<span class={diffLineClass(line)}>{line}
-</span>{/each}</code></pre>
+            <section class="cve-p30e1-section" aria-labelledby="pending-diff-head">
+              <h3 id="pending-diff-head" class="cve-p30e1-section__title">Proposed diff</h3>
+              {#if ch.diff.length === 0}
+                <p class="cve-helper">No diff. This is a new note proposal.</p>
               {:else}
-                <div class="text-xs text-zinc-600">This is a new note — no diff to show.</div>
+                <pre class="cve-diff cve-p30e1-diff" data-testid="pending-diff"><code>{#each ch.diff as line}<span class={diffLineClass(line)}>{line}
+</span>{/each}</code></pre>
               {/if}
-            </div>
-
-            <!-- Raw JSON toggle -->
-            <div class="px-5 py-4">
-              <button
-                on:click={() => { showRawJson = !showRawJson; }}
-                class="text-xs text-zinc-500 hover:text-zinc-300 underline underline-offset-2 transition-colors"
-              >
-                {showRawJson ? 'Hide' : 'Show'} raw JSON
-              </button>
-              {#if showRawJson}
-                <pre class="mt-2 text-xs bg-zinc-950 border border-zinc-800 rounded p-3 overflow-x-auto text-zinc-400">{JSON.stringify(ch, null, 2)}</pre>
-              {/if}
-            </div>
+            </section>
 
             <!-- Action result -->
             {#if actionState === 'ok'}
-              <div class="px-5 py-3 bg-emerald-950/30 border-t border-emerald-800/40">
-                <p class="text-sm text-emerald-300">Action applied. Change status: <strong>{ch.status}</strong></p>
+              <div class="cve-banner cve-banner--success" role="status">
+                <div>
+                  <div class="cve-banner__title">Action applied</div>
+                  <div class="cve-banner__body">Change status is now <strong>{ch.status}</strong>.</div>
+                </div>
               </div>
             {/if}
 
-            {#if actionState === 'error'}
-              <div class="px-5 py-3 bg-red-950/30 border-t border-red-800/40">
-                <p class="text-xs text-red-400">
-                  {#if actionErrorCode}<span class="font-mono mr-1">[{actionErrorCode}]</span>{/if}{actionError}
-                </p>
-              </div>
-            {/if}
-
-            <!-- Accept / Reject buttons (only for pending) -->
+            <!-- Accept / reject confirmation panel -->
             {#if ch.status === 'pending'}
-              <div class="px-5 py-4 space-y-4">
+              <section class="cve-p30e1-section cve-p30e1-section--actions" aria-labelledby="pending-actions-head">
+                <h3 id="pending-actions-head" class="cve-p30e1-section__title">Review decision</h3>
 
-                <!-- Reviewer fields -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div class="flex flex-col gap-1">
-                    <label for="reviewer-input" class="text-xs text-zinc-400">Reviewer (optional)</label>
+                <div class="cve-p30e1-action-row">
+                  <div class="cve-field">
+                    <label class="cve-label" for="pending-reviewer">Reviewer (optional)</label>
                     <input
-                      id="reviewer-input"
+                      id="pending-reviewer"
+                      class="cve-input"
                       type="text"
                       bind:value={reviewerInput}
-                      placeholder="Your name"
-                      class="bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      placeholder="Your name or handle"
                     />
                   </div>
-                  <div class="flex flex-col gap-1">
-                    <label for="audit-note-input" class="text-xs text-zinc-400">Audit note (optional)</label>
+                  <div class="cve-field">
+                    <label class="cve-label" for="pending-audit-note">Audit note (optional)</label>
                     <input
-                      id="audit-note-input"
+                      id="pending-audit-note"
+                      class="cve-input"
                       type="text"
                       bind:value={auditNoteInput}
                       placeholder="Reason for decision"
-                      class="bg-zinc-800 border border-zinc-700 text-zinc-100 text-sm rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-sky-500"
                     />
                   </div>
                 </div>
 
-                <!-- Validation warning -->
                 {#if ch.validation_status === 'fail'}
-                  <div class="bg-red-950/30 border border-red-700/50 rounded p-3 text-xs text-red-300">
-                    <strong>Cannot accept:</strong> this change has validation errors. Fix the proposal and re-submit.
+                  <div class="cve-banner cve-banner--danger" role="alert">
+                    <div>
+                      <div class="cve-banner__title">Cannot accept</div>
+                      <div class="cve-banner__body">
+                        This change has validation errors. Accepting is disabled
+                        until the proposal is re-validated upstream.
+                      </div>
+                    </div>
                   </div>
                 {/if}
 
-                <!-- Action buttons -->
-                <div class="flex gap-3">
+                <div class="cve-p30e1-decision">
 
                   <!-- Accept -->
-                  {#if !showAcceptConfirm}
-                    <button
-                      on:click={() => { showAcceptConfirm = true; showRejectConfirm = false; }}
-                      disabled={ch.validation_status === 'fail' || actionState === 'loading'}
-                      class="px-4 py-2 text-sm font-medium rounded bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors"
-                    >
-                      Accept &amp; Apply
-                    </button>
-                  {:else}
-                    <div class="bg-emerald-950/30 border border-emerald-700/50 rounded p-3 flex flex-col gap-2">
-                      <p class="text-xs text-emerald-300 font-medium">
-                        Confirm: apply this change to <span class="font-mono">{ch.path}</span>? This cannot be undone.
+                  <div class="cve-p30e1-decision__pane cve-p30e1-decision__pane--accept">
+                    <h4 class="cve-p30e1-decision__title">Accept and apply</h4>
+                    <p class="cve-helper">
+                      Writes the proposed content to <code class="cve-p30e1-mono">{ch.path}</code>.
+                      This action is recorded in the vault audit log.
+                    </p>
+                    <div class="cve-field">
+                      <label class="cve-label" for="pending-accept-confirm">
+                        Type <code class="cve-p30e1-mono">{PENDING_ACCEPT_PHRASE}</code> to confirm
+                      </label>
+                      <input
+                        id="pending-accept-confirm"
+                        class="cve-input"
+                        type="text"
+                        autocomplete="off"
+                        bind:value={acceptConfirmInput}
+                        on:focus={() => { activeAction = 'accept'; }}
+                        disabled={ch.validation_status === 'fail'}
+                        aria-describedby="pending-accept-help"
+                      />
+                      <p id="pending-accept-help" class="cve-helper">
+                        Accept is disabled until the confirmation phrase matches exactly.
                       </p>
-                      <div class="flex gap-2">
-                        <button
-                          on:click={submitAccept}
-                          disabled={actionState === 'loading'}
-                          class="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white transition-colors"
-                        >
-                          {actionState === 'loading' ? 'Applying…' : 'Yes, apply'}
-                        </button>
-                        <button
-                          on:click={() => { showAcceptConfirm = false; }}
-                          class="px-3 py-1.5 text-xs rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
                     </div>
-                  {/if}
+                    <button
+                      type="button"
+                      class="cve-btn cve-btn-primary"
+                      data-testid="pending-accept-submit"
+                      on:click={submitAccept}
+                      disabled={!acceptReady}
+                    >
+                      {actionState === 'loading' && activeAction === 'accept' ? 'Applying...' : 'Accept and apply'}
+                    </button>
+                  </div>
 
                   <!-- Reject -->
-                  {#if !showRejectConfirm}
-                    <button
-                      on:click={() => { showRejectConfirm = true; showAcceptConfirm = false; }}
-                      disabled={actionState === 'loading'}
-                      class="px-4 py-2 text-sm font-medium rounded bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 text-zinc-200 transition-colors"
-                    >
-                      Reject
-                    </button>
-                  {:else}
-                    <div class="bg-zinc-800 border border-zinc-700 rounded p-3 flex flex-col gap-2">
-                      <p class="text-xs text-zinc-300 font-medium">Confirm rejection and archive?</p>
-                      <div class="flex gap-2">
-                        <button
-                          on:click={submitReject}
-                          disabled={actionState === 'loading'}
-                          class="px-3 py-1.5 text-xs font-semibold rounded bg-zinc-600 hover:bg-zinc-500 disabled:opacity-40 text-zinc-100 transition-colors"
-                        >
-                          {actionState === 'loading' ? 'Rejecting…' : 'Yes, reject'}
-                        </button>
-                        <button
-                          on:click={() => { showRejectConfirm = false; }}
-                          class="px-3 py-1.5 text-xs rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
+                  <div class="cve-p30e1-decision__pane cve-p30e1-decision__pane--reject">
+                    <h4 class="cve-p30e1-decision__title">Reject and archive</h4>
+                    <p class="cve-helper">
+                      Marks this proposal as rejected. The vault is not modified.
+                    </p>
+                    <div class="cve-field">
+                      <label class="cve-label" for="pending-reject-confirm">
+                        Type <code class="cve-p30e1-mono">{PENDING_REJECT_PHRASE}</code> to confirm
+                      </label>
+                      <input
+                        id="pending-reject-confirm"
+                        class="cve-input"
+                        type="text"
+                        autocomplete="off"
+                        bind:value={rejectConfirmInput}
+                        on:focus={() => { activeAction = 'reject'; }}
+                        aria-describedby="pending-reject-help"
+                      />
+                      <p id="pending-reject-help" class="cve-helper">
+                        Reject is disabled until the confirmation phrase matches exactly.
+                      </p>
                     </div>
-                  {/if}
-                </div>
+                    <button
+                      type="button"
+                      class="cve-btn cve-btn-danger"
+                      data-testid="pending-reject-submit"
+                      on:click={submitReject}
+                      disabled={!rejectReady}
+                    >
+                      {actionState === 'loading' && activeAction === 'reject' ? 'Rejecting...' : 'Reject and archive'}
+                    </button>
+                  </div>
 
-              </div>
+                </div>
+              </section>
             {/if}
 
-          </div><!-- /.flex-1 -->
-        </div>
-      {/if}
+            <!-- Raw JSON: deferred to Developer route -->
+            <details class="cve-details cve-details--inspector">
+              <summary>Raw pending response</summary>
+              <div class="cve-details__body">
+                <p class="cve-helper">
+                  The raw pending JSON is intentionally not shown inline here.
+                  Open the full payload in the Developer route:
+                </p>
+                <a class="cve-details__developer-link" href={rawDeepLink}
+                  >Open this vault in /app/raw</a>
+              </div>
+            </details>
+
+          </div>
+        {/if}
+
+      </section>
     </div>
 
-  </div><!-- /.grid -->
+  {/if}
+
 </div>

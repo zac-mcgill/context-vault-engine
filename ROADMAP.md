@@ -134,7 +134,9 @@ Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX
 | 30D1  | Validation, Tasks, Raw real impls       | Complete |
 | 30D2  | Notes and Graph workspace redesigns     | Complete |
 | 30D3  | Import, Bundles, Exports, Security      | Complete |
-| 30E   | Review/Governance/Developer Polish      | Planned  |
+| 30E   | Review/Governance/Developer Polish      | In Progress |
+| 30E1  | Pending/Trust/Feedback governance polish| Complete |
+| 30E2  | Controller and Vault Setup polish       | Planned  |
 | 30F   | Final QA, A11y, Responsive, Light Mode  | Planned  |
 | 27    | Registry and Reuse Layer                | Deferred |
 | 28    | Optional Semantic Retrieval             | Deferred |
@@ -1166,22 +1168,40 @@ feat(ui): import, bundles, exports, and security workflow redesigns (Phase 30D3)
 
 #### Phase 30E - Review, Governance, and Developer Polish
 
+**Status:** In Progress. Phase 30E1 (Pending, Trust, Feedback) is Complete. Phase 30E2 (Controller, Vault Setup) is Planned.
+
+##### Phase 30E1 - Pending / Trust / Feedback governance polish
+
+**Status:** Complete.
+
+**Scope (delivered):**
+- `/app/pending` rebuilt on the Phase 30B workbench primitives. Internal scroll on the queue rail and the inspector body. Typed-confirmation gates for both Accept (`ACCEPT`) and Reject (`REJECT`). Provenance, target, and a deterministic trust-impact panel surfaced inline. Diff rendered with the `cve-diff` primitive. Raw JSON moved to a `/app/raw` deep-link.
+- `/app/trust` leads with the stale / low-trust governance queue table. Per-row links to Notes, Pending, and Feedback. Evidence Builder demoted into a secondary disclosure. Trust disclaimer retained as `cve-trust-warning`. Status strip summarises stale, low-trust, draft, deprecated, and missing-metadata counts.
+- `/app/feedback` rebuilt as a triage workbench. Full-width filterable table with deterministic severity-first sort. Pinned tasks side-panel. Add Feedback gated behind a `cve-slide-over` opened from the toolbar. Edit and delete retained inline on each row.
+- Shared helper `ui/src/lib/phase30e1.ts` exposes the typed-confirmation phrases, severity weights, resolved-signal predicate, and the `/app/raw` deep-link builder.
+- No new runtime dependencies, no backend or schema changes, no new MCP tools.
+
+**Suggested Commit**
+
+```
+feat(ui): pending, trust, and feedback governance polish (Phase 30E1)
+```
+
+##### Phase 30E2 - Controller and Vault Setup polish
+
 **Status:** Planned.
 
 **Scope:**
-- `/app/pending` widened layout, internal scroll on the queue, accept friction in line with the typed-confirmation pattern, accept/reject provenance and trust impact.
-- `/app/trust` summary band + stale / low-trust queue + per-row links to Notes / Pending / Feedback; Evidence Builder demoted to secondary tab.
-- `/app/feedback` full-width filterable table top, Tasks side-panel pinned right, Add Feedback in `cve-slide-over` from a fixed action, severity-driven sort and grouping.
 - `/app/controller` two-column command-centre layout at xl+; readiness polarity corrected for negative flags; recommendations deep-link to authoritative pages.
 - `/app/vault-setup` destructive vault deletion moved off the onboarding page (separate management route or slide-over from the vault switcher); per-field cards collapsed into a single grouped form panel.
-- `cve-diff` primitive implemented for Pending if Phase 30B shipped only the contract.
+- `cve-diff` further hardening only if regressions are found while polishing Pending.
 
 **Out of scope:** Final QA, a11y, responsive, and light-mode toggle - deferred to 30F.
 
 **Suggested Commit**
 
 ```
-feat(ui): review, governance, and developer polish (Phase 30E)
+feat(ui): controller and vault setup polish (Phase 30E2)
 ```
 
 #### Phase 30F - Final QA, Accessibility, Responsive, Light Mode, and Guardrail Tests

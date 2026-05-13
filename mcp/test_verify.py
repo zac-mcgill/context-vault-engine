@@ -11748,6 +11748,30 @@ def main():
     test_p30d3_23_phase30d3_and_30d_complete()
     test_p30d3_24_no_em_dashes_in_phase30d3_files()
 
+    test_p30e1_1_pages_use_expected_layout_modes()
+    test_p30e1_2_components_use_cve_toolbar()
+    test_p30e1_3_components_use_cve_banner_and_status_strip()
+    test_p30e1_4_pending_uses_cve_workbench_and_diff()
+    test_p30e1_5_pending_internal_scroll_regions()
+    test_p30e1_6_pending_typed_confirmation_gates()
+    test_p30e1_7_pending_provenance_and_trust_impact()
+    test_p30e1_8_trust_keeps_disclaimer()
+    test_p30e1_9_trust_leads_with_governance_queue()
+    test_p30e1_10_trust_evidence_builder_demoted()
+    test_p30e1_11_trust_row_links_to_governance_routes()
+    test_p30e1_12_feedback_uses_table_and_filters()
+    test_p30e1_13_feedback_add_in_toolbar_with_slide_over()
+    test_p30e1_14_feedback_severity_sort_and_tasks_panel()
+    test_p30e1_15_state_pills_present()
+    test_p30e1_16_no_primary_inline_raw_json()
+    test_p30e1_17_developer_deep_links()
+    test_p30e1_18_no_tailwind_dark_literals()
+    test_p30e1_19_form_labels()
+    test_p30e1_20_static_links_resolve()
+    test_p30e1_21_phase27_28_still_deferred()
+    test_p30e1_22_phase30e1_complete_30e_in_progress()
+    test_p30e1_23_no_em_dashes_and_no_new_deps()
+
     print()
     print("=" * 60)
     print("ALL VERIFICATION TESTS PASSED")
@@ -19362,9 +19386,9 @@ def _repo_root():
 
 
 def test_doc_drift_readme_test_count():
-    """DOC-DRIFT-1: README quotes the current 890-test total, no stale counts."""
+    """DOC-DRIFT-1: README quotes the current 913-test total, no stale counts."""
     readme = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    assert "890" in readme, "README.md must mention the current test count 890"
+    assert "913" in readme, "README.md must mention the current test count 913"
     stale_phrases = [
         "553 deterministic tests",
         "548 deterministic tests",
@@ -19395,29 +19419,31 @@ def test_doc_drift_readme_test_count():
         "842 tests.",
         "866 deterministic tests",
         "866 tests.",
+        "890 deterministic tests",
+        "890 tests.",
     ]
     for phrase in stale_phrases:
         assert phrase not in readme, f"README.md still mentions stale phrase {phrase!r}"
-    print(f"  README mentions 890 tests, no stale counts present ✓")
+    print(f"  README mentions 913 tests, no stale counts present ✓")
 
 
 def test_doc_drift_testing_test_count():
-    """DOC-DRIFT-2: TESTING.md current total is 890 and historical markers retained."""
+    """DOC-DRIFT-2: TESTING.md current total is 913 and historical markers retained."""
     text = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
-    assert "890 test functions" in text, "TESTING.md must state 890 test functions"
-    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763", "787", "800", "818", "842", "866"):
+    assert "913 test functions" in text, "TESTING.md must state 913 test functions"
+    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763", "787", "800", "818", "842", "866", "890"):
         assert marker in text, f"TESTING.md must retain historical test-count marker {marker}"
-    print(f"  TESTING.md states 890 functions and keeps historical markers ✓")
+    print(f"  TESTING.md states 913 functions and keeps historical markers ✓")
 
 
 def test_doc_drift_release_checklist_test_count():
-    """DOC-DRIFT-3: RELEASE_CHECKLIST references 890 tests and required commands."""
+    """DOC-DRIFT-3: RELEASE_CHECKLIST references 913 tests and required commands."""
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "890" in text, "RELEASE_CHECKLIST.md must reference the 890-test target"
+    assert "913" in text, "RELEASE_CHECKLIST.md must reference the 913-test target"
     for req in ("test_verify.py", "run.py validate", "run.py security",
                 "run.py export", "GitHub Release"):
         assert req in text, f"RELEASE_CHECKLIST.md must contain {req!r}"
-    print(f"  RELEASE_CHECKLIST mentions 890 tests and required commands ✓")
+    print(f"  RELEASE_CHECKLIST mentions 913 tests and required commands ✓")
 
 
 def test_doc_drift_roadmap_active_phase():
@@ -20806,10 +20832,10 @@ def test_p29e_19_readme_states_phase29_complete():
 
 def test_p29e_20_release_checklist_test_count_updated():
     """P29E-20: RELEASE_CHECKLIST.md references the current test count.
-    Phase 30D3 bumped the total from 866 to 890."""
+    Phase 30E1 bumped the total from 890 to 913."""
     print("\n=== Test P29E-20: RELEASE_CHECKLIST test count ===")
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "890" in text, "RELEASE_CHECKLIST.md must reference the current 890-test target"
+    assert "913" in text, "RELEASE_CHECKLIST.md must reference the current 913-test target"
     # The previous counts must not linger in the checklist after this phase.
     assert "all 763 tests green" not in text, \
         "RELEASE_CHECKLIST.md must not still say 'all 763 tests green'"
@@ -20823,7 +20849,9 @@ def test_p29e_20_release_checklist_test_count_updated():
         "RELEASE_CHECKLIST.md must not still say 'all 842 tests green'"
     assert "all 866 tests green" not in text, \
         "RELEASE_CHECKLIST.md must not still say 'all 866 tests green'"
-    print("  RELEASE_CHECKLIST.md references 890 tests ✓")
+    assert "all 890 tests green" not in text, \
+        "RELEASE_CHECKLIST.md must not still say 'all 890 tests green'"
+    print("  RELEASE_CHECKLIST.md references 913 tests ✓")
 
 
 def test_p29e_21_ui_ux_audit_has_phase29e_note():
@@ -21358,8 +21386,9 @@ def test_p30c_15_roadmap_phase30c_complete_others_planned():
             or "| 30D   | Core Workflow Page Redesigns            | In Progress" in text
             or "| 30D   | Core Workflow Page Redesigns            | Complete" in text), \
         "ROADMAP.md must include a Phase 30D status row"
-    assert "| 30E   | Review/Governance/Developer Polish      | Planned" in text, \
-        "ROADMAP.md must keep Phase 30E Planned"
+    assert ("| 30E   | Review/Governance/Developer Polish      | Planned" in text
+            or "| 30E   | Review/Governance/Developer Polish      | In Progress" in text), \
+        "ROADMAP.md must mark Phase 30E Planned or In Progress"
     assert "| 30F   | Final QA, A11y, Responsive, Light Mode  | Planned" in text, \
         "ROADMAP.md must keep Phase 30F Planned"
     # Phase 27 and 28 stay deferred.
@@ -21734,11 +21763,12 @@ def test_p30d1_21_phase30d_not_marked_complete():
 
 
 def test_p30d1_22_phase30e_and_30f_planned():
-    """P30D1-22: Phase 30E and 30F remain Planned."""
+    """P30D1-22: Phase 30E and 30F remain Planned or 30E In Progress."""
     print("\n=== Test P30D1-22: Phase 30E/30F planned ===")
     text = _read_text("ROADMAP.md")
-    assert "| 30E   | Review/Governance/Developer Polish      | Planned" in text, \
-        "ROADMAP.md must keep Phase 30E Planned"
+    assert ("| 30E   | Review/Governance/Developer Polish      | Planned" in text
+            or "| 30E   | Review/Governance/Developer Polish      | In Progress" in text), \
+        "ROADMAP.md must mark Phase 30E Planned or In Progress"
     assert "| 30F   | Final QA, A11y, Responsive, Light Mode  | Planned" in text, \
         "ROADMAP.md must keep Phase 30F Planned"
     print("  Phase 30E and 30F remain Planned ✓")
@@ -22101,11 +22131,12 @@ def test_p30d2_21_phase30d2_complete_and_30d_not_complete():
 
 
 def test_p30d2_22_phase30e_and_30f_planned():
-    """P30D2-22: Phase 30E and 30F remain Planned."""
+    """P30D2-22: Phase 30E and 30F remain Planned or 30E In Progress."""
     print("\n=== Test P30D2-22: Phase 30E/30F planned ===")
     text = _read_text("ROADMAP.md")
-    assert "| 30E   | Review/Governance/Developer Polish      | Planned" in text, \
-        "ROADMAP.md must keep Phase 30E Planned"
+    assert ("| 30E   | Review/Governance/Developer Polish      | Planned" in text
+            or "| 30E   | Review/Governance/Developer Polish      | In Progress" in text), \
+        "ROADMAP.md must mark Phase 30E Planned or In Progress"
     assert "| 30F   | Final QA, A11y, Responsive, Light Mode  | Planned" in text, \
         "ROADMAP.md must keep Phase 30F Planned"
     print("  Phase 30E and 30F remain Planned ✓")
@@ -22551,6 +22582,398 @@ def test_p30d3_24_no_em_dashes_in_phase30d3_files():
     print("  No em dashes and no new runtime dependencies in Phase 30D3 ✓")
 
 
+# ============================================================
+# Phase 30E1 - Pending / Trust / Feedback governance polish
+# ============================================================
+
+_P30E1_PAGES = {
+    "pending":  "ui/src/pages/pending.astro",
+    "trust":    "ui/src/pages/trust.astro",
+    "feedback": "ui/src/pages/feedback.astro",
+}
+_P30E1_COMPONENTS = {
+    "pending":  "ui/src/components/PendingChanges.svelte",
+    "trust":    "ui/src/components/TrustEvidence.svelte",
+    "feedback": "ui/src/components/FeedbackWorkflow.svelte",
+}
+_P30E1_HELPER = "ui/src/lib/phase30e1.ts"
+
+
+def test_p30e1_1_pages_use_expected_layout_modes():
+    """P30E1-1: pending/feedback use workspace, trust uses wide."""
+    print("\n=== Test P30E1-1: governance pages layout modes ===")
+    assert 'layoutMode="workspace"' in _read_text(_P30E1_PAGES["pending"]), \
+        "pending.astro must declare layoutMode=\"workspace\""
+    assert 'layoutMode="wide"' in _read_text(_P30E1_PAGES["trust"]), \
+        "trust.astro must declare layoutMode=\"wide\""
+    assert 'layoutMode="workspace"' in _read_text(_P30E1_PAGES["feedback"]), \
+        "feedback.astro must declare layoutMode=\"workspace\""
+    print("  Phase 30E1 pages use expected layout modes ✓")
+
+
+def test_p30e1_2_components_use_cve_toolbar():
+    """P30E1-2: All three governance components render cve-toolbar."""
+    print("\n=== Test P30E1-2: cve-toolbar usage ===")
+    for name, path in _P30E1_COMPONENTS.items():
+        text = _read_text(path)
+        for cls in ("cve-toolbar", "cve-toolbar__main", "cve-toolbar__title", "cve-toolbar__actions"):
+            assert cls in text, f"{path} must use {cls}"
+    print("  All Phase 30E1 components use cve-toolbar ✓")
+
+
+def test_p30e1_3_components_use_cve_banner_and_status_strip():
+    """P30E1-3: All three components use cve-banner and cve-status-strip."""
+    print("\n=== Test P30E1-3: cve-banner + cve-status-strip ===")
+    for name, path in _P30E1_COMPONENTS.items():
+        text = _read_text(path)
+        assert "cve-banner" in text, f"{path} must render a cve-banner"
+        assert "cve-status-strip" in text, f"{path} must render a cve-status-strip"
+        assert "cve-status-tile" in text, f"{path} must render cve-status-tile entries"
+    print("  All Phase 30E1 components use cve-banner + cve-status-strip ✓")
+
+
+def test_p30e1_4_pending_uses_cve_workbench_and_diff():
+    """P30E1-4: Pending uses cve-workbench rail/inspector and cve-diff."""
+    print("\n=== Test P30E1-4: Pending workbench + diff ===")
+    text = _read_text(_P30E1_COMPONENTS["pending"])
+    for cls in ("cve-workbench", "cve-workbench__rail", "cve-workbench__inspector",
+                "cve-diff", "cve-diff__line"):
+        assert cls in text, f"PendingChanges must use {cls}"
+    print("  PendingChanges uses cve-workbench primitives and cve-diff ✓")
+
+
+def test_p30e1_5_pending_internal_scroll_regions():
+    """P30E1-5: Pending exposes internal scroll regions for queue + inspector."""
+    print("\n=== Test P30E1-5: Pending internal scroll regions ===")
+    text = _read_text(_P30E1_COMPONENTS["pending"])
+    assert 'data-testid="pending-queue-scroll"' in text, \
+        "PendingChanges must expose pending-queue-scroll region"
+    assert 'data-testid="pending-inspector-scroll"' in text, \
+        "PendingChanges must expose pending-inspector-scroll region"
+    print("  Pending exposes queue + inspector scroll regions ✓")
+
+
+def test_p30e1_6_pending_typed_confirmation_gates():
+    """P30E1-6: Pending requires typed ACCEPT and REJECT confirmation."""
+    print("\n=== Test P30E1-6: Pending typed-confirmation gates ===")
+    text = _read_text(_P30E1_COMPONENTS["pending"])
+    helper = _read_text(_P30E1_HELPER)
+    assert "PENDING_ACCEPT_PHRASE" in text, "PendingChanges must import PENDING_ACCEPT_PHRASE"
+    assert "PENDING_REJECT_PHRASE" in text, "PendingChanges must import PENDING_REJECT_PHRASE"
+    assert "PENDING_ACCEPT_PHRASE = 'ACCEPT'" in helper, \
+        "phase30e1 helper must define ACCEPT phrase"
+    assert "PENDING_REJECT_PHRASE = 'REJECT'" in helper, \
+        "phase30e1 helper must define REJECT phrase"
+    assert "disabled={!acceptReady}" in text, \
+        "Accept button must be disabled until acceptReady"
+    assert "disabled={!rejectReady}" in text, \
+        "Reject button must be disabled until rejectReady"
+    assert 'data-testid="pending-accept-submit"' in text, \
+        "Pending must expose pending-accept-submit"
+    assert 'data-testid="pending-reject-submit"' in text, \
+        "Pending must expose pending-reject-submit"
+    print("  Pending requires typed ACCEPT and REJECT confirmation ✓")
+
+
+def test_p30e1_7_pending_provenance_and_trust_impact():
+    """P30E1-7: Pending inspector shows provenance + trust impact + hash warning."""
+    print("\n=== Test P30E1-7: Pending provenance / trust impact / hash ===")
+    text = _read_text(_P30E1_COMPONENTS["pending"])
+    assert 'data-testid="pending-provenance"' in text, \
+        "Pending must expose pending-provenance block"
+    assert 'data-testid="pending-trust-impact"' in text, \
+        "Pending must expose pending-trust-impact paragraph"
+    assert 'data-testid="pending-hash-warning"' in text, \
+        "Pending must expose pending-hash-warning block"
+    assert "/app/trust" in text, \
+        "Pending trust impact must deep-link to /app/trust"
+    print("  Pending inspector shows provenance, trust impact, and hash warning ✓")
+
+
+def test_p30e1_8_trust_keeps_disclaimer():
+    """P30E1-8: TrustEvidence retains the cve-trust-warning disclaimer."""
+    print("\n=== Test P30E1-8: TrustEvidence keeps trust disclaimer ===")
+    text = _read_text(_P30E1_COMPONENTS["trust"])
+    assert "cve-trust-warning" in text, \
+        "TrustEvidence must keep the cve-trust-warning disclaimer"
+    print("  TrustEvidence retains cve-trust-warning ✓")
+
+
+def test_p30e1_9_trust_leads_with_governance_queue():
+    """P30E1-9: TrustEvidence governance queue precedes Evidence Builder."""
+    print("\n=== Test P30E1-9: Trust governance queue leads page ===")
+    text = _read_text(_P30E1_COMPONENTS["trust"])
+    queue_idx = text.find('data-testid="trust-governance-table"')
+    builder_idx = text.find('data-testid="trust-evidence-builder"')
+    assert queue_idx != -1, "TrustEvidence must render trust-governance-table"
+    assert builder_idx != -1, "TrustEvidence must render trust-evidence-builder"
+    assert queue_idx < builder_idx, \
+        "Governance queue must appear before the Evidence Builder"
+    print("  Trust governance queue precedes Evidence Builder ✓")
+
+
+def test_p30e1_10_trust_evidence_builder_demoted():
+    """P30E1-10: Evidence Builder lives inside a <details> disclosure."""
+    print("\n=== Test P30E1-10: Trust Evidence Builder is demoted ===")
+    text = _read_text(_P30E1_COMPONENTS["trust"])
+    import re
+    m = re.search(r'<details[^>]*data-testid="trust-evidence-builder"', text)
+    assert m is not None, \
+        "Evidence Builder must be wrapped in a <details> disclosure"
+    print("  Evidence Builder is demoted to a <details> disclosure ✓")
+
+
+def test_p30e1_11_trust_row_links_to_governance_routes():
+    """P30E1-11: Each governance row links to Notes plus Pending or Feedback."""
+    print("\n=== Test P30E1-11: Trust row links to /app/notes + governance routes ===")
+    text = _read_text(_P30E1_COMPONENTS["trust"])
+    assert 'data-testid="trust-row-notes"' in text and "/app/notes" in text, \
+        "Trust rows must link to /app/notes"
+    has_pending = 'data-testid="trust-row-pending"' in text and "/app/pending" in text
+    has_feedback = 'data-testid="trust-row-feedback"' in text and "/app/feedback" in text
+    assert has_pending or has_feedback, \
+        "Trust rows must link to /app/pending or /app/feedback"
+    print("  Trust rows link to Notes + governance routes ✓")
+
+
+def test_p30e1_12_feedback_uses_table_and_filters():
+    """P30E1-12: Feedback uses a cve-table with labelled filter controls."""
+    print("\n=== Test P30E1-12: Feedback triage table + filters ===")
+    text = _read_text(_P30E1_COMPONENTS["feedback"])
+    assert 'data-testid="feedback-triage-table"' in text, \
+        "Feedback must expose feedback-triage-table"
+    assert "cve-table" in text, "Feedback must use cve-table"
+    for filter_id in ("feedback-filter-severity", "feedback-filter-signal",
+                      "feedback-filter-source", "feedback-filter-resolved",
+                      "feedback-filter-text"):
+        assert filter_id in text, f"Feedback must expose filter {filter_id}"
+    print("  Feedback uses cve-table with labelled filters ✓")
+
+
+def test_p30e1_13_feedback_add_in_toolbar_with_slide_over():
+    """P30E1-13: Add Feedback sits in the toolbar and opens a cve-slide-over."""
+    print("\n=== Test P30E1-13: Feedback add action + slide-over ===")
+    text = _read_text(_P30E1_COMPONENTS["feedback"])
+    assert 'data-testid="feedback-add-action"' in text, \
+        "Feedback must expose feedback-add-action"
+    assert "cve-slide-over" in text, "Feedback must render a cve-slide-over"
+    assert 'data-testid="feedback-add-slide-over"' in text, \
+        "Feedback must expose feedback-add-slide-over"
+    # Add action must be inside cve-toolbar__actions.
+    actions_idx = text.find("cve-toolbar__actions")
+    add_idx = text.find('data-testid="feedback-add-action"')
+    assert actions_idx != -1 and add_idx != -1 and actions_idx < add_idx < actions_idx + 4000, \
+        "feedback-add-action must live inside cve-toolbar__actions"
+    print("  Add Feedback lives in the toolbar and opens a cve-slide-over ✓")
+
+
+def test_p30e1_14_feedback_severity_sort_and_tasks_panel():
+    """P30E1-14: Feedback applies severityWeight sort and shows a tasks panel."""
+    print("\n=== Test P30E1-14: Feedback severity sort + tasks panel ===")
+    text = _read_text(_P30E1_COMPONENTS["feedback"])
+    assert "severityWeight(" in text, \
+        "Feedback must call severityWeight() for sort"
+    assert "isResolvedSignal(" in text, \
+        "Feedback must use isResolvedSignal() for resolution ordering"
+    assert 'data-testid="feedback-tasks-panel"' in text, \
+        "Feedback must expose feedback-tasks-panel"
+    # Tasks panel must not be empty when there are no tasks: it must render
+    # a deterministic fallback message.
+    assert "No improvement tasks are pending" in text, \
+        "Tasks panel must render a deterministic empty-state message"
+    print("  Feedback uses severityWeight sort and pinned tasks panel ✓")
+
+
+def test_p30e1_15_state_pills_present():
+    """P30E1-15: Each component exposes a state-pill testid."""
+    print("\n=== Test P30E1-15: state pills ===")
+    pills = {
+        "pending":  'data-testid="pending-state-pill"',
+        "trust":    'data-testid="trust-state-pill"',
+        "feedback": 'data-testid="feedback-state-pill"',
+    }
+    for name, marker in pills.items():
+        text = _read_text(_P30E1_COMPONENTS[name])
+        assert marker in text, f"{_P30E1_COMPONENTS[name]} must expose {marker}"
+    print("  All three components expose a state-pill testid ✓")
+
+
+def test_p30e1_16_no_primary_inline_raw_json():
+    """P30E1-16: Raw JSON only appears inside cve-details--inspector blocks."""
+    print("\n=== Test P30E1-16: no primary inline raw JSON ===")
+    import re
+    for name, path in _P30E1_COMPONENTS.items():
+        text = _read_text(path)
+        for m in re.finditer(r"JSON\.stringify\b", text):
+            head = text[:m.start()]
+            open_idx = head.rfind("<details")
+            assert open_idx != -1, \
+                f"{path}: JSON.stringify outside any <details> block at offset {m.start()}"
+            opening = text[open_idx:m.start()]
+            close_brace = opening.find(">")
+            opening_tag = opening[: close_brace + 1] if close_brace != -1 else opening
+            assert "cve-details--inspector" in opening_tag, \
+                f"{path}: JSON.stringify must be inside cve-details--inspector"
+    print("  Raw JSON is confined to cve-details--inspector ✓")
+
+
+def test_p30e1_17_developer_deep_links():
+    """P30E1-17: Each component exposes a Developer deep-link to /app/raw."""
+    print("\n=== Test P30E1-17: Developer deep-links to /app/raw ===")
+    endpoints = {
+        "pending":  "pending",
+        "trust":    "trust",
+        "feedback": "feedback",
+    }
+    for name, endpoint in endpoints.items():
+        text = _read_text(_P30E1_COMPONENTS[name])
+        assert "/app/raw" in text, f"{name}: must link to /app/raw"
+        assert "buildRawDeepLink(" in text, \
+            f"{name}: must call buildRawDeepLink() helper"
+        assert f"'{endpoint}'" in text, \
+            f"{name}: must pass endpoint literal '{endpoint}' to buildRawDeepLink"
+        assert "cve-details__developer-link" in text, \
+            f"{name}: must use cve-details__developer-link"
+    # The helper must build that exact contract.
+    helper = _read_text(_P30E1_HELPER)
+    assert "buildRawDeepLink" in helper, "phase30e1 helper must export buildRawDeepLink"
+    assert "/app/raw?" in helper, "buildRawDeepLink must return /app/raw?... paths"
+    assert "endpoint" in helper and "source" in helper, \
+        "buildRawDeepLink must include endpoint + source params"
+    print("  All three components expose Developer deep-links to /app/raw ✓")
+
+
+def test_p30e1_18_no_tailwind_dark_literals():
+    """P30E1-18: Redesigned files contain no Tailwind dark palette literals."""
+    print("\n=== Test P30E1-18: no Tailwind dark literals in 30E1 files ===")
+    import re
+    pattern = re.compile(
+        r"\b(?:bg|text|border|ring|divide|placeholder|from|to|via)-"
+        r"(?:zinc|neutral|slate|gray|stone|emerald|amber|rose|sky|violet|indigo|teal|cyan|lime|orange|red|green|blue|pink|fuchsia|purple)-"
+        r"[0-9]{2,3}\b"
+    )
+    offenders: list[tuple[str, str]] = []
+    for path in list(_P30E1_PAGES.values()) + list(_P30E1_COMPONENTS.values()) + [_P30E1_HELPER]:
+        for m in pattern.finditer(_read_text(path)):
+            offenders.append((path, m.group(0)))
+    assert not offenders, \
+        f"Phase 30E1 files must not use Tailwind dark literals: {offenders[:5]}"
+    print("  Phase 30E1 files use only cve-* token classes ✓")
+
+
+def test_p30e1_19_form_labels():
+    """P30E1-19: Every text/search/number input has a <label for> or aria-label."""
+    print("\n=== Test P30E1-19: 30E1 form labels ===")
+    import re
+    for name, path in _P30E1_COMPONENTS.items():
+        text = _read_text(path)
+        for m in re.finditer(r"<input\b[^>]*>", text):
+            tag = m.group(0)
+            type_match = re.search(r'\btype="([^"]+)"', tag)
+            input_type = type_match.group(1) if type_match else "text"
+            if input_type not in ("text", "search", "number", "email"):
+                continue
+            id_match = re.search(r'\bid="([^"]+)"', tag)
+            has_label = False
+            if id_match:
+                label_pattern = re.compile(
+                    r'<label\b[^>]*\bfor="' + re.escape(id_match.group(1)) + r'"'
+                )
+                if label_pattern.search(text):
+                    has_label = True
+            if 'aria-label="' in tag:
+                has_label = True
+            assert has_label, \
+                f"{path}: <input> has no <label for> or aria-label: {tag[:120]}"
+    print("  Phase 30E1 inputs are properly labelled ✓")
+
+
+def test_p30e1_20_static_links_resolve():
+    """P30E1-20: Every static /app/<page> link in 30E1 components resolves."""
+    print("\n=== Test P30E1-20: 30E1 /app links resolve ===")
+    import re
+    pages_dir = _repo_root() / "ui" / "src" / "pages"
+    for name, path in _P30E1_COMPONENTS.items():
+        text = _read_text(path)
+        for m in re.finditer(r'href="(/app/[A-Za-z0-9_/\-]+)', text):
+            target = m.group(1)
+            page = target[len("/app/"):]
+            if not page:
+                continue
+            candidates = [
+                pages_dir / f"{page}.astro",
+                pages_dir / page / "index.astro",
+            ]
+            assert any(c.is_file() for c in candidates), \
+                f"{path} links to {target} which has no matching page file"
+    print("  Phase 30E1 /app links resolve to real pages ✓")
+
+
+def test_p30e1_21_phase27_28_still_deferred():
+    """P30E1-21: ROADMAP keeps Phase 27 and Phase 28 deferred."""
+    print("\n=== Test P30E1-21: Phase 27/28 still deferred ===")
+    text = _read_text("ROADMAP.md")
+    assert "| 27" in text and "Deferred" in text, "Phase 27 must remain deferred"
+    found_28_deferred = False
+    for line in text.splitlines():
+        if line.startswith("| 28") and "Deferred" in line:
+            found_28_deferred = True
+            break
+    assert found_28_deferred, "Phase 28 must remain deferred"
+    print("  Phase 27 and 28 remain deferred ✓")
+
+
+def test_p30e1_22_phase30e1_complete_30e_in_progress():
+    """P30E1-22: ROADMAP marks 30E1 Complete with 30E In Progress; 30E2 + 30F Planned."""
+    print("\n=== Test P30E1-22: ROADMAP phase rows ===")
+    text = _read_text("ROADMAP.md")
+    found_30e1_complete = False
+    found_30e_in_progress = False
+    found_30e2_planned = False
+    found_30f_planned = False
+    for line in text.splitlines():
+        if line.startswith("| 30E1") and "Complete" in line:
+            found_30e1_complete = True
+        if line.startswith("| 30E ") and "In Progress" in line:
+            found_30e_in_progress = True
+        if line.startswith("| 30E2") and "Planned" in line:
+            found_30e2_planned = True
+        if line.startswith("| 30F") and "Planned" in line:
+            found_30f_planned = True
+    assert found_30e1_complete, "ROADMAP must mark Phase 30E1 Complete"
+    assert found_30e_in_progress, "ROADMAP must mark parent Phase 30E In Progress"
+    assert found_30e2_planned, "ROADMAP must mark Phase 30E2 Planned"
+    assert found_30f_planned, "ROADMAP must keep Phase 30F Planned"
+    print("  ROADMAP: 30E1 Complete, 30E In Progress, 30E2 + 30F Planned ✓")
+
+
+def test_p30e1_23_no_em_dashes_and_no_new_deps():
+    """P30E1-23: Phase 30E1 files contain no em dashes; no new runtime deps."""
+    print("\n=== Test P30E1-23: no em dashes + no new deps in Phase 30E1 ===")
+    import json
+    files = list(_P30E1_PAGES.values()) + list(_P30E1_COMPONENTS.values()) + [
+        _P30E1_HELPER,
+        "ui/src/styles/global.css",
+        "ROADMAP.md", "UI_UX_AUDIT.md", "TESTING.md",
+        "README.md", "RELEASE_CHECKLIST.md",
+    ]
+    offenders = [f for f in files if "\u2014" in _read_text(f)]
+    assert not offenders, \
+        f"Phase 30E1 files must not contain em dashes; offenders: {offenders}"
+    pkg = json.loads(_read_text("ui/package.json"))
+    deps = set((pkg.get("dependencies") or {}).keys())
+    dev_deps = set((pkg.get("devDependencies") or {}).keys())
+    forbidden = {"react", "react-dom", "vue", "lucide-react",
+                 "@heroicons/react", "framer-motion", "react-icons",
+                 "@radix-ui/react-icons", "chart.js", "d3", "recharts",
+                 "highlight.js", "prismjs", "shiki"}
+    sneaked_in = (deps | dev_deps) & forbidden
+    assert not sneaked_in, \
+        f"ui/package.json must not introduce {sorted(sneaked_in)} in Phase 30E1"
+    print("  No em dashes and no new runtime dependencies in Phase 30E1 ✓")
+
+
 if __name__ == "__main__":
     main()
+
 

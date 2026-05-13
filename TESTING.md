@@ -1,13 +1,13 @@
 # Context Vault Engine - Testing
 
-All tests live in `mcp/test_verify.py`. The suite currently has 890 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800, 818, 842, 866) appear later in this document as part of the phase changelog and are not the current total.
+All tests live in `mcp/test_verify.py`. The suite currently has 913 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800, 818, 842, 866, 890) appear later in this document as part of the phase changelog and are not the current total.
 
 ## Current Verification Summary
 
 A full local verification consists of:
 
 ```bash
-py mcp/test_verify.py           # 890 tests, all must pass
+py mcp/test_verify.py           # 913 tests, all must pass
 py run.py validate              # vault schema-compliance
 py run.py security              # status: pass (or warning, never fail)
 py run.py feedback              # exits 0, valid JSON
@@ -2463,6 +2463,51 @@ The Phase 30D3 work adds 24 deterministic guardrail tests in `mcp/test_verify.py
 
 ```bash
 py mcp/test_verify.py            # 890 tests, all must pass
+py run.py validate               # vault still valid
+py run.py security               # status: pass
+py run.py feedback               # exits 0, valid JSON
+py run.py export --overwrite     # status: ok
+cd ui; npm run build             # builds without errors
+```
+
+---
+
+## Phase 30E1 - Pending / Trust / Feedback Governance Polish
+
+Phase 30E1 is the first sub-slice of Phase 30E. It rebuilds `/app/pending`, `/app/trust`, and `/app/feedback` on top of the Phase 30B primitives. All three pages now use a `cve-toolbar` header with a state pill, a `cve-status-strip` summary, and a Developer deep-link to `/app/raw` built by the shared helper in `ui/src/lib/phase30e1.ts`. PendingChanges renders a `cve-workbench` (queue rail + inspector) with `cve-diff` and gates Accept / Reject behind typed `ACCEPT` / `REJECT` confirmation; the inspector surfaces provenance, trust impact, and hash warnings. TrustEvidence leads with a stale and low-trust governance queue that links each row to Notes, Pending, and Feedback, demoting the legacy Evidence Builder into a closed `<details>` disclosure while keeping the `cve-trust-warning` disclaimer. FeedbackWorkflow uses a labelled filter rail and a `cve-table` triage view with deterministic severity-weighted sort, moves Add Feedback into the toolbar inside a `cve-slide-over`, and pins an Improvement Tasks panel with a deterministic empty state. Raw JSON stays confined to `cve-details--inspector`. No backend route, schema, MCP, or runtime dependency was added. Phase 30E is now In Progress with Phase 30E1 Complete; Phase 30E2 (Controller and Vault Setup polish) and Phase 30F remain Planned. Phase 27 and Phase 28 remain Deferred.
+
+The Phase 30E1 work adds 23 deterministic guardrail tests in `mcp/test_verify.py`, bringing the total from 890 to 913.
+
+| Test | Purpose |
+|---|---|
+| `test_p30e1_1_pages_use_expected_layout_modes` | Governance pages declare the expected layout modes |
+| `test_p30e1_2_components_use_cve_toolbar` | Each redesigned component renders a `cve-toolbar` header |
+| `test_p30e1_3_components_use_banner_and_status_strip` | Each redesigned component renders `cve-banner` and `cve-status-strip` |
+| `test_p30e1_4_pending_workbench_and_diff` | PendingChanges uses `cve-workbench` primitives and `cve-diff` |
+| `test_p30e1_5_pending_internal_scroll_regions` | PendingChanges exposes queue + inspector internal-scroll testids |
+| `test_p30e1_6_pending_typed_confirmation_gates` | PendingChanges requires typed `ACCEPT` / `REJECT` confirmation |
+| `test_p30e1_7_pending_provenance_trust_hash` | PendingChanges inspector shows provenance, trust impact, and hash warning |
+| `test_p30e1_8_trust_disclaimer_preserved` | TrustEvidence retains the `cve-trust-warning` disclaimer |
+| `test_p30e1_9_trust_governance_queue_leads` | Trust governance queue precedes the Evidence Builder |
+| `test_p30e1_10_trust_evidence_builder_demoted` | TrustEvidence Evidence Builder is demoted to a `<details>` disclosure |
+| `test_p30e1_11_trust_row_links` | Trust rows link to `/app/notes` and governance routes |
+| `test_p30e1_12_feedback_table_and_filters` | FeedbackWorkflow uses a `cve-table` triage view with labelled filters |
+| `test_p30e1_13_feedback_add_action_and_slide_over` | Add Feedback lives in the toolbar and opens a `cve-slide-over` |
+| `test_p30e1_14_feedback_severity_sort_and_tasks_panel` | FeedbackWorkflow uses the `severityWeight` sort and pins a tasks panel |
+| `test_p30e1_15_state_pills_present` | Each redesigned component exposes a state-pill testid |
+| `test_p30e1_16_no_primary_inline_raw_json` | Raw JSON only appears inside `cve-details--inspector` blocks |
+| `test_p30e1_17_developer_deep_links` | Each redesigned component exposes a Developer deep-link to `/app/raw` |
+| `test_p30e1_18_no_tailwind_dark_literals` | Phase 30E1 files avoid Tailwind dark palette literals |
+| `test_p30e1_19_form_labels` | Every text/search input in 30E1 components is labelled |
+| `test_p30e1_20_static_links_resolve` | Every static `/app/<page>` link in 30E1 components resolves to a real page file |
+| `test_p30e1_21_phase27_28_still_deferred` | ROADMAP keeps Phase 27 and 28 Deferred |
+| `test_p30e1_22_roadmap_phase_rows` | ROADMAP marks Phase 30E1 Complete, Phase 30E In Progress, 30E2 + 30F Planned |
+| `test_p30e1_23_no_em_dashes_or_new_deps` | Phase 30E1 files contain no em dashes and `ui/package.json` introduces no new runtime dependencies |
+
+**Verification steps for Phase 30E1:**
+
+```bash
+py mcp/test_verify.py            # 913 tests, all must pass
 py run.py validate               # vault still valid
 py run.py security               # status: pass
 py run.py feedback               # exits 0, valid JSON

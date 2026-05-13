@@ -2328,6 +2328,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
     gap: var(--cve-space-3);
+    align-items: stretch;
   }
   .cve-p30e1-decision__pane {
     display: flex;
@@ -2337,12 +2338,28 @@
     background-color: var(--cve-surface);
     border: 1px solid var(--cve-border-soft);
     border-radius: var(--cve-radius);
+    height: 100%;
+    align-self: stretch;
   }
   .cve-p30e1-decision__pane--accept {
     border-left: 3px solid var(--cve-success);
   }
   .cve-p30e1-decision__pane--reject {
     border-left: 3px solid var(--cve-danger);
+  }
+  /* Reserve space for a 2-line description so the field/input/helper/button
+     rows in adjacent panes line up even when one description is shorter
+     (e.g. Reject's single-line copy vs Accept's two-line copy). The
+     line-height is pinned so the reserved height matches the rendered
+     height of two wrapped lines exactly. */
+  .cve-p30e1-decision__pane > .cve-helper:first-of-type {
+    line-height: 1.5;
+    min-height: 3em; /* 2 lines × line-height 1.5 */
+  }
+  /* Pin the action button to the bottom so panes with differing
+     helper-text lengths still align their buttons across the row. */
+  .cve-p30e1-decision__pane > .cve-btn {
+    margin-top: auto;
   }
   .cve-p30e1-decision__title {
     margin: 0;

@@ -100,7 +100,7 @@ Phase 31B (App Header and Toolbar Normalisation Pass) is a focused UI polish and
 
 Phase 31C (Release Candidate Visual QA and Defect Triage) is a QA and defect-triage pass, not feature work. Phase 31C records the result of attempting a release-candidate visual QA pass over the 15 migrated /app routes. The automated agent that executed Phase 31C did not open a browser, did not exercise live keyboard traversal, and did not run an assistive technology, so the manual browser visual QA, keyboard QA, and screen-reader QA rows in `RELEASE_CHECKLIST.md` remain manual and unchecked. Phase 31C performed automated source-level verification only (`py mcp/test_verify.py`, `py run.py validate`, `py run.py security`, `py run.py feedback`, `py run.py export --overwrite`, `cd ui && npm run build`) and adds deterministic guardrails that prevent later documentation from overclaiming that rendered visual QA was performed automatically. Phase 31C makes no backend route, API contract, schema, or MCP changes, introduces no new runtime dependency, imports no external font, redesigns no page bodies, removes no routes, and adds no new write actions. Phase 31C does not start Phase 27 (Registry and Reuse Layer) and does not start Phase 28 (Optional Semantic Retrieval); both remain Deferred.
 
-The next planned phase is **Phase 32 (Human Release QA and Evidence Capture)**, which begins the post-release productisation roadmap (Phases 32-41). This roadmap block focuses on release readiness, public presentation, packaging, onboarding, supportability, and trust rather than new engine capability. It does not start Phase 27 or Phase 28; both remain Deferred. It does not introduce semantic retrieval, embeddings, LLM extraction, autonomous note writing, SaaS positioning, or multi-tenant cloud positioning.
+The next planned phase is **Phase 32 (Human Release QA and Evidence Capture)**, which begins the post-release productisation roadmap (Phases 32-43). This roadmap block focuses on release readiness, public presentation, packaging, onboarding, supportability, and trust rather than new engine capability. It does not start Phase 27 or Phase 28; both remain Deferred. It does not introduce semantic retrieval, embeddings, LLM extraction, autonomous note writing, SaaS positioning, or multi-tenant cloud positioning.
 
 ## Phase Status Overview
 
@@ -159,6 +159,8 @@ The next planned phase is **Phase 32 (Human Release QA and Evidence Capture)**, 
 | 39    | MCP Client Setup and Connection Testing | Planned  |
 | 40    | Public Security Posture and Release     | Planned  |
 | 41    | Example Vaults and Demonstration Packs  | Planned  |
+| 42    | Context Health Recommendation Layer     | Planned  |
+| 43    | MCP Response Ergonomics and Budget Diagnostics | Planned  |
 | 27    | Registry and Reuse Layer                | Deferred |
 | 28    | Optional Semantic Retrieval             | Deferred |
 
@@ -1358,7 +1360,7 @@ docs(release): record Phase 31C visual QA and defect triage outcome
 
 ## Next Productisation Roadmap
 
-The next roadmap block (Phases 32-41) is about release readiness, public presentation, packaging, onboarding, supportability, and trust. It is not new engine capability. The project's local-first, deterministic-first, security-focused direction is preserved throughout. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain Deferred and are not started, prepared, or implied by any phase in this block. No phase in this block introduces semantic retrieval, embeddings, LLM extraction, autonomous note writing, SaaS positioning, or multi-tenant cloud positioning.
+The next roadmap block (Phases 32-43) is about release readiness, public presentation, packaging, onboarding, supportability, and trust. It is not new engine capability. The project's local-first, deterministic-first, security-focused direction is preserved throughout. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain Deferred and are not started, prepared, or implied by any phase in this block. No phase in this block introduces semantic retrieval, embeddings, LLM extraction, autonomous note writing, SaaS positioning, or multi-tenant cloud positioning.
 
 ### Phase 32 - Human Release QA and Evidence Capture
 
@@ -1719,6 +1721,103 @@ Show concrete use cases without bloating the core product.
 
 ```
 docs(examples): plan example vaults and demonstration packs
+```
+
+---
+
+### Phase 42 - Context Health Recommendation Layer
+
+**Status:** Planned.
+
+**Purpose**
+
+Surface trust/freshness and context-health gaps as deterministic recommendations without blocking valid exports or agent-context readiness. The planner, guidance surfaces, and trust UI should be able to recommend optional maintenance actions when trust/freshness metadata is absent, stale, deprecated, or inconsistent, so users can understand context health beyond validation and security readiness.
+
+**Deliver**
+
+- Add low-severity context planner recommendations for:
+  - missing `trust_level`,
+  - missing `source_type`,
+  - missing `last_reviewed`,
+  - missing `review_after`,
+  - stale notes,
+  - deprecated notes,
+  - evidence results where all confidence values are unknown.
+- Add a context-health summary that distinguishes:
+  - validation readiness,
+  - security readiness,
+  - export readiness,
+  - agent-context readiness,
+  - maintenance quality.
+- Ensure the planner does not treat missing trust metadata as a hard blocker.
+- Link recommendations to existing Trust, Notes, and Feedback routes where possible.
+- Align with Phase 35 (Deterministic In-App Guidance Assistant) so route-level help can explain why trust metadata matters.
+- Keep all output deterministic and derived from existing trust/staleness/evidence metadata.
+- Add tests for planner recommendation behaviour and documentation drift.
+
+**Acceptance**
+
+- A vault can remain ready for export and agent context while still receiving low-severity trust/freshness maintenance recommendations.
+- Missing trust metadata is surfaced honestly but is not treated as factual unreliability.
+- Recommendations clearly state that trust metadata reflects review and maintenance state, not factual correctness.
+- No LLM invocation.
+- No embeddings.
+- No semantic retrieval.
+- No autonomous note mutation.
+- No automatic trust promotion.
+- No new write path.
+- Phase 27 and Phase 28 remain Deferred.
+
+**Suggested Commit**
+
+```
+docs(roadmap): add context health recommendation phase
+```
+
+---
+
+### Phase 43 - MCP Response Ergonomics and Budget Diagnostics
+
+**Status:** Planned.
+
+**Purpose**
+
+Improve MCP-facing response clarity for bounded context operations so clients and users can distinguish a valid empty result from a budget-constrained empty result, understand profile/mode security requirements, and handle large host-offloaded responses more predictably. Treated as product polish and client-ergonomics improvement discovered during live MCP testing, not as a defect in the current contracts.
+
+**Deliver**
+
+- Add clearer bundle diagnostics when `max_chars` is too small to include the first matching note.
+- Distinguish empty results caused by:
+  - no matching notes,
+  - validation exclusion,
+  - `allow_partial=false`,
+  - budget too small,
+  - `max_notes=0` or clamping behaviour if relevant.
+- Add a deterministic `empty_reason` or equivalent diagnostic field if appropriate.
+- Add a stronger warning when `note_count=0` and `truncated=true`, such as: "No notes were included because the first matching note exceeded `max_chars`."
+- Improve security-scan requirement wording so it correctly says profile, mode, or profile/mode depending on what was selected.
+- Consider exposing a compact response mode or summary-first shape for MCP clients where large bundle/evidence/stale responses may be offloaded by the host.
+- Document that some MCP clients, including VS Code, may offload large tool responses into client-managed resource files.
+- Add tests for all new diagnostic paths.
+
+**Acceptance**
+
+- A successful but empty bundle caused by budget exhaustion is clearly distinguishable from a successful empty match.
+- Budget warnings identify the first excluded note and why it was excluded.
+- Profile/mode warnings no longer say "Profile requires security scan" when only a mode was selected.
+- Existing bundle, security, evidence, and profile contracts remain backwards-compatible unless a deliberate versioned field is added.
+- No note body is partially emitted unless a future phase explicitly designs partial-note output.
+- No LLM invocation.
+- No embeddings.
+- No semantic retrieval.
+- No autonomous note mutation.
+- No new write path.
+- Phase 27 and Phase 28 remain Deferred.
+
+**Suggested Commit**
+
+```
+docs(roadmap): add MCP response ergonomics phase
 ```
 
 ---

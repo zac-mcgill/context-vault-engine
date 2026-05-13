@@ -52,7 +52,7 @@ const navGroups: Array<{
     ],
   },
   {
-    label: 'Review and Governance',
+    label: 'Manage',
     items: [
       { label: 'Validation', href: '/app/validation' },
       { label: 'Tasks', href: '/app/tasks' },
@@ -90,6 +90,8 @@ function groupId(label: string): string {
     <meta name="description" content="Context Vault Engine, local-first knowledge vault management" />
     <title>{title} - Context Vault Engine</title>
     <link rel="icon" type="image/svg+xml" href="/app/favicon.svg" />
+    <link rel="alternate icon" type="image/png" href="/app/favicon.png" />
+    <link rel="apple-touch-icon" href="/app/favicon.png" />
     {/*
       Phase 30F - inline theme bootstrap. This runs synchronously
       before any hydration so the document root has the correct
@@ -152,6 +154,41 @@ function groupId(label: string): string {
         background-color: var(--cve-surface);
         color: var(--cve-text);
       }
+      /* Brand logo - swap between dark/light SVG variants based on
+         the active data-theme so the logo always reads against the
+         current chrome surface. */
+      .cve-brand-logo {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 0;
+        border-radius: 8px;
+        outline: none;
+      }
+      .cve-brand-logo:focus-visible {
+        outline: 2px solid var(--cve-focus);
+        outline-offset: 2px;
+      }
+      .cve-brand-logo__img {
+        display: block;
+        height: auto;
+        max-width: 100%;
+      }
+      .cve-brand-logo--sidebar {
+        width: 100%;
+      }
+      .cve-brand-logo--sidebar .cve-brand-logo__img {
+        width: 100%;
+        max-width: 220px;
+      }
+      .cve-brand-logo--mobile .cve-brand-logo__img {
+        height: 28px;
+        width: auto;
+      }
+      html[data-theme="dark"] .cve-brand-logo__img--light,
+      html[data-theme="light"] .cve-brand-logo__img--dark {
+        display: none;
+      }
       /* Phase 30F - theme toggle. Plain framework-free control.
          Keyboard reachable via standard button semantics, accessible
          name supplied via inline text. */
@@ -194,9 +231,11 @@ function groupId(label: string): string {
       <aside class="hidden md:flex flex-col w-60 shrink-0 cve-app-chrome-bg border-r cve-app-chrome-border">
 
         <!-- Brand / header -->
-        <div class="px-5 py-5 border-b cve-app-chrome-border">
-          <div class="text-base font-semibold cve-app-chrome-text-strong tracking-tight">Context Vault</div>
-          <div class="text-xs cve-app-chrome-text-faint mt-0.5 tracking-wide uppercase">Engine</div>
+        <div class="px-5 py-5 border-b cve-app-chrome-border flex items-center justify-center">
+          <a href="/app/" aria-label="Context Vault Engine - home" class="cve-brand-logo cve-brand-logo--sidebar">
+            <img src="/app/context-vault-engine-logo-vector.svg" alt="Context Vault Engine" class="cve-brand-logo__img cve-brand-logo__img--dark" width="1017" height="470" />
+            <img src="/app/context-vault-engine-logo-vector-light.svg" alt="" aria-hidden="true" class="cve-brand-logo__img cve-brand-logo__img--light" width="1017" height="470" />
+          </a>
         </div>
 
         <!-- Grouped navigation -->
@@ -237,10 +276,10 @@ function groupId(label: string): string {
 
       <!-- Mobile top bar -->
       <div class="md:hidden fixed top-0 left-0 right-0 z-20 cve-app-chrome-bg border-b cve-app-chrome-border flex items-center justify-between px-4 h-12">
-        <div class="flex flex-col leading-tight">
-          <span class="text-sm font-semibold cve-app-chrome-text-strong">Context Vault</span>
-          <span class="text-[10px] cve-app-chrome-text-faint uppercase tracking-wide">Engine</span>
-        </div>
+        <a href="/app/" aria-label="Context Vault Engine - home" class="cve-brand-logo cve-brand-logo--mobile">
+          <img src="/app/context-vault-engine-logo-vector.svg" alt="Context Vault Engine" class="cve-brand-logo__img cve-brand-logo__img--dark" width="1017" height="470" />
+          <img src="/app/context-vault-engine-logo-vector-light.svg" alt="" aria-hidden="true" class="cve-brand-logo__img cve-brand-logo__img--light" width="1017" height="470" />
+        </a>
         <div class="flex items-center gap-2">
           <span class="text-xs cve-app-chrome-text-faint truncate max-w-[40vw]">{title}</span>
           <button

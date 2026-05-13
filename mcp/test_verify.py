@@ -11723,6 +11723,31 @@ def main():
     test_p30d2_23_no_new_runtime_dependencies()
     test_p30d2_24_no_em_dashes_in_phase30d2_files()
 
+    test_p30d3_1_all_pages_layout_wide()
+    test_p30d3_2_all_components_use_cve_toolbar()
+    test_p30d3_3_all_components_use_cve_banner()
+    test_p30d3_4_all_components_use_cve_status_strip()
+    test_p30d3_5_import_preserves_existing_source_types()
+    test_p30d3_6_import_separates_preview_and_write()
+    test_p30d3_7_bundles_uses_shared_helper()
+    test_p30d3_8_bundles_sticky_action_and_state_pane()
+    test_p30d3_9_exports_uses_shared_helper()
+    test_p30d3_10_exports_security_gate_default_on()
+    test_p30d3_11_exports_overwrite_confirmation_gate()
+    test_p30d3_12_exports_separate_route_from_bundles()
+    test_p30d3_13_security_full_vault_default()
+    test_p30d3_14_security_advanced_disclosure()
+    test_p30d3_15_security_bounded_findings_table()
+    test_p30d3_16_state_pills_present()
+    test_p30d3_17_no_primary_inline_raw_json()
+    test_p30d3_18_developer_deep_links()
+    test_p30d3_19_no_tailwind_dark_literals()
+    test_p30d3_20_form_labels()
+    test_p30d3_21_static_links_resolve()
+    test_p30d3_22_phase27_28_still_deferred()
+    test_p30d3_23_phase30d3_and_30d_complete()
+    test_p30d3_24_no_em_dashes_in_phase30d3_files()
+
     print()
     print("=" * 60)
     print("ALL VERIFICATION TESTS PASSED")
@@ -19337,9 +19362,9 @@ def _repo_root():
 
 
 def test_doc_drift_readme_test_count():
-    """DOC-DRIFT-1: README quotes the current 866-test total, no stale counts."""
+    """DOC-DRIFT-1: README quotes the current 890-test total, no stale counts."""
     readme = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    assert "866" in readme, "README.md must mention the current test count 866"
+    assert "890" in readme, "README.md must mention the current test count 890"
     stale_phrases = [
         "553 deterministic tests",
         "548 deterministic tests",
@@ -19368,29 +19393,31 @@ def test_doc_drift_readme_test_count():
         "818 tests.",
         "842 deterministic tests",
         "842 tests.",
+        "866 deterministic tests",
+        "866 tests.",
     ]
     for phrase in stale_phrases:
         assert phrase not in readme, f"README.md still mentions stale phrase {phrase!r}"
-    print(f"  README mentions 866 tests, no stale counts present ✓")
+    print(f"  README mentions 890 tests, no stale counts present ✓")
 
 
 def test_doc_drift_testing_test_count():
-    """DOC-DRIFT-2: TESTING.md current total is 866 and historical markers retained."""
+    """DOC-DRIFT-2: TESTING.md current total is 890 and historical markers retained."""
     text = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
-    assert "866 test functions" in text, "TESTING.md must state 866 test functions"
-    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763", "787", "800", "818", "842"):
+    assert "890 test functions" in text, "TESTING.md must state 890 test functions"
+    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763", "787", "800", "818", "842", "866"):
         assert marker in text, f"TESTING.md must retain historical test-count marker {marker}"
-    print(f"  TESTING.md states 866 functions and keeps historical markers ✓")
+    print(f"  TESTING.md states 890 functions and keeps historical markers ✓")
 
 
 def test_doc_drift_release_checklist_test_count():
-    """DOC-DRIFT-3: RELEASE_CHECKLIST references 866 tests and required commands."""
+    """DOC-DRIFT-3: RELEASE_CHECKLIST references 890 tests and required commands."""
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "866" in text, "RELEASE_CHECKLIST.md must reference the 866-test target"
+    assert "890" in text, "RELEASE_CHECKLIST.md must reference the 890-test target"
     for req in ("test_verify.py", "run.py validate", "run.py security",
                 "run.py export", "GitHub Release"):
         assert req in text, f"RELEASE_CHECKLIST.md must contain {req!r}"
-    print(f"  RELEASE_CHECKLIST mentions 866 tests and required commands ✓")
+    print(f"  RELEASE_CHECKLIST mentions 890 tests and required commands ✓")
 
 
 def test_doc_drift_roadmap_active_phase():
@@ -20779,10 +20806,10 @@ def test_p29e_19_readme_states_phase29_complete():
 
 def test_p29e_20_release_checklist_test_count_updated():
     """P29E-20: RELEASE_CHECKLIST.md references the current test count.
-    Phase 30D2 bumped the total from 842 to 866."""
+    Phase 30D3 bumped the total from 866 to 890."""
     print("\n=== Test P29E-20: RELEASE_CHECKLIST test count ===")
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "866" in text, "RELEASE_CHECKLIST.md must reference the current 866-test target"
+    assert "890" in text, "RELEASE_CHECKLIST.md must reference the current 890-test target"
     # The previous counts must not linger in the checklist after this phase.
     assert "all 763 tests green" not in text, \
         "RELEASE_CHECKLIST.md must not still say 'all 763 tests green'"
@@ -20794,7 +20821,9 @@ def test_p29e_20_release_checklist_test_count_updated():
         "RELEASE_CHECKLIST.md must not still say 'all 818 tests green'"
     assert "all 842 tests green" not in text, \
         "RELEASE_CHECKLIST.md must not still say 'all 842 tests green'"
-    print("  RELEASE_CHECKLIST.md references 866 tests ✓")
+    assert "all 866 tests green" not in text, \
+        "RELEASE_CHECKLIST.md must not still say 'all 866 tests green'"
+    print("  RELEASE_CHECKLIST.md references 890 tests ✓")
 
 
 def test_p29e_21_ui_ux_audit_has_phase29e_note():
@@ -21318,18 +21347,17 @@ def test_p30c_14_no_dashboard_missing_concepts_duplicate_heading():
 
 def test_p30c_15_roadmap_phase30c_complete_others_planned():
     """P30C-15: ROADMAP marks Phase 30C complete and keeps the remaining
-    Phase 30 slices honestly tracked: 30D is either Planned or In
-    Progress (Phase 30D1 may have shipped), and 30E/30F stay Planned.
-    Phase 27 and 28 remain deferred."""
+    Phase 30 slices honestly tracked: 30D is Planned, In Progress, or
+    Complete (Phase 30D1/30D2/30D3 may have shipped), and 30E/30F stay
+    Planned. Phase 27 and 28 remain deferred."""
     print("\n=== Test P30C-15: ROADMAP phase status ===")
     text = _read_text("ROADMAP.md")
     assert "| 30C   | Dashboard Redesign" in text and "Complete" in text, \
         "ROADMAP.md table must mark Phase 30C as Complete"
     assert ("| 30D   | Core Workflow Page Redesigns            | Planned" in text
-            or "| 30D   | Core Workflow Page Redesigns            | In Progress" in text), \
-        "ROADMAP.md must keep Phase 30D Planned or In Progress (not Complete)"
-    assert "| 30D   | Core Workflow Page Redesigns            | Complete" not in text, \
-        "ROADMAP.md must not mark parent Phase 30D Complete"
+            or "| 30D   | Core Workflow Page Redesigns            | In Progress" in text
+            or "| 30D   | Core Workflow Page Redesigns            | Complete" in text), \
+        "ROADMAP.md must include a Phase 30D status row"
     assert "| 30E   | Review/Governance/Developer Polish      | Planned" in text, \
         "ROADMAP.md must keep Phase 30E Planned"
     assert "| 30F   | Final QA, A11y, Responsive, Light Mode  | Planned" in text, \
@@ -21687,25 +21715,22 @@ def test_p30d1_20_roadmap_phase28_still_deferred():
 
 
 def test_p30d1_21_phase30d_not_marked_complete():
-    """P30D1-21: ROADMAP.md does not mark the parent Phase 30D as
-    fully complete. Phase 30D1 is recorded as complete; 30D2 and 30D3
-    remain planned."""
-    print("\n=== Test P30D1-21: Phase 30D not fully complete ===")
+    """P30D1-21: ROADMAP.md tracks Phase 30D and its sub-slices honestly.
+    Phase 30D1 is recorded as complete; 30D2 and 30D3 each have a row.
+    The parent Phase 30D row exists and reflects the current state of
+    the sub-slices (Planned, In Progress, or Complete)."""
+    print("\n=== Test P30D1-21: Phase 30D status row tracked ===")
     text = _read_text("ROADMAP.md")
-    # The 30D status-table row must not say Complete.
-    forbidden_rows = (
-        "| 30D   | Core Workflow Page Redesigns            | Complete",
-    )
-    for row in forbidden_rows:
-        assert row not in text, \
-            f"ROADMAP.md must not mark Phase 30D Complete: found {row!r}"
     # 30D1 must appear in the table.
     assert "| 30D1" in text, \
         "ROADMAP.md must add a 30D1 status-table row"
-    # 30D2 and 30D3 are planned.
+    # 30D2 and 30D3 are documented.
     assert "30D2" in text and "30D3" in text, \
         "ROADMAP.md must document the 30D2 and 30D3 sub-slices"
-    print("  Parent Phase 30D not marked Complete; 30D1 complete; 30D2/30D3 planned ✓")
+    # Parent 30D row exists.
+    assert "| 30D   | Core Workflow Page Redesigns" in text, \
+        "ROADMAP.md must include a Phase 30D status row"
+    print("  Phase 30D sub-slices 30D1/30D2/30D3 tracked in ROADMAP ✓")
 
 
 def test_p30d1_22_phase30e_and_30f_planned():
@@ -22055,14 +22080,8 @@ def test_p30d2_20_phase28_still_deferred():
 def test_p30d2_21_phase30d2_complete_and_30d_not_complete():
     """P30D2-21: ROADMAP.md records Phase 30D2 as Complete, leaves the
     parent Phase 30D row non-complete, and keeps Phase 30D3 Planned."""
-    print("\n=== Test P30D2-21: Phase 30D2 Complete; 30D not Complete; 30D3 Planned ===")
+    print("\n=== Test P30D2-21: Phase 30D2 Complete; 30D3 row present ===")
     text = _read_text("ROADMAP.md")
-    forbidden_rows = (
-        "| 30D   | Core Workflow Page Redesigns            | Complete",
-    )
-    for row in forbidden_rows:
-        assert row not in text, \
-            f"ROADMAP.md must not mark Phase 30D Complete; found {row!r}"
     assert "| 30D2" in text, "ROADMAP.md must include a 30D2 status row"
     # The 30D2 row must include the Complete status marker on the same line.
     found_complete = False
@@ -22071,14 +22090,14 @@ def test_p30d2_21_phase30d2_complete_and_30d_not_complete():
             found_complete = True
             break
     assert found_complete, "ROADMAP.md must mark Phase 30D2 as Complete in the status table"
-    # 30D3 must remain Planned.
-    found_30d3_planned = False
+    # 30D3 must be tracked (Planned, In Progress, or Complete).
+    found_30d3 = False
     for line in text.splitlines():
-        if line.startswith("| 30D3") and "Planned" in line:
-            found_30d3_planned = True
+        if line.startswith("| 30D3"):
+            found_30d3 = True
             break
-    assert found_30d3_planned, "ROADMAP.md must keep Phase 30D3 Planned"
-    print("  Phase 30D2 Complete; parent 30D not Complete; 30D3 Planned ✓")
+    assert found_30d3, "ROADMAP.md must include a Phase 30D3 status row"
+    print("  Phase 30D2 Complete; 30D3 row present ✓")
 
 
 def test_p30d2_22_phase30e_and_30f_planned():
@@ -22124,6 +22143,412 @@ def test_p30d2_24_no_em_dashes_in_phase30d2_files():
     assert not offenders, \
         f"Phase 30D2 files must not contain em dashes; offenders: {offenders}"
     print("  No em dashes in Phase 30D2 files ✓")
+
+
+# ============================================================
+# Phase 30D3 - Import / Bundles / Exports / Security Workflow Redesigns
+# ============================================================
+
+_P30D3_PAGES = {
+    "import":   "ui/src/pages/import.astro",
+    "bundles":  "ui/src/pages/bundles.astro",
+    "exports":  "ui/src/pages/exports.astro",
+    "security": "ui/src/pages/security.astro",
+}
+_P30D3_COMPONENTS = {
+    "import":   "ui/src/components/ImportReview.svelte",
+    "bundles":  "ui/src/components/BundleBuilder.svelte",
+    "exports":  "ui/src/components/ExportPackage.svelte",
+    "security": "ui/src/components/SecurityScan.svelte",
+}
+_P30D3_BUNDLE_CONFIG = "ui/src/lib/bundleConfig.ts"
+
+
+def test_p30d3_1_all_pages_layout_wide():
+    """P30D3-1: All four workflow pages declare layoutMode=\"wide\"."""
+    print("\n=== Test P30D3-1: workflow pages use wide layout ===")
+    for name, path in _P30D3_PAGES.items():
+        text = _read_text(path)
+        assert 'layoutMode="wide"' in text, \
+            f"{path} must declare layoutMode=\"wide\""
+    print("  All four workflow pages use wide layout ✓")
+
+
+def test_p30d3_2_all_components_use_cve_toolbar():
+    """P30D3-2: Every redesigned component renders a cve-toolbar header."""
+    print("\n=== Test P30D3-2: all workflow components use cve-toolbar ===")
+    for name, path in _P30D3_COMPONENTS.items():
+        text = _read_text(path)
+        for cls in ("cve-toolbar", "cve-toolbar__main", "cve-toolbar__title"):
+            assert cls in text, f"{path} must use {cls}"
+    print("  All workflow components use cve-toolbar ✓")
+
+
+def test_p30d3_3_all_components_use_cve_banner():
+    """P30D3-3: Every redesigned component renders at least one cve-banner."""
+    print("\n=== Test P30D3-3: all workflow components use cve-banner ===")
+    for name, path in _P30D3_COMPONENTS.items():
+        text = _read_text(path)
+        assert "cve-banner" in text, f"{path} must render a cve-banner"
+    print("  All workflow components use cve-banner ✓")
+
+
+def test_p30d3_4_all_components_use_cve_status_strip():
+    """P30D3-4: Every redesigned component renders a cve-status-strip."""
+    print("\n=== Test P30D3-4: all workflow components use cve-status-strip ===")
+    for name, path in _P30D3_COMPONENTS.items():
+        text = _read_text(path)
+        assert "cve-status-strip" in text, f"{path} must render a cve-status-strip"
+        assert "cve-status-tile" in text, f"{path} must render cve-status-tile entries"
+    print("  All workflow components use cve-status-strip ✓")
+
+
+def test_p30d3_5_import_preserves_existing_source_types():
+    """P30D3-5: ImportReview keeps the markdown-folder + obsidian-vault
+    source-type values and does not introduce new source types."""
+    print("\n=== Test P30D3-5: ImportReview keeps existing source types ===")
+    text = _read_text(_P30D3_COMPONENTS["import"])
+    for marker in (
+        'data-testid="source-type-select"',
+        'value="markdown-folder"',
+        'value="obsidian-vault"',
+    ):
+        assert marker in text, f"ImportReview must keep {marker}"
+    # Forbid common candidates for new sources that the redesign must not add.
+    for forbidden in ('value="notion"', 'value="roam"', 'value="logseq"', 'value="evernote"'):
+        assert forbidden not in text, \
+            f"ImportReview must not introduce new source type {forbidden}"
+    print("  ImportReview keeps markdown-folder + obsidian-vault source types ✓")
+
+
+def test_p30d3_6_import_separates_preview_and_write():
+    """P30D3-6: ImportReview keeps Preview and Write as separate buttons
+    with a stale-preview banner and a write confirmation checkbox."""
+    print("\n=== Test P30D3-6: ImportReview preview/write separation ===")
+    text = _read_text(_P30D3_COMPONENTS["import"])
+    for marker in (
+        'data-testid="import-preview-btn"',
+        'data-testid="import-write-btn"',
+        'data-testid="import-confirm-checkbox"',
+        'data-testid="import-stale-banner"',
+        "previewStale",
+        "confirmReviewed",
+    ):
+        assert marker in text, f"ImportReview must expose {marker}"
+    print("  ImportReview separates Preview and Write with stale + confirm gates ✓")
+
+
+def test_p30d3_7_bundles_uses_shared_helper():
+    """P30D3-7: BundleBuilder imports from the shared bundleConfig helper."""
+    print("\n=== Test P30D3-7: BundleBuilder uses shared bundleConfig helper ===")
+    text = _read_text(_P30D3_COMPONENTS["bundles"])
+    assert "bundleConfig" in text, "BundleBuilder must import the shared bundleConfig helper"
+    assert "defaultBundleConfig" in text or "buildContextBundleRequest" in text, \
+        "BundleBuilder must use bundleConfig helper functions"
+    print("  BundleBuilder uses the shared bundleConfig helper ✓")
+
+
+def test_p30d3_8_bundles_sticky_action_and_state_pane():
+    """P30D3-8: BundleBuilder has a sticky generate action and a state-aware
+    right pane (Readiness / Summary / Error)."""
+    print("\n=== Test P30D3-8: BundleBuilder sticky action + state pane ===")
+    text = _read_text(_P30D3_COMPONENTS["bundles"])
+    assert "cve-p30d3-sticky-action" in text, \
+        "BundleBuilder must use cve-p30d3-sticky-action for the Generate button"
+    assert 'data-testid="bundle-generate-btn"' in text, \
+        "BundleBuilder must expose bundle-generate-btn"
+    assert "cve-p30d3-readiness" in text or "cve-p30d3-stage-list" in text, \
+        "BundleBuilder must render a Readiness pane before generation"
+    print("  BundleBuilder has sticky action + state-aware pane ✓")
+
+
+def test_p30d3_9_exports_uses_shared_helper():
+    """P30D3-9: ExportPackage shares the bundleConfig helper with bundles."""
+    print("\n=== Test P30D3-9: ExportPackage uses shared bundleConfig helper ===")
+    text = _read_text(_P30D3_COMPONENTS["exports"])
+    assert "bundleConfig" in text, "ExportPackage must import the shared bundleConfig helper"
+    print("  ExportPackage uses the shared bundleConfig helper ✓")
+
+
+def test_p30d3_10_exports_security_gate_default_on():
+    """P30D3-10: ExportPackage defaults require_security_pass to true."""
+    print("\n=== Test P30D3-10: ExportPackage security gate defaults to on ===")
+    text = _read_text(_P30D3_COMPONENTS["exports"])
+    assert 'data-testid="export-require-security-checkbox"' in text, \
+        "ExportPackage must expose export-require-security-checkbox"
+    # Default must be true. Accept both Svelte boolean initialisers.
+    assert ("requireSecurityPass = true" in text
+            or "requireSecurityPass: boolean = true" in text), \
+        "ExportPackage must default requireSecurityPass to true"
+    print("  ExportPackage defaults requireSecurityPass to true ✓")
+
+
+def test_p30d3_11_exports_overwrite_confirmation_gate():
+    """P30D3-11: ExportPackage requires a typed OVERWRITE confirmation
+    before the submit button becomes enabled."""
+    print("\n=== Test P30D3-11: ExportPackage overwrite confirmation gate ===")
+    text = _read_text(_P30D3_COMPONENTS["exports"])
+    for marker in (
+        'data-testid="export-overwrite-checkbox"',
+        'data-testid="export-overwrite-confirm-block"',
+        'data-testid="export-overwrite-confirm-input"',
+        'data-testid="export-submit-btn"',
+        "OVERWRITE",
+        "overwriteConfirmed",
+    ):
+        assert marker in text, f"ExportPackage must expose {marker}"
+    print("  ExportPackage has typed-OVERWRITE confirmation gate ✓")
+
+
+def test_p30d3_12_exports_separate_route_from_bundles():
+    """P30D3-12: ExportPackage lives at /app/exports, not embedded in /app/bundles."""
+    print("\n=== Test P30D3-12: Exports has its own route distinct from Bundles ===")
+    bundles_page = _read_text(_P30D3_PAGES["bundles"])
+    exports_page = _read_text(_P30D3_PAGES["exports"])
+    assert "ExportPackage" not in bundles_page, \
+        "bundles.astro must not embed ExportPackage; exports has its own route"
+    assert "ExportPackage" in exports_page, \
+        "exports.astro must mount the ExportPackage component"
+    assert "BundleBuilder" not in exports_page, \
+        "exports.astro must not embed BundleBuilder"
+    print("  Exports and Bundles are on separate routes ✓")
+
+
+def test_p30d3_13_security_full_vault_default():
+    """P30D3-13: SecurityScan defaults to a full-vault scan (no Advanced
+    scope) with allow_partial=true and surfaces a pre-run note count."""
+    print("\n=== Test P30D3-13: SecurityScan defaults to full-vault ===")
+    text = _read_text(_P30D3_COMPONENTS["security"])
+    assert "useAdvancedScope = false" in text, \
+        "SecurityScan must default Advanced scope OFF"
+    assert "fetchNotes" in text, \
+        "SecurityScan must call fetchNotes for a pre-run vault note count"
+    assert "FULL_VAULT_MAX_NOTES" in text or "full vault" in text.lower(), \
+        "SecurityScan must document its full-vault default budget"
+    assert 'data-testid="security-prerun-tile"' in text, \
+        "SecurityScan must surface a pre-run note count tile"
+    print("  SecurityScan defaults to full-vault scan with pre-run count ✓")
+
+
+def test_p30d3_14_security_advanced_disclosure():
+    """P30D3-14: SecurityScan demotes sampling, filters, sections, and
+    per-note budgets to an Advanced scope disclosure."""
+    print("\n=== Test P30D3-14: SecurityScan Advanced disclosure ===")
+    text = _read_text(_P30D3_COMPONENTS["security"])
+    assert "cve-p30d3-disclosure" in text, \
+        "SecurityScan must wrap Advanced scope in cve-p30d3-disclosure"
+    assert 'data-testid="security-advanced-summary"' in text, \
+        "SecurityScan must expose security-advanced-summary"
+    # The Advanced disclosure must include sampling/filter controls.
+    for marker in ("statusFilter", "filterDomain", "filterType", "maxNotes", "maxChars"):
+        assert marker in text, f"SecurityScan Advanced scope must include {marker}"
+    print("  SecurityScan demotes sampling controls to Advanced disclosure ✓")
+
+
+def test_p30d3_15_security_bounded_findings_table():
+    """P30D3-15: SecurityScan renders findings in a bounded cve-table
+    wrapped in an internal-scroll region."""
+    print("\n=== Test P30D3-15: SecurityScan findings table is bounded ===")
+    text = _read_text(_P30D3_COMPONENTS["security"])
+    assert "cve-p30d3-findings-table" in text, \
+        "SecurityScan must wrap findings in cve-p30d3-findings-table"
+    assert "cve-table" in text, "SecurityScan must use cve-table for findings"
+    print("  SecurityScan findings table is bounded and uses cve-table ✓")
+
+
+def test_p30d3_16_state_pills_present():
+    """P30D3-16: Each redesigned component exposes a state-pill testid."""
+    print("\n=== Test P30D3-16: workflow state pills ===")
+    pills = {
+        "import":   'data-testid="import-state-pill"',
+        "bundles":  'data-testid="bundle-state-pill"',
+        "exports":  'data-testid="export-state-pill"',
+        "security": 'data-testid="security-state-pill"',
+    }
+    for name, marker in pills.items():
+        text = _read_text(_P30D3_COMPONENTS[name])
+        assert marker in text, f"{_P30D3_COMPONENTS[name]} must expose {marker}"
+    print("  All four components expose a state-pill testid ✓")
+
+
+def test_p30d3_17_no_primary_inline_raw_json():
+    """P30D3-17: Raw JSON only appears inside cve-details--inspector blocks,
+    never as a primary panel in any workflow component."""
+    print("\n=== Test P30D3-17: no primary inline raw JSON ===")
+    import re
+    for name, path in _P30D3_COMPONENTS.items():
+        text = _read_text(path)
+        # Any JSON.stringify must live inside a cve-details--inspector block.
+        # Heuristic: every cve-details opening tag that contains a JSON.stringify
+        # below it (within ~3000 chars) must include the inspector modifier.
+        for m in re.finditer(r"JSON\.stringify\b", text):
+            # Find the nearest enclosing <details ...> opening before this hit.
+            head = text[:m.start()]
+            open_idx = head.rfind("<details")
+            assert open_idx != -1, \
+                f"{path}: JSON.stringify outside any <details> block at offset {m.start()}"
+            opening = text[open_idx:m.start()]
+            # Walk to end of that opening tag.
+            close_brace = opening.find(">")
+            opening_tag = opening[: close_brace + 1] if close_brace != -1 else opening
+            assert "cve-details--inspector" in opening_tag, \
+                f"{path}: JSON.stringify must be inside cve-details--inspector"
+    print("  Raw JSON is confined to cve-details--inspector ✓")
+
+
+def test_p30d3_18_developer_deep_links():
+    """P30D3-18: Each redesigned component exposes a Developer deep-link
+    to /app/raw with a matching endpoint and source tag."""
+    print("\n=== Test P30D3-18: Developer deep-links to /app/raw ===")
+    endpoints = {
+        "import":   ("endpoint=import",   "source=import"),
+        "bundles":  ("endpoint=bundle",   "source=bundles"),
+        "exports":  ("endpoint=export",   "source=exports"),
+        "security": ("endpoint=security", "source=security"),
+    }
+    for name, (endpoint_q, source_q) in endpoints.items():
+        text = _read_text(_P30D3_COMPONENTS[name])
+        assert "/app/raw" in text, f"{name}: must link to /app/raw"
+        assert endpoint_q in text, f"{name}: deep-link must include {endpoint_q}"
+        assert source_q in text, f"{name}: deep-link must include {source_q}"
+        assert "cve-details__developer-link" in text, \
+            f"{name}: must use cve-details__developer-link"
+    print("  All four components expose Developer deep-links to /app/raw ✓")
+
+
+def test_p30d3_19_no_tailwind_dark_literals():
+    """P30D3-19: Redesigned components contain no Tailwind dark palette literals."""
+    print("\n=== Test P30D3-19: no Tailwind dark literals in 30D3 files ===")
+    import re
+    pattern = re.compile(
+        r"\b(?:bg|text|border|ring|divide|placeholder|from|to|via)-"
+        r"(?:zinc|neutral|slate|gray|stone|emerald|amber|rose|sky|violet|indigo|teal|cyan|lime|orange|red|green|blue|pink|fuchsia|purple)-"
+        r"[0-9]{2,3}\b"
+    )
+    offenders: list[tuple[str, str]] = []
+    for path in list(_P30D3_PAGES.values()) + list(_P30D3_COMPONENTS.values()) + [_P30D3_BUNDLE_CONFIG]:
+        for m in pattern.finditer(_read_text(path)):
+            offenders.append((path, m.group(0)))
+    assert not offenders, \
+        f"Phase 30D3 files must not use Tailwind dark literals: {offenders[:5]}"
+    print("  Phase 30D3 files use only cve-* token classes ✓")
+
+
+def test_p30d3_20_form_labels():
+    """P30D3-20: Every text/search/number/email input in 30D3 components
+    has either an associated <label for> or an aria-label."""
+    print("\n=== Test P30D3-20: 30D3 form labels ===")
+    import re
+    for name, path in _P30D3_COMPONENTS.items():
+        text = _read_text(path)
+        for m in re.finditer(r"<input\b[^>]*>", text):
+            tag = m.group(0)
+            type_match = re.search(r'\btype="([^"]+)"', tag)
+            input_type = type_match.group(1) if type_match else "text"
+            if input_type not in ("text", "search", "number", "email"):
+                continue
+            id_match = re.search(r'\bid="([^"]+)"', tag)
+            has_label = False
+            if id_match:
+                label_pattern = re.compile(
+                    r'<label\b[^>]*\bfor="' + re.escape(id_match.group(1)) + r'"'
+                )
+                if label_pattern.search(text):
+                    has_label = True
+            if 'aria-label="' in tag:
+                has_label = True
+            assert has_label, \
+                f"{path}: <input> tag has no associated <label for> or aria-label: {tag[:120]}"
+    print("  Phase 30D3 inputs are properly labelled ✓")
+
+
+def test_p30d3_21_static_links_resolve():
+    """P30D3-21: Every static /app/<page> link in 30D3 components resolves
+    to a page file in ui/src/pages."""
+    print("\n=== Test P30D3-21: 30D3 /app links resolve ===")
+    import re
+    pages_dir = _repo_root() / "ui" / "src" / "pages"
+    for name, path in _P30D3_COMPONENTS.items():
+        text = _read_text(path)
+        for m in re.finditer(r'href="(/app/[A-Za-z0-9_/\-]+)', text):
+            target = m.group(1)
+            page = target[len("/app/"):]
+            if not page:
+                continue
+            candidates = [
+                pages_dir / f"{page}.astro",
+                pages_dir / page / "index.astro",
+            ]
+            assert any(c.is_file() for c in candidates), \
+                f"{path} links to {target} which has no matching page file"
+    print("  Phase 30D3 /app links resolve to real pages ✓")
+
+
+def test_p30d3_22_phase27_28_still_deferred():
+    """P30D3-22: ROADMAP.md keeps Phase 27 and Phase 28 deferred."""
+    print("\n=== Test P30D3-22: Phase 27/28 still deferred ===")
+    text = _read_text("ROADMAP.md")
+    assert "| 27" in text and "Deferred" in text, "Phase 27 must remain deferred"
+    assert "| 28" in text, "Phase 28 row must be present"
+    found_28_deferred = False
+    for line in text.splitlines():
+        if line.startswith("| 28") and "Deferred" in line:
+            found_28_deferred = True
+            break
+    assert found_28_deferred, "Phase 28 must remain deferred"
+    print("  Phase 27 and 28 remain deferred ✓")
+
+
+def test_p30d3_23_phase30d3_and_30d_complete():
+    """P30D3-23: ROADMAP records Phase 30D3 Complete and the parent
+    Phase 30D row Complete. Phase 30E/30F remain Planned."""
+    print("\n=== Test P30D3-23: Phase 30D3 + parent 30D Complete ===")
+    text = _read_text("ROADMAP.md")
+    found_30d3_complete = False
+    found_30d_complete = False
+    found_30e_planned = False
+    found_30f_planned = False
+    for line in text.splitlines():
+        if line.startswith("| 30D3") and "Complete" in line:
+            found_30d3_complete = True
+        if line.startswith("| 30D ") and "Complete" in line:
+            found_30d_complete = True
+        if line.startswith("| 30E") and "Planned" in line:
+            found_30e_planned = True
+        if line.startswith("| 30F") and "Planned" in line:
+            found_30f_planned = True
+    assert found_30d3_complete, "ROADMAP.md must mark Phase 30D3 Complete"
+    assert found_30d_complete, "ROADMAP.md must mark parent Phase 30D Complete"
+    assert found_30e_planned, "ROADMAP.md must keep Phase 30E Planned"
+    assert found_30f_planned, "ROADMAP.md must keep Phase 30F Planned"
+    print("  Phase 30D3 + parent 30D Complete; 30E/30F Planned ✓")
+
+
+def test_p30d3_24_no_em_dashes_in_phase30d3_files():
+    """P30D3-24: Files touched by Phase 30D3 contain no em dashes and
+    ui/package.json gains no new runtime dependencies."""
+    print("\n=== Test P30D3-24: no em dashes + no new deps in Phase 30D3 ===")
+    import json
+    files = list(_P30D3_PAGES.values()) + list(_P30D3_COMPONENTS.values()) + [
+        _P30D3_BUNDLE_CONFIG,
+        "ui/src/styles/global.css",
+        "ROADMAP.md", "UI_UX_AUDIT.md", "TESTING.md",
+        "README.md", "RELEASE_CHECKLIST.md",
+    ]
+    offenders = [f for f in files if "\u2014" in _read_text(f)]
+    assert not offenders, \
+        f"Phase 30D3 files must not contain em dashes; offenders: {offenders}"
+    pkg = json.loads(_read_text("ui/package.json"))
+    deps = set((pkg.get("dependencies") or {}).keys())
+    dev_deps = set((pkg.get("devDependencies") or {}).keys())
+    forbidden = {"react", "react-dom", "vue", "lucide-react",
+                 "@heroicons/react", "framer-motion", "react-icons",
+                 "@radix-ui/react-icons", "chart.js", "d3", "recharts",
+                 "highlight.js", "prismjs", "shiki"}
+    sneaked_in = (deps | dev_deps) & forbidden
+    assert not sneaked_in, \
+        f"ui/package.json must not introduce {sorted(sneaked_in)} in Phase 30D3"
+    print("  No em dashes and no new runtime dependencies in Phase 30D3 ✓")
 
 
 if __name__ == "__main__":

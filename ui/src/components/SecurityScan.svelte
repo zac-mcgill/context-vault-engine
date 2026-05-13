@@ -1,7 +1,27 @@
 <script lang="ts">
+  /**
+   * SecurityScan.svelte - Phase 30D3
+   *
+   * Full-vault security scan workflow.
+   *
+   * Behaviour change in Phase 30D3:
+   *   - Default scope is the full vault (no filters, large note budget,
+   *     allow_partial=true). Users see this as "Scan whole vault" without
+   *     having to think about bundle sampling.
+   *   - Sampling, filters, sections, and per-note budgets are demoted to
+   *     an "Advanced scope" disclosure for power users.
+   *   - Pre-run note count is surfaced via fetchNotes(vault) so users
+   *     understand how many notes the deterministic scan will cover.
+   *
+   * Findings render in a bounded cve-table with internal scroll. Raw
+   * response is demoted to a cve-details inspector with a developer
+   * deep-link to /app/raw.
+   */
+
   import { onMount } from 'svelte';
   import {
     fetchVaults,
+    fetchNotes,
     scanContextSecurity,
     isOk,
     type ContextSecurityRequest,
@@ -10,40 +30,34 @@
   } from '../lib/api.ts';
   import { getStoredVault } from '../lib/vaultState.ts';
 
-  // ---------------------------------------------------------------------------
-  // Vault state
-  // ---------------------------------------------------------------------------
+  // Full-vault defaults. These intentionally bypass the bundle sampling
+  // ergonomics of /app/bundles and /app/exports.
+  const FULL_VAULT_MAX_NOTES = 100;
+  const FULL_VAULT_MAX_CHARS = 500_000;
 
   let vaultList: string[] = [];
   let vaultsLoading = true;
   let vaultsError = '';
 
-  // ---------------------------------------------------------------------------
-  // Form state
-  // ---------------------------------------------------------------------------
-
   let selectedVault = '';
+  let preRunNoteCount: number | null = null;
+  let preRunNotesLoading = false;
+  let preRunNotesError = '';
 
+  // Advanced scope (defaults to OFF; full-vault is the standard path)
+  let useAdvancedScope = false;
   type StatusFilter = 'complete' | 'partial' | 'all';
-  let statusFilter: StatusFilter = 'complete';
+  let statusFilter: StatusFilter = 'all';
   let filterDomain = '';
   let filterType = '';
   let filterDifficulty = '';
-
   const DEFAULT_SECTIONS = ['Key Principles', 'How It Works', 'Trade-offs'];
   let includeSections: string[] = [...DEFAULT_SECTIONS];
   let newSectionInput = '';
   let sectionInputError = '';
-
-  let includeBody = true;
-  let allowPartial = false;
-
-  let maxNotes = 10;
-  let maxChars = 20000;
-
-  // ---------------------------------------------------------------------------
-  // Submit state
-  // ---------------------------------------------------------------------------
+  let allowPartial = true;
+  let maxNotes = FULL_VAULT_MAX_NOTES;
+  let maxChars = FULL_VAULT_MAX_CHARS;
 
   type SubmitState = 'idle' | 'loading' | 'ok' | 'error';
   let submitState: SubmitState = 'idle';
@@ -51,100 +65,43 @@
   let submitError = '';
   let submitErrorCode = '';
 
-  // ---------------------------------------------------------------------------
-  // Result UI state
-  // ---------------------------------------------------------------------------
-
   type SeverityFilter = 'all' | 'fail' | 'warning' | 'info';
   let severityFilter: SeverityFilter = 'all';
   let findingTextFilter = '';
-  let showRawJson = false;
-  let expandedFindings = new Set<number>();
 
-  // ---------------------------------------------------------------------------
-  // Derived / reactive
-  // ---------------------------------------------------------------------------
+  $: canSubmit = selectedVault !== '' && submitState !== 'loading';
 
-  $: partialConflict = statusFilter === 'partial' && !allowPartial;
+  $: rawDeepLink = selectedVault
+    ? `/app/raw?endpoint=security&vault=${encodeURIComponent(selectedVault)}&source=security`
+    : '/app/raw?endpoint=security&source=security';
 
-  $: canSubmit =
-    selectedVault !== '' &&
-    includeSections.length > 0 &&
-    submitState !== 'loading';
-
-  $: previewFilters = (() => {
-    const f: Record<string, string> = {};
-    if (statusFilter === 'complete') f.status = 'complete';
-    if (statusFilter === 'partial') f.status = 'partial';
-    const d = filterDomain.trim();
-    if (d) f.domain = d;
-    const t = filterType.trim();
-    if (t) f.type = t;
-    const diff = filterDifficulty.trim();
-    if (diff) f.difficulty = diff;
-    return f;
-  })();
+  $: stateLabel =
+    submitState === 'loading'
+      ? 'Scanning'
+      : submitState === 'ok' && scanResult
+        ? `Scan ${scanResult.status}`
+        : submitState === 'error'
+          ? 'Error'
+          : 'Not run';
 
   $: filteredFindings = (() => {
     if (!scanResult) return [];
     let findings = scanResult.findings ?? [];
     if (severityFilter !== 'all') {
-      findings = findings.filter(f => f.severity === severityFilter);
+      findings = findings.filter((f) => f.severity === severityFilter);
     }
     const q = findingTextFilter.trim().toLowerCase();
     if (q) {
       findings = findings.filter(
-        f =>
+        (f) =>
           f.path.toLowerCase().includes(q) ||
           f.rule.toLowerCase().includes(q) ||
           f.detail.toLowerCase().includes(q) ||
-          f.field.toLowerCase().includes(q),
+          (f.field ?? '').toLowerCase().includes(q),
       );
     }
     return findings;
   })();
-
-  // Rule summary derived from ALL findings (not filtered)
-  $: ruleSummary = (() => {
-    if (!scanResult) return [];
-    const map = new Map<string, { count: number; highestSeverity: string }>();
-    const order = ['fail', 'warning', 'info'];
-    for (const f of scanResult.findings ?? []) {
-      const entry = map.get(f.rule);
-      if (!entry) {
-        map.set(f.rule, { count: 1, highestSeverity: f.severity });
-      } else {
-        entry.count++;
-        if (order.indexOf(f.severity) < order.indexOf(entry.highestSeverity)) {
-          entry.highestSeverity = f.severity;
-        }
-      }
-    }
-    return [...map.entries()]
-      .map(([rule, v]) => ({ rule, ...v }))
-      .sort((a, b) => order.indexOf(a.highestSeverity) - order.indexOf(b.highestSeverity));
-  })();
-
-  // Affected notes: source_paths with finding counts
-  $: affectedNotes = (() => {
-    if (!scanResult) return [];
-    const paths = scanResult.scanned?.source_paths ?? [];
-    const findings = scanResult.findings ?? [];
-    return paths.map(path => {
-      const pathFindings = findings.filter(f => f.path === path);
-      const severityCounts = { fail: 0, warning: 0, info: 0 };
-      for (const f of pathFindings) {
-        if (f.severity === 'fail') severityCounts.fail++;
-        else if (f.severity === 'warning') severityCounts.warning++;
-        else if (f.severity === 'info') severityCounts.info++;
-      }
-      return { path, count: pathFindings.length, severityCounts };
-    });
-  })();
-
-  // ---------------------------------------------------------------------------
-  // Lifecycle
-  // ---------------------------------------------------------------------------
 
   onMount(async () => {
     vaultsLoading = true;
@@ -154,7 +111,9 @@
       vaultList = result.data.vaults ?? [];
       if (vaultList.length > 0) {
         const stored = getStoredVault();
-        selectedVault = (stored && vaultList.includes(stored)) ? stored : vaultList[0];
+        selectedVault =
+          stored && vaultList.includes(stored) ? stored : vaultList[0];
+        await refreshPreRunCount();
       }
     } else {
       vaultsError = result.error?.message ?? 'Failed to load vaults';
@@ -162,18 +121,37 @@
     vaultsLoading = false;
   });
 
-  // ---------------------------------------------------------------------------
-  // Section management
-  // ---------------------------------------------------------------------------
+  $: void selectedVault, refreshPreRunCount();
 
-  function addSection() {
+  async function refreshPreRunCount(): Promise<void> {
+    if (!selectedVault) {
+      preRunNoteCount = null;
+      return;
+    }
+    preRunNotesLoading = true;
+    preRunNotesError = '';
+    const res = await fetchNotes(selectedVault);
+    if (isOk(res)) {
+      preRunNoteCount = res.data.notes.length;
+    } else {
+      preRunNoteCount = null;
+      preRunNotesError = res.error?.message ?? 'Failed to count notes';
+    }
+    preRunNotesLoading = false;
+  }
+
+  function addSection(): void {
     const val = newSectionInput.trim();
     sectionInputError = '';
     if (!val) {
       sectionInputError = 'Section name cannot be empty';
       return;
     }
-    if (includeSections.map(s => s.trim().toLowerCase()).includes(val.toLowerCase())) {
+    if (
+      includeSections
+        .map((s) => s.trim().toLowerCase())
+        .includes(val.toLowerCase())
+    ) {
       sectionInputError = 'Duplicate section name';
       return;
     }
@@ -181,663 +159,524 @@
     newSectionInput = '';
   }
 
-  function removeSection(index: number) {
-    includeSections = includeSections.filter((_, i) => i !== index);
+  function removeSection(idx: number): void {
+    includeSections = includeSections.filter((_, i) => i !== idx);
   }
 
-  function onSectionKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') { e.preventDefault(); addSection(); }
+  function onSectionKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addSection();
+    }
   }
-
-  // ---------------------------------------------------------------------------
-  // Request construction
-  // ---------------------------------------------------------------------------
 
   function buildRequest(): ContextSecurityRequest {
+    if (!useAdvancedScope) {
+      return {
+        vault: selectedVault,
+        filters: {},
+        include_sections: [...DEFAULT_SECTIONS],
+        include_body: true,
+        allow_partial: true,
+        max_notes: FULL_VAULT_MAX_NOTES,
+        max_chars: FULL_VAULT_MAX_CHARS,
+      };
+    }
     const filters: Record<string, string> = {};
     if (statusFilter === 'complete') filters.status = 'complete';
     if (statusFilter === 'partial') filters.status = 'partial';
-    const domain = filterDomain.trim();
-    if (domain) filters.domain = domain;
-    const type = filterType.trim();
-    if (type) filters.type = type;
-    const difficulty = filterDifficulty.trim();
-    if (difficulty) filters.difficulty = difficulty;
-
+    const d = filterDomain.trim();
+    if (d) filters.domain = d;
+    const t = filterType.trim();
+    if (t) filters.type = t;
+    const diff = filterDifficulty.trim();
+    if (diff) filters.difficulty = diff;
     return {
       vault: selectedVault,
-      filters: Object.keys(filters).length > 0 ? filters : {},
-      include_sections: includeSections.map(s => s.trim()).filter(Boolean),
-      include_body: includeBody,
+      filters,
+      include_sections: includeSections.map((s) => s.trim()).filter(Boolean),
+      include_body: true,
       allow_partial: statusFilter === 'partial' ? true : allowPartial,
-      max_notes: Math.max(1, Math.min(100, maxNotes)),
-      max_chars: Math.max(100, Math.min(500000, maxChars)),
+      max_notes: Math.max(1, Math.min(FULL_VAULT_MAX_NOTES, maxNotes)),
+      max_chars: Math.max(100, Math.min(FULL_VAULT_MAX_CHARS, maxChars)),
     };
   }
 
-  // ---------------------------------------------------------------------------
-  // Submit
-  // ---------------------------------------------------------------------------
-
-  async function handleScan() {
+  async function handleScan(): Promise<void> {
     if (!canSubmit) return;
-
-    const trimmed = includeSections.map(s => s.trim()).filter(Boolean);
-    const lower = trimmed.map(s => s.toLowerCase());
-    if (new Set(lower).size !== lower.length) {
-      submitError = 'Duplicate section names detected. Remove duplicates before scanning.';
-      submitErrorCode = 'DUPLICATE_SECTIONS';
-      submitState = 'error';
-      return;
+    if (useAdvancedScope) {
+      const trimmed = includeSections.map((s) => s.trim()).filter(Boolean);
+      const lower = trimmed.map((s) => s.toLowerCase());
+      if (new Set(lower).size !== lower.length) {
+        submitError = 'Duplicate section names detected.';
+        submitErrorCode = 'DUPLICATE_SECTIONS';
+        submitState = 'error';
+        return;
+      }
+      if (trimmed.length === 0) {
+        submitError = 'At least one section name is required.';
+        submitErrorCode = 'NO_SECTIONS';
+        submitState = 'error';
+        return;
+      }
     }
-    if (trimmed.length === 0) {
-      submitError = 'At least one section name is required.';
-      submitErrorCode = 'NO_SECTIONS';
-      submitState = 'error';
-      return;
-    }
-
     submitState = 'loading';
     scanResult = null;
     submitError = '';
     submitErrorCode = '';
-    showRawJson = false;
-    severityFilter = 'all';
-    findingTextFilter = '';
-    expandedFindings = new Set();
-
-    const req = buildRequest();
-    const result = await scanContextSecurity(req);
-
-    if (isOk(result)) {
-      scanResult = result.data;
+    const res = await scanContextSecurity(buildRequest());
+    if (isOk(res)) {
+      scanResult = res.data;
       submitState = 'ok';
     } else {
-      submitErrorCode = result.error?.code ?? 'UNKNOWN';
-      submitError = result.error?.message ?? 'An unexpected error occurred.';
+      submitErrorCode = res.error?.code ?? 'UNKNOWN';
+      submitError = res.error?.message ?? 'Scan failed.';
       submitState = 'error';
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
-  function toggleFinding(index: number) {
-    const s = new Set(expandedFindings);
-    if (s.has(index)) s.delete(index);
-    else s.add(index);
-    expandedFindings = s;
-  }
-
   function errorTitle(code: string): string {
-    if (code === 'INVALID_VAULT') return 'Vault Not Found';
-    if (code === 'INVALID_FILTER') return 'Invalid Filter';
-    if (code === 'VALIDATION_ERROR') return 'Validation Error';
-    if (code === 'NETWORK_ERROR') return 'Backend Unavailable';
-    if (code === 'DUPLICATE_SECTIONS') return 'Duplicate Sections';
-    if (code === 'NO_SECTIONS') return 'No Sections';
-    return 'Scan Error';
+    if (code === 'INVALID_VAULT') return 'Vault not found';
+    if (code === 'INVALID_FILTER') return 'Invalid filter';
+    if (code === 'BUNDLE_FAILED') return 'Bundle generation failed';
+    if (code === 'SECURITY_FAILED') return 'Security scan failed';
+    if (code === 'NETWORK_ERROR') return 'Backend unavailable';
+    if (code === 'DUPLICATE_SECTIONS') return 'Duplicate sections';
+    if (code === 'NO_SECTIONS') return 'No sections';
+    return 'Error';
   }
 
-  function statusBadgeClass(status: string): string {
-    if (status === 'fail') return 'bg-red-900 text-red-300 border border-red-700';
-    if (status === 'warning') return 'bg-amber-900 text-amber-300 border border-amber-700';
-    if (status === 'pass') return 'bg-emerald-900 text-emerald-300 border border-emerald-700';
-    return 'bg-zinc-800 text-zinc-400 border border-zinc-700';
+  function severityTagClass(sev: string): string {
+    if (sev === 'fail') return 'cve-p30d3-tag cve-p30d3-tag--fail';
+    if (sev === 'warning') return 'cve-p30d3-tag cve-p30d3-tag--warning';
+    if (sev === 'info') return 'cve-p30d3-tag cve-p30d3-tag--info';
+    return 'cve-p30d3-tag cve-p30d3-tag--neutral';
   }
 
-  function severityClass(sev: string): string {
-    if (sev === 'fail') return 'bg-red-900 text-red-300 border border-red-700';
-    if (sev === 'warning') return 'bg-amber-900 text-amber-300 border border-amber-700';
-    if (sev === 'info') return 'bg-sky-900 text-sky-300 border border-sky-700';
-    return 'bg-zinc-800 text-zinc-400 border border-zinc-700';
-  }
-
-  function filterDescription(filters: Record<string, string>): string {
-    const parts = Object.entries(filters).map(([k, v]) => `${k}=${v}`);
-    return parts.length > 0 ? parts.join(', ') : 'none';
+  function overallTagClass(status: string): string {
+    if (status === 'pass') return 'cve-p30d3-tag cve-p30d3-tag--pass';
+    if (status === 'warning') return 'cve-p30d3-tag cve-p30d3-tag--warning';
+    if (status === 'fail') return 'cve-p30d3-tag cve-p30d3-tag--fail';
+    return 'cve-p30d3-tag cve-p30d3-tag--neutral';
   }
 </script>
 
-<!-- =========================================================
-     Page header
-     ========================================================= -->
 <div class="cve-page">
-<div class="cve-page-header mb-5">
-  <h1 class="cve-page-title text-xl font-semibold text-zinc-100">Security Scan</h1>
-  <p class="text-sm text-zinc-500 mt-0.5">
-    Scan vault notes for credential leaks, injection patterns, and policy violations.
-  </p>
-</div>
-
-<!-- =========================================================
-     Vault loading states
-     ========================================================= -->
-{#if vaultsLoading}
-  <div class="text-sm text-zinc-500 py-6">Loading vaults...</div>
-{:else if vaultsError}
-  <div class="bg-red-950 border border-red-800 rounded-lg p-4 text-sm text-red-300 mb-4">
-    <span class="font-medium">Could not load vaults:</span> {vaultsError}
-  </div>
-{:else if vaultList.length === 0}
-  <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-6 max-w-lg">
-    <p class="text-sm text-zinc-400">No vaults registered. Use Vault Setup to create one.</p>
-  </div>
-{:else}
-  <!-- =======================================================
-       Two-column layout: config left, result right
-       ======================================================= -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-    <!-- ── Left: Configuration form ─────────────────────────── -->
-    <div class="space-y-4">
-
-      <!-- Vault selector -->
-      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-        <h2 class="text-sm font-semibold text-zinc-300 mb-3">Vault</h2>
-        <select
-          bind:value={selectedVault}
-          class="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-sky-600"
+  <header class="cve-toolbar">
+    <div class="cve-toolbar__main">
+      <h1 class="cve-toolbar__title">Security scan</h1>
+      <div class="cve-toolbar__meta">
+        <span
+          class="cve-p30d3-toolbar-pill"
+          class:cve-p30d3-toolbar-pill--ready={submitState === 'ok' && scanResult?.status === 'pass'}
+          class:cve-p30d3-toolbar-pill--stale={submitState === 'ok' &&
+            (scanResult?.status === 'warning' || scanResult?.status === 'fail')}
+          data-testid="security-state-pill">{stateLabel}</span
         >
-          {#each vaultList as v}
-            <option value={v}>{v}</option>
-          {/each}
-        </select>
-      </div>
-
-      <!-- Filters -->
-      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-        <h2 class="text-sm font-semibold text-zinc-300 mb-3">Filters</h2>
-
-        <div class="space-y-3">
-          <!-- Status -->
-          <div>
-            <span class="block text-xs font-medium text-zinc-400 mb-1.5">Status</span>
-            <div class="flex gap-2">
-              {#each ['complete', 'partial', 'all'] as opt}
-                <button
-                  type="button"
-                  on:click={() => { statusFilter = opt as StatusFilter; }}
-                  class:bg-sky-700={statusFilter === opt}
-                  class:text-sky-100={statusFilter === opt}
-                  class:border-sky-600={statusFilter === opt}
-                  class:bg-zinc-800={statusFilter !== opt}
-                  class:text-zinc-400={statusFilter !== opt}
-                  class:border-zinc-700={statusFilter !== opt}
-                  class="px-3 py-1.5 rounded-md text-xs font-medium border transition-colors"
-                >{opt}</button>
-              {/each}
-            </div>
-            {#if partialConflict}
-              <p class="text-xs text-amber-400 mt-1.5">
-                Status is "partial" but allow_partial is off. Enable allow_partial below or partial notes may be excluded.
-              </p>
-            {/if}
-          </div>
-
-          <!-- Domain -->
-          <div>
-            <label for="filter-domain" class="block text-xs font-medium text-zinc-400 mb-1">Domain <span class="text-zinc-600">(optional)</span></label>
-            <input
-              id="filter-domain"
-              bind:value={filterDomain}
-              type="text"
-              placeholder="e.g. fundamentals"
-              class="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-sky-600"
-            />
-          </div>
-
-          <!-- Type -->
-          <div>
-            <label for="filter-type" class="block text-xs font-medium text-zinc-400 mb-1">Type <span class="text-zinc-600">(optional)</span></label>
-            <input
-              id="filter-type"
-              bind:value={filterType}
-              type="text"
-              placeholder="e.g. core-concept"
-              class="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-sky-600"
-            />
-          </div>
-
-          <!-- Difficulty -->
-          <div>
-            <label for="filter-difficulty" class="block text-xs font-medium text-zinc-400 mb-1">Difficulty <span class="text-zinc-600">(optional)</span></label>
-            <input
-              id="filter-difficulty"
-              bind:value={filterDifficulty}
-              type="text"
-              placeholder="e.g. intermediate"
-              class="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-sky-600"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- Sections -->
-      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-        <h2 class="text-sm font-semibold text-zinc-300 mb-3">Sections to Scan</h2>
-
-        <div class="flex flex-wrap gap-1.5 mb-3">
-          {#each includeSections as sec, i}
-            <span class="inline-flex items-center gap-1 bg-zinc-800 border border-zinc-700 rounded-md px-2 py-1 text-xs text-zinc-200">
-              {sec}
-              <button
-                type="button"
-                on:click={() => removeSection(i)}
-                class="text-zinc-500 hover:text-red-400 ml-0.5 transition-colors"
-                aria-label="Remove section"
-              >
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </span>
-          {/each}
-        </div>
-
-        <div class="flex gap-2">
-          <input
-            bind:value={newSectionInput}
-            on:keydown={onSectionKeydown}
-            type="text"
-            placeholder="Add section name..."
-            class="flex-1 bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-sky-600"
-            class:border-red-700={!!sectionInputError}
-          />
-          <button
-            type="button"
-            on:click={addSection}
-            class="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-zinc-200 text-sm rounded-md transition-colors"
-          >Add</button>
-        </div>
-        {#if sectionInputError}
-          <p class="text-xs text-red-400 mt-1">{sectionInputError}</p>
+        {#if selectedVault}
+          <span>Vault: <code class="cve-p30d3-mono">{selectedVault}</code></span>
         {/if}
+        <span>Scope: {useAdvancedScope ? 'advanced' : 'full vault'}</span>
       </div>
-
-      <!-- Content options -->
-      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-        <h2 class="text-sm font-semibold text-zinc-300 mb-3">Content Options</h2>
-
-        <div class="space-y-3">
-          <label class="flex items-start gap-2.5 cursor-pointer select-none">
-            <input type="checkbox" bind:checked={includeBody} class="mt-0.5 accent-sky-500" />
-            <div>
-              <span class="text-sm text-zinc-200">Include body</span>
-              <p class="text-xs text-zinc-500 mt-0.5">Include full note text after frontmatter.</p>
-            </div>
-          </label>
-
-          <label class="flex items-start gap-2.5 cursor-pointer select-none">
-            <input type="checkbox" bind:checked={allowPartial} class="mt-0.5 accent-sky-500" />
-            <div>
-              <span class="text-sm text-zinc-200">Allow partial notes</span>
-              <p class="text-xs text-zinc-500 mt-0.5">
-                Include notes with <span class="font-mono text-xs text-zinc-400">status=partial</span>.
-                {#if statusFilter === 'partial'}<span class="text-amber-400"> (auto-enabled when status filter is partial)</span>{/if}
-              </p>
-            </div>
-          </label>
-        </div>
+      <div class="cve-toolbar__actions">
+        <a class="cve-details__developer-link" href={rawDeepLink}>Open in Developer</a>
       </div>
-
-      <!-- Budget -->
-      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-        <h2 class="text-sm font-semibold text-zinc-300 mb-3">Budget</h2>
-
-        <div class="space-y-3">
-          <div>
-            <label for="max-notes" class="block text-xs font-medium text-zinc-400 mb-1">
-              Max notes <span class="text-zinc-600 font-normal">(1–100)</span>
-            </label>
-            <input
-              id="max-notes"
-              bind:value={maxNotes}
-              type="number"
-              min="1"
-              max="100"
-              class="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:border-sky-600"
-            />
-          </div>
-
-          <div>
-            <label for="max-chars" class="block text-xs font-medium text-zinc-400 mb-1">
-              Max chars <span class="text-zinc-600 font-normal">(100–500,000)</span>
-            </label>
-            <input
-              id="max-chars"
-              bind:value={maxChars}
-              type="number"
-              min="100"
-              max="500000"
-              class="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:border-sky-600"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- Request preview -->
-      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-        <h2 class="text-sm font-semibold text-zinc-300 mb-3">Request Preview</h2>
-        <dl class="space-y-1.5 text-xs">
-          <div class="flex gap-2">
-            <dt class="text-zinc-500 w-28 shrink-0">Vault</dt>
-            <dd class="text-zinc-200 font-mono">{selectedVault || '—'}</dd>
-          </div>
-          <div class="flex gap-2">
-            <dt class="text-zinc-500 w-28 shrink-0">Filters</dt>
-            <dd class="text-zinc-200 font-mono">{filterDescription(previewFilters)}</dd>
-          </div>
-          <div class="flex gap-2">
-            <dt class="text-zinc-500 w-28 shrink-0">Sections</dt>
-            <dd class="text-zinc-200">{includeSections.length > 0 ? includeSections.join(', ') : '—'}</dd>
-          </div>
-          <div class="flex gap-2">
-            <dt class="text-zinc-500 w-28 shrink-0">Include body</dt>
-            <dd class="text-zinc-200">{includeBody ? 'yes' : 'no'}</dd>
-          </div>
-          <div class="flex gap-2">
-            <dt class="text-zinc-500 w-28 shrink-0">Allow partial</dt>
-            <dd class="text-zinc-200">{statusFilter === 'partial' || allowPartial ? 'yes' : 'no'}</dd>
-          </div>
-          <div class="flex gap-2">
-            <dt class="text-zinc-500 w-28 shrink-0">Max notes</dt>
-            <dd class="text-zinc-200">{Math.max(1, Math.min(100, maxNotes))}</dd>
-          </div>
-          <div class="flex gap-2">
-            <dt class="text-zinc-500 w-28 shrink-0">Max chars</dt>
-            <dd class="text-zinc-200">{Math.max(100, Math.min(500000, maxChars)).toLocaleString()}</dd>
-          </div>
-          <div class="flex gap-2 pt-1 border-t border-zinc-800 mt-1">
-            <dt class="text-zinc-500 w-28 shrink-0">Scope note</dt>
-            <dd class="text-zinc-400 italic">Backend will determine actual note count from your filters.</dd>
-          </div>
-        </dl>
-      </div>
-
-      <!-- Submit button -->
-      <button
-        type="button"
-        on:click={handleScan}
-        disabled={!canSubmit}
-        class="w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-colors
-          {canSubmit
-            ? 'bg-sky-700 hover:bg-sky-600 text-white'
-            : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'}"
-      >
-        {#if submitState === 'loading'}
-          Scanning...
-        {:else}
-          Run security scan
-        {/if}
-      </button>
-
     </div>
+  </header>
 
-    <!-- ── Right: Result panel ────────────────────────────────── -->
-    <div class="space-y-4">
-
-      <!-- Loading -->
-      {#if submitState === 'loading'}
-        <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-6 flex items-center gap-3">
-          <div class="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
-          <span class="text-sm text-zinc-400">Running security scan...</span>
+  {#if vaultsLoading}
+    <div class="cve-banner cve-banner--info"><div class="cve-banner__body">Loading vaults...</div></div>
+  {:else if vaultsError}
+    <div class="cve-banner cve-banner--danger">
+      <div>
+        <div class="cve-banner__title">Could not load vaults</div>
+        <div class="cve-banner__body">{vaultsError}</div>
+      </div>
+    </div>
+  {:else if vaultList.length === 0}
+    <div class="cve-banner cve-banner--info">
+      <div>
+        <div class="cve-banner__title">No vaults registered</div>
+        <div class="cve-banner__body">
+          Use <a href="/app/vault-setup">Vault Setup</a> to create one.
         </div>
-      {/if}
-
-      <!-- Error panel -->
-      {#if submitState === 'error'}
-        <div class="bg-red-950 border border-red-800 rounded-lg p-4">
-          <p class="text-sm font-semibold text-red-300 mb-1">{errorTitle(submitErrorCode)}</p>
-          <p class="text-sm text-red-400">{submitError}</p>
-          {#if submitErrorCode === 'NETWORK_ERROR'}
-            <p class="text-xs text-red-500 mt-2">Ensure the backend is running on <span class="font-mono">http://127.0.0.1:8000</span>.</p>
-          {/if}
+      </div>
+    </div>
+  {:else}
+    <section class="cve-p30d3-workflow">
+      <div class="cve-banner cve-banner--info">
+        <div class="cve-banner__body">
+          Security scans the deterministic bundle for a vault and reports
+          findings by severity. The default scope is the full vault. Use
+          Advanced scope only when you need to scan a sampled subset.
         </div>
-      {/if}
+      </div>
 
-      <!-- Idle state -->
-      {#if submitState === 'idle'}
-        <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
-          <p class="text-sm text-zinc-500">Configure the scan on the left, then click <span class="font-medium text-zinc-300">Run security scan</span>.</p>
-        </div>
-      {/if}
+      <div class="cve-p30d3-twocol">
+        <div class="cve-p30d3-workflow">
+          <div class="cve-p30d3-section">
+            <header class="cve-p30d3-section__head">
+              <h2 class="cve-p30d3-section__title">Vault</h2>
+              <p class="cve-p30d3-section__hint">Pre-run note count is informational</p>
+            </header>
+            <div class="cve-p30d3-field">
+              <label for="security-vault">Vault</label>
+              <select
+                id="security-vault"
+                bind:value={selectedVault}
+                class="cve-input"
+                data-testid="security-vault-select"
+              >
+                {#each vaultList as v}
+                  <option value={v}>{v}</option>
+                {/each}
+              </select>
+            </div>
 
-      <!-- Success: scan result -->
-      {#if submitState === 'ok' && scanResult}
-
-        <!-- Overview panel -->
-        <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-semibold text-zinc-300">Scan Overview</h2>
-            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold uppercase tracking-wide {statusBadgeClass(scanResult.status)}">
-              {scanResult.status}
-            </span>
+            <div class="cve-status-strip">
+              <div class="cve-status-tile" data-testid="security-prerun-tile">
+                <span class="cve-status-tile__label">Notes in vault</span>
+                <span class="cve-status-tile__value">
+                  {#if preRunNotesLoading}
+                    ...
+                  {:else if preRunNoteCount === null}
+                    unknown
+                  {:else}
+                    {preRunNoteCount}
+                  {/if}
+                </span>
+                <span class="cve-status-tile__hint">
+                  {#if preRunNotesError}
+                    {preRunNotesError}
+                  {:else}
+                    pre-run, deterministic count
+                  {/if}
+                </span>
+              </div>
+              <div class="cve-status-tile">
+                <span class="cve-status-tile__label">Scope</span>
+                <span class="cve-status-tile__value">
+                  {useAdvancedScope ? 'Advanced' : 'Full vault'}
+                </span>
+                <span class="cve-status-tile__hint">
+                  max_notes={useAdvancedScope ? maxNotes : FULL_VAULT_MAX_NOTES}
+                </span>
+              </div>
+            </div>
           </div>
 
-          {#if scanResult.status === 'pass' && (scanResult.findings ?? []).length === 0}
-            <div class="bg-emerald-950 border border-emerald-800 rounded-md p-3 mb-3">
-              <p class="text-sm font-medium text-emerald-300">All checks passed. No findings.</p>
-              <p class="text-xs text-emerald-500 mt-0.5">
-                No credential leaks, injection patterns, or policy violations detected.
-                {#if scanResult.scanned?.total_notes !== undefined}
-                  {scanResult.scanned.note_count} of {scanResult.scanned.total_notes} notes scanned.
-                {/if}
-              </p>
-            </div>
-          {/if}
+          <details class="cve-p30d3-disclosure" bind:open={useAdvancedScope}>
+            <summary data-testid="security-advanced-summary">
+              Advanced scope (sampling, filters, custom budget)
+            </summary>
+            <div class="cve-p30d3-disclosure__body">
+              <div class="cve-banner cve-banner--warning">
+                <div class="cve-banner__body">
+                  Advanced scope samples the vault using bundle filters and a
+                  reduced budget. Results are NOT a full-vault scan; use
+                  Advanced scope only when you have a specific reason.
+                </div>
+              </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <div class="bg-zinc-800 rounded-md p-3">
-              <p class="text-xs text-zinc-500 mb-1">Total findings</p>
-              <p class="text-lg font-semibold text-zinc-100">{(scanResult.findings ?? []).length}</p>
+              <div class="cve-p30d3-field">
+                <span class="cve-p30d3-field__label">Status filter</span>
+                <div class="cve-p30d3-segmented" role="group">
+                  <button
+                    type="button"
+                    aria-pressed={statusFilter === 'complete'}
+                    on:click={() => (statusFilter = 'complete')}>Complete</button
+                  >
+                  <button
+                    type="button"
+                    aria-pressed={statusFilter === 'partial'}
+                    on:click={() => (statusFilter = 'partial')}>Partial</button
+                  >
+                  <button
+                    type="button"
+                    aria-pressed={statusFilter === 'all'}
+                    on:click={() => (statusFilter = 'all')}>All</button
+                  >
+                </div>
+              </div>
+
+              <div class="cve-p30d3-field-row">
+                <div class="cve-p30d3-field">
+                  <label for="sec-domain">Domain</label>
+                  <input id="sec-domain" type="text" bind:value={filterDomain} class="cve-input" />
+                </div>
+                <div class="cve-p30d3-field">
+                  <label for="sec-type">Type</label>
+                  <input id="sec-type" type="text" bind:value={filterType} class="cve-input" />
+                </div>
+              </div>
+              <div class="cve-p30d3-field">
+                <label for="sec-difficulty">Difficulty</label>
+                <input
+                  id="sec-difficulty"
+                  type="text"
+                  bind:value={filterDifficulty}
+                  class="cve-input"
+                />
+              </div>
+
+              <div class="cve-p30d3-field">
+                <span class="cve-p30d3-field__label">Sections</span>
+                <div class="cve-p30d3-chip-list">
+                  {#each includeSections as s, idx}
+                    <span class="cve-p30d3-chip">
+                      {s}
+                      <button
+                        type="button"
+                        class="cve-p30d3-chip__remove"
+                        aria-label={`Remove section ${s}`}
+                        on:click={() => removeSection(idx)}>x</button
+                      >
+                    </span>
+                  {/each}
+                </div>
+                <div class="cve-p30d3-action-row">
+                  <input
+                    type="text"
+                    bind:value={newSectionInput}
+                    on:keydown={onSectionKeydown}
+                    class="cve-input"
+                    placeholder="Section name"
+                    aria-label="New section name"
+                  />
+                  <button type="button" class="cve-btn cve-btn-secondary" on:click={addSection}
+                    >Add section</button
+                  >
+                </div>
+                {#if sectionInputError}
+                  <p class="cve-p30d3-field__help" style="color:var(--cve-danger);">
+                    {sectionInputError}
+                  </p>
+                {/if}
+              </div>
+
+              <div class="cve-p30d3-field-row">
+                <div class="cve-p30d3-field">
+                  <label for="sec-max-notes">Max notes</label>
+                  <input
+                    id="sec-max-notes"
+                    type="number"
+                    min="1"
+                    max={FULL_VAULT_MAX_NOTES}
+                    bind:value={maxNotes}
+                    class="cve-input"
+                  />
+                </div>
+                <div class="cve-p30d3-field">
+                  <label for="sec-max-chars">Max chars</label>
+                  <input
+                    id="sec-max-chars"
+                    type="number"
+                    min="100"
+                    max={FULL_VAULT_MAX_CHARS}
+                    bind:value={maxChars}
+                    class="cve-input"
+                  />
+                </div>
+              </div>
+              <label class="cve-p30d3-checkbox">
+                <input type="checkbox" bind:checked={allowPartial} />
+                <span>Allow partial notes</span>
+              </label>
             </div>
-            <div class="bg-zinc-800 rounded-md p-3">
-              <p class="text-xs text-zinc-500 mb-1">Notes scanned</p>
-              <p class="text-lg font-semibold text-zinc-100">{scanResult.scanned?.note_count ?? 0}{scanResult.scanned?.total_notes !== undefined ? ` of ${scanResult.scanned.total_notes}` : ''}</p>
-              {#if scanResult.scanned?.truncated}
-                <p class="text-xs text-amber-400 mt-0.5">Scan truncated by request limits</p>
-              {:else if scanResult.scanned?.total_notes !== undefined && scanResult.scanned.note_count < scanResult.scanned.total_notes}
-                <p class="text-xs text-amber-400 mt-0.5">Filtered scan — not all vault notes scanned</p>
+          </details>
+
+          <div class="cve-p30d3-sticky-action">
+            <button
+              type="button"
+              on:click={handleScan}
+              disabled={!canSubmit}
+              class="cve-btn cve-btn-primary"
+              data-testid="security-scan-btn"
+            >
+              {submitState === 'loading' ? 'Scanning...' : 'Run security scan'}
+            </button>
+            <span class="cve-p30d3-field__help">
+              {useAdvancedScope ? 'Advanced scope' : 'Full-vault scope'}
+            </span>
+          </div>
+        </div>
+
+        <div class="cve-p30d3-workflow">
+          {#if submitState === 'idle' || submitState === 'loading'}
+            <div class="cve-p30d3-section">
+              <header class="cve-p30d3-section__head">
+                <h2 class="cve-p30d3-section__title">Readiness</h2>
+                <p class="cve-p30d3-section__hint">
+                  {submitState === 'loading' ? 'Scanning...' : 'Pending scan'}
+                </p>
+              </header>
+              <div class="cve-p30d3-readiness">
+                <p class="cve-p30d3-readiness__title">Stages</p>
+                <ol class="cve-p30d3-stage-list">
+                  <li class={selectedVault ? 'cve-p30d3-stage--done' : 'cve-p30d3-stage--pending'}>
+                    Choose vault
+                  </li>
+                  <li class="cve-p30d3-stage--done">
+                    Default scope is full vault
+                  </li>
+                  <li class="cve-p30d3-stage--pending">Run scan</li>
+                  <li class="cve-p30d3-stage--pending">Review findings</li>
+                </ol>
+              </div>
+            </div>
+          {:else if submitState === 'error'}
+            <div class="cve-banner cve-banner--danger">
+              <div>
+                <div class="cve-banner__title">{errorTitle(submitErrorCode)}</div>
+                <div class="cve-banner__body">{submitError}</div>
+              </div>
+            </div>
+          {:else if submitState === 'ok' && scanResult}
+            <div class="cve-p30d3-section">
+              <header class="cve-p30d3-section__head">
+                <h2 class="cve-p30d3-section__title">Scan summary</h2>
+                <span class={overallTagClass(scanResult.status)}
+                  data-testid="security-overall-status">{scanResult.status}</span
+                >
+              </header>
+              <div class="cve-status-strip">
+                <div class="cve-status-tile">
+                  <span class="cve-status-tile__label">Findings</span>
+                  <span class="cve-status-tile__value">{scanResult.findings.length}</span>
+                </div>
+                <div class="cve-status-tile" data-zero={scanResult.summary.fail === 0}>
+                  <span class="cve-status-tile__label">Fail</span>
+                  <span class="cve-status-tile__value">{scanResult.summary.fail}</span>
+                </div>
+                <div class="cve-status-tile" data-zero={scanResult.summary.warning === 0}>
+                  <span class="cve-status-tile__label">Warning</span>
+                  <span class="cve-status-tile__value">{scanResult.summary.warning}</span>
+                </div>
+                <div class="cve-status-tile" data-zero={scanResult.summary.info === 0}>
+                  <span class="cve-status-tile__label">Info</span>
+                  <span class="cve-status-tile__value">{scanResult.summary.info}</span>
+                </div>
+                <div class="cve-status-tile">
+                  <span class="cve-status-tile__label">Scanned notes</span>
+                  <span class="cve-status-tile__value">{scanResult.scanned.note_count}</span>
+                  {#if scanResult.scanned.total_notes !== undefined}
+                    <span class="cve-status-tile__hint"
+                      >of {scanResult.scanned.total_notes} (coverage {Math.round(
+                        (scanResult.scanned.coverage ?? 0) * 100,
+                      )}%)</span
+                    >
+                  {/if}
+                </div>
+              </div>
+
+              {#if scanResult.scanned.source_paths.length > 0}
+                <details class="cve-p30d3-disclosure">
+                  <summary>Source paths covered ({scanResult.scanned.source_paths.length})</summary>
+                  <div class="cve-p30d3-disclosure__body">
+                    <ul class="cve-p30d3-item-list">
+                      {#each scanResult.scanned.source_paths as p}
+                        <li class="cve-p30d3-mono">{p}</li>
+                      {/each}
+                    </ul>
+                  </div>
+                </details>
               {/if}
             </div>
-            <div class="bg-red-950 border border-red-900 rounded-md p-3">
-              <p class="text-xs text-red-500 mb-1">Fail</p>
-              <p class="text-lg font-semibold text-red-300">{scanResult.summary?.fail ?? 0}</p>
-            </div>
-            <div class="bg-amber-950 border border-amber-900 rounded-md p-3">
-              <p class="text-xs text-amber-500 mb-1">Warning</p>
-              <p class="text-lg font-semibold text-amber-300">{scanResult.summary?.warning ?? 0}</p>
-            </div>
-            <div class="bg-sky-950 border border-sky-900 rounded-md p-3">
-              <p class="text-xs text-sky-500 mb-1">Info</p>
-              <p class="text-lg font-semibold text-sky-300">{scanResult.summary?.info ?? 0}</p>
-            </div>
-            <div class="bg-zinc-800 rounded-md p-3">
-              <p class="text-xs text-zinc-500 mb-1">Source paths</p>
-              <p class="text-lg font-semibold text-zinc-100">{(scanResult.scanned?.source_paths ?? []).length}</p>
-            </div>
-          </div>
-        </div>
 
-        <!-- Findings review -->
-        {#if (scanResult.findings ?? []).length > 0}
-          <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-            <h2 class="text-sm font-semibold text-zinc-300 mb-3">
-              Findings
-              <span class="text-zinc-500 font-normal ml-1">({(scanResult.findings ?? []).length} total)</span>
-            </h2>
-
-            <!-- Severity filter -->
-            <div class="flex flex-wrap gap-2 mb-3">
-              {#each ['all', 'fail', 'warning', 'info'] as sev}
-                <button
-                  type="button"
-                  on:click={() => { severityFilter = sev as SeverityFilter; }}
-                  class:bg-sky-700={severityFilter === sev}
-                  class:text-sky-100={severityFilter === sev}
-                  class:border-sky-600={severityFilter === sev}
-                  class:bg-zinc-800={severityFilter !== sev}
-                  class:text-zinc-400={severityFilter !== sev}
-                  class:border-zinc-700={severityFilter !== sev}
-                  class="px-2.5 py-1 rounded-md text-xs font-medium border transition-colors"
-                >
-                  {sev}
-                  {#if sev !== 'all'}
-                    {#if sev === 'fail'}
-                      <span class="text-red-400 ml-0.5">({scanResult.summary?.fail ?? 0})</span>
-                    {:else if sev === 'warning'}
-                      <span class="text-amber-400 ml-0.5">({scanResult.summary?.warning ?? 0})</span>
-                    {:else if sev === 'info'}
-                      <span class="text-sky-400 ml-0.5">({scanResult.summary?.info ?? 0})</span>
-                    {/if}
-                  {/if}
-                </button>
-              {/each}
-            </div>
-
-            <!-- Text filter -->
-            <input
-              bind:value={findingTextFilter}
-              type="text"
-              placeholder="Filter by path, rule, or detail..."
-              class="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-sky-600 mb-3"
-            />
-
-            <!-- Findings list -->
-            {#if filteredFindings.length === 0}
-              <p class="text-xs text-zinc-500 py-2">No findings match the current filter.</p>
-            {:else}
-              <div class="space-y-2">
-                {#each filteredFindings as finding, i}
-                  <div class="bg-zinc-800 border border-zinc-700 rounded-md overflow-hidden">
-                    <!-- Finding header (always visible) -->
-                    <button
-                      type="button"
-                      on:click={() => toggleFinding(i)}
-                      class="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-zinc-750 transition-colors"
-                    >
-                      <span class="inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-xs font-semibold uppercase {severityClass(finding.severity)}">
-                        {finding.severity}
-                      </span>
-                      <span class="text-xs text-zinc-200 font-mono truncate flex-1">{finding.path}</span>
-                      <span class="text-xs text-zinc-500 shrink-0 font-mono">{finding.rule}</span>
-                      <svg
-                        class="w-3.5 h-3.5 text-zinc-500 shrink-0 transition-transform {expandedFindings.has(i) ? 'rotate-180' : ''}"
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                      >
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-
-                    <!-- Expanded details -->
-                    {#if expandedFindings.has(i)}
-                      <div class="px-3 pb-3 border-t border-zinc-700 pt-2 space-y-1.5">
-                        <div class="flex gap-2 text-xs">
-                          <span class="text-zinc-500 w-16 shrink-0">Field</span>
-                          <span class="text-zinc-200 font-mono">{finding.field}</span>
-                        </div>
-                        <div class="flex gap-2 text-xs">
-                          <span class="text-zinc-500 w-16 shrink-0">Rule</span>
-                          <span class="text-zinc-200 font-mono">{finding.rule}</span>
-                        </div>
-                        <div class="flex gap-2 text-xs">
-                          <span class="text-zinc-500 w-16 shrink-0">Detail</span>
-                          <span class="text-zinc-300">{finding.detail}</span>
-                        </div>
-                        <div class="flex gap-2 text-xs">
-                          <span class="text-zinc-500 w-16 shrink-0">Path</span>
-                          <span class="text-zinc-200 font-mono break-all">{finding.path}</span>
-                        </div>
-                      </div>
-                    {/if}
-                  </div>
-                {/each}
+            <div class="cve-p30d3-section">
+              <header class="cve-p30d3-section__head">
+                <h2 class="cve-p30d3-section__title">
+                  Findings ({filteredFindings.length} / {scanResult.findings.length})
+                </h2>
+                <p class="cve-p30d3-section__hint">Filter by severity or text</p>
+              </header>
+              <div class="cve-p30d3-action-row">
+                <div class="cve-p30d3-segmented" role="group" aria-label="Severity filter">
+                  <button
+                    type="button"
+                    aria-pressed={severityFilter === 'all'}
+                    on:click={() => (severityFilter = 'all')}>All</button
+                  >
+                  <button
+                    type="button"
+                    aria-pressed={severityFilter === 'fail'}
+                    on:click={() => (severityFilter = 'fail')}>Fail</button
+                  >
+                  <button
+                    type="button"
+                    aria-pressed={severityFilter === 'warning'}
+                    on:click={() => (severityFilter = 'warning')}>Warning</button
+                  >
+                  <button
+                    type="button"
+                    aria-pressed={severityFilter === 'info'}
+                    on:click={() => (severityFilter = 'info')}>Info</button
+                  >
+                </div>
+                <input
+                  type="text"
+                  bind:value={findingTextFilter}
+                  class="cve-input"
+                  placeholder="Filter findings (path, rule, detail, field)"
+                  data-testid="security-finding-filter"
+                  aria-label="Filter findings"
+                />
               </div>
-            {/if}
-          </div>
-        {/if}
 
-        <!-- Affected notes panel -->
-        {#if (scanResult.scanned?.source_paths ?? []).length > 0}
-          <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-            <h2 class="text-sm font-semibold text-zinc-300 mb-3">
-              Scanned Notes
-              <span class="text-zinc-500 font-normal ml-1">({(scanResult.scanned?.source_paths ?? []).length})</span>
-            </h2>
-            <div class="space-y-1">
-              {#each affectedNotes as note}
-                <div class="flex items-center gap-2 py-1.5 border-b border-zinc-800 last:border-0">
-                  <span class="text-xs text-zinc-300 font-mono flex-1 truncate">{note.path}</span>
-                  {#if note.count > 0}
-                    <span class="text-xs text-zinc-500 shrink-0">{note.count} finding{note.count !== 1 ? 's' : ''}</span>
-                    {#if note.severityCounts.fail > 0}
-                      <span class="text-xs font-semibold text-red-400 shrink-0">{note.severityCounts.fail}F</span>
-                    {/if}
-                    {#if note.severityCounts.warning > 0}
-                      <span class="text-xs font-semibold text-amber-400 shrink-0">{note.severityCounts.warning}W</span>
-                    {/if}
-                    {#if note.severityCounts.info > 0}
-                      <span class="text-xs font-semibold text-sky-400 shrink-0">{note.severityCounts.info}I</span>
-                    {/if}
-                  {:else}
-                    <span class="text-xs text-emerald-500 shrink-0">clean</span>
-                  {/if}
+              {#if filteredFindings.length === 0}
+                <p class="cve-p30d3-empty">
+                  No findings match the current filters.
+                </p>
+              {:else}
+                <div class="cve-p30d3-table-wrap cve-p30d3-findings-table">
+                  <table class="cve-table">
+                    <thead>
+                      <tr>
+                        <th>Severity</th>
+                        <th>Rule</th>
+                        <th>Path</th>
+                        <th>Field</th>
+                        <th>Detail</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {#each filteredFindings as f}
+                        <tr>
+                          <td><span class={severityTagClass(f.severity)}>{f.severity}</span></td>
+                          <td class="cve-p30d3-mono">{f.rule}</td>
+                          <td class="cve-p30d3-mono">{f.path}</td>
+                          <td class="cve-p30d3-mono">{f.field}</td>
+                          <td>{f.detail}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
                 </div>
-              {/each}
+              {/if}
             </div>
-          </div>
-        {/if}
 
-        <!-- Rule summary panel -->
-        {#if ruleSummary.length > 0}
-          <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-            <h2 class="text-sm font-semibold text-zinc-300 mb-3">Rule Summary</h2>
-            <div class="space-y-1.5">
-              {#each ruleSummary as item}
-                <div class="flex items-center gap-2 text-xs">
-                  <span class="inline-flex shrink-0 items-center px-1.5 py-0.5 rounded font-semibold uppercase {severityClass(item.highestSeverity)}">
-                    {item.highestSeverity}
-                  </span>
-                  <span class="text-zinc-200 font-mono flex-1">{item.rule}</span>
-                  <span class="text-zinc-500 shrink-0">{item.count}×</span>
-                </div>
-              {/each}
-            </div>
-          </div>
-        {/if}
+            <details class="cve-details cve-details--inspector">
+              <summary>Raw scan response</summary>
+              <div class="cve-details__body">
+                <a class="cve-details__developer-link" href={rawDeepLink}
+                  >Open in Developer</a
+                >
+                <pre class="cve-p30d3-mono" style="white-space:pre-wrap;">{JSON.stringify(
+                    scanResult,
+                    null,
+                    2,
+                  )}</pre>
+              </div>
+            </details>
 
-        <!-- Raw JSON (collapsed by default) -->
-        <div class="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
-          <button
-            type="button"
-            on:click={() => { showRawJson = !showRawJson; }}
-            class="w-full flex items-center justify-between px-4 py-3 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
-          >
-            <span class="font-medium">Raw JSON response</span>
-            <svg
-              class="w-4 h-4 transition-transform {showRawJson ? 'rotate-180' : ''}"
-              fill="none" stroke="currentColor" viewBox="0 0 24 24"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          {#if showRawJson}
-            <div class="border-t border-zinc-800 p-4">
-              <pre class="text-xs text-zinc-400 font-mono overflow-x-auto whitespace-pre-wrap break-all">{JSON.stringify(scanResult, null, 2)}</pre>
+            <div class="cve-p30d3-followup">
+              <a href="/app/validation">Validation</a>
+              <a href="/app/bundles">Bundles</a>
+              <a href="/app/exports">Exports</a>
             </div>
           {/if}
         </div>
-
-      {/if}
-      <!-- end ok state -->
-
-    </div>
-    <!-- end right column -->
-
-  </div>
-  <!-- end grid -->
-
-{/if}
+      </div>
+    </section>
+  {/if}
 </div>

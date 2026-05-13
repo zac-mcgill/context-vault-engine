@@ -92,7 +92,7 @@ The backend is strong. The local UI has reached a usable application baseline. T
 
 ## Current Active Phase
 
-Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX audit consolidation) is complete. Phase 30B (app shell, theme, layout, and primitive foundation) is complete. Phase 30C (Dashboard Redesign) is complete. Phase 30D1 (Validation, Tasks, and Raw real implementations) is complete. Phase 30D2 (Notes and Graph workspace redesigns) is complete. Phase 30D3 (Import, Bundles, Exports, Security) remains planned; the parent Phase 30D is still in progress. Phases 0 to 26 and Phase 29 (UI/UX Quality and Design System) remain complete: Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B, Phase 29C, Phase 29D, and Phase 29E all shipped. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain explicitly deferred and are not started, prepared, or implied by Phase 30.
+Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX audit consolidation) is complete. Phase 30B (app shell, theme, layout, and primitive foundation) is complete. Phase 30C (Dashboard Redesign) is complete. Phase 30D1 (Validation, Tasks, and Raw real implementations) is complete. Phase 30D2 (Notes and Graph workspace redesigns) is complete. Phase 30D3 (Import, Bundles, Exports, Security) is complete; the parent Phase 30D is therefore complete. Phases 0 to 26 and Phase 29 (UI/UX Quality and Design System) remain complete: Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B, Phase 29C, Phase 29D, and Phase 29E all shipped. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain explicitly deferred and are not started, prepared, or implied by Phase 30.
 
 ## Phase Status Overview
 
@@ -130,10 +130,10 @@ Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX
 | 30A   | UI Release Quality Pass - Audit         | Complete |
 | 30B   | UI Foundation (shell, theme, primitives)| Complete |
 | 30C   | Dashboard Redesign                      | Complete |
-| 30D   | Core Workflow Page Redesigns            | In Progress |
+| 30D   | Core Workflow Page Redesigns            | Complete |
 | 30D1  | Validation, Tasks, Raw real impls       | Complete |
 | 30D2  | Notes and Graph workspace redesigns     | Complete |
-| 30D3  | Import, Bundles, Exports, Security      | Planned  |
+| 30D3  | Import, Bundles, Exports, Security      | Complete |
 | 30E   | Review/Governance/Developer Polish      | Planned  |
 | 30F   | Final QA, A11y, Responsive, Light Mode  | Planned  |
 | 27    | Registry and Reuse Layer                | Deferred |
@@ -1078,7 +1078,7 @@ feat(ui): dashboard redesign on Phase 30B foundation (Phase 30C)
 
 #### Phase 30D - Core Workflow Page Redesigns
 
-**Status:** In Progress. Phase 30D1 complete (2026-05-19). Phase 30D2 complete (2026-05-13). Phase 30D3 (Import, Bundles, Exports, Security) remains planned.
+**Status:** Complete. Phase 30D1 complete (2026-05-19). Phase 30D2 complete (2026-05-13). Phase 30D3 complete (2026-05-22).
 
 **Scope:**
 - `/app/notes` migrate to `cve-workbench` (resizable list rail + inspector with internal scroll body).
@@ -1141,6 +1141,27 @@ feat(ui): real validation, tasks, and raw developer pages (Phase 30D1)
 
 ```
 feat(ui): notes and graph workspace redesigns (Phase 30D2)
+```
+
+#### Phase 30D3 - Import, Bundles, Exports, and Security Workflow Redesigns
+
+**Status:** Complete (2026-05-22).
+
+**Scope:**
+- `/app/import` rebuilt as a sectioned workflow page on `AppLayout layoutMode="wide"`. Header uses `cve-toolbar` with a state pill (`data-testid="import-state-pill"`). Source-type select keeps markdown and obsidian sources only and preserves all Phase 26 testids (source-type-select, source-type-help, summary-wikilinks, summary-embeds, summary-attachments, empty-items-message, collision-banner, frontmatter-banner, item-errors, obsidian-metadata). Preview and Write are separate buttons; Write is disabled before a successful preview, behind a confirmation checkbox (`import-confirm-checkbox`), and is re-disabled when form input changes (`import-stale-banner`). Post-write summary renders the existing `ImportedReviewSummary` component and surfaces follow-up links to `/app/notes`, `/app/validation`, `/app/tasks`, `/app/trust`, `/app/security`.
+- `/app/bundles` rebuilt as a two-column workflow: left rail collects Scope, Filters, Sections, and Budget inside `cve-p30d3-section` cards; right pane shows Readiness stages until the user generates a preview, then a `cve-status-strip` summary (mode, vault, notes included, budget used). A sticky `cve-p30d3-sticky-action` keeps the Generate Preview button visible. State pill (`bundle-state-pill`) reflects idle/loading/ok/error. Raw bundle JSON is demoted into a `cve-details--inspector` with a Developer deep-link to `/app/raw?endpoint=bundle&vault=...&source=bundles`.
+- `/app/exports` reuses the same shape via the shared `ui/src/lib/bundleConfig.ts` helper. Security gate (`export-require-security-checkbox`) defaults to ON. Overwrite (`export-overwrite-checkbox`) reveals a typed-confirmation block (`export-overwrite-confirm-block`) and the submit button (`export-submit-btn`) only enables once the input matches `OVERWRITE`. Files manifest renders in a bounded `cve-table` with sha256, bytes, and dest columns. Raw export JSON is confined to `cve-details--inspector` with a deep-link to `/app/raw?endpoint=export&vault=...&source=exports`.
+- `/app/security` rebuilt with a full-vault default scope. The cve-toolbar header shows a state pill (`security-state-pill`). A `cve-status-strip` surfaces a pre-run note count (`security-prerun-tile`) via `fetchNotes(vault)` so users see what the deterministic scan will cover before they run it. Sampling, filters, sections, allow_partial, max_notes, and max_chars are demoted into an Advanced scope `<details class="cve-p30d3-disclosure">` (`security-advanced-summary`) that is closed by default. Findings render in a bounded `cve-table` inside `cve-p30d3-findings-table` with severity / rule / path / field / detail columns, severity segmented filter, and free-text filter (`security-finding-filter`). Raw response is confined to `cve-details--inspector` with a deep-link to `/app/raw?endpoint=security&vault=...&source=security`.
+- New shared helper `ui/src/lib/bundleConfig.ts` exposes `defaultBundleConfig`, `clampMaxNotes`, `clampMaxChars`, `buildBundleFilters`, `buildContextBundleRequest`, `validateSections`, `resolveActiveProfile`, `applyProfileToConfig`, and `describeFilters` so Bundle and Export pages share a single form model.
+- New Phase 30D3 primitives in `ui/src/styles/global.css` (all under `@layer components`, all token-only): `.cve-p30d3-workflow`, `.cve-p30d3-twocol`, `.cve-p30d3-section` (with `--danger` / `--warning` variants), `.cve-p30d3-field` / `.cve-p30d3-field-row` / `.cve-p30d3-field__help`, `.cve-p30d3-checkbox`, `.cve-p30d3-segmented`, `.cve-p30d3-chip-list` / `__chip` / `__chip__remove`, `.cve-p30d3-sticky-action`, `.cve-p30d3-action-row`, `.cve-p30d3-table-wrap`, `.cve-p30d3-item-list` / `.cve-p30d3-item` / `__path` / `__dest`, `.cve-p30d3-tag` (with `--planned` / `--written` / `--skipped` / `--blocked` / `--error` / `--fail` / `--warning` / `--pass` / `--success` / `--info` / `--neutral`), `.cve-p30d3-readiness`, `.cve-p30d3-stage-list`, `.cve-p30d3-stage--done` / `--pending`, `.cve-p30d3-summary-kv`, `.cve-p30d3-mono`, `.cve-p30d3-divider`, `.cve-p30d3-followup`, `.cve-p30d3-toolbar-pill` (`--stale` / `--ready`), `.cve-p30d3-confirm-block`, `.cve-p30d3-disclosure`, `.cve-p30d3-progress`, `.cve-p30d3-empty`, `.cve-p30d3-findings-table`, `.cve-p30d3-findings-detail`, `.cve-p30d3-btn-success`, `.cve-p30d3-btn-danger`. No Tailwind dark literals introduced.
+- 24 new deterministic tests (`test_p30d3_1` through `test_p30d3_24`) cover layoutMode="wide" across all four pages, cve-toolbar/banner/status-strip usage in each component, ImportReview source-type preservation and preview/write separation, BundleBuilder shared helper + sticky action + state pane, ExportPackage shared helper + security gate default + typed OVERWRITE gate + separate route from bundles, SecurityScan full-vault default + Advanced disclosure + pre-run note count + bounded findings table, state-pill presence, no primary inline raw JSON, Developer deep-links, no Tailwind dark literals, form labelling, static link resolution, deferred phase guardrails, Phase 30D3 + parent 30D Complete with 30E/30F Planned, no em dashes, and no new runtime dependencies. Total deterministic test count: 890.
+
+**Out of scope:** Review and Governance polish (Phase 30E), final QA / a11y / responsive / light-mode pass (Phase 30F).
+
+**Suggested Commit**
+
+```
+feat(ui): import, bundles, exports, and security workflow redesigns (Phase 30D3)
 ```
 
 #### Phase 30E - Review, Governance, and Developer Polish

@@ -1,13 +1,13 @@
 # Context Vault Engine - Testing
 
-All tests live in `mcp/test_verify.py`. The suite currently has 866 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800, 818, 842) appear later in this document as part of the phase changelog and are not the current total.
+All tests live in `mcp/test_verify.py`. The suite currently has 890 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800, 818, 842, 866) appear later in this document as part of the phase changelog and are not the current total.
 
 ## Current Verification Summary
 
 A full local verification consists of:
 
 ```bash
-py mcp/test_verify.py           # 866 tests, all must pass
+py mcp/test_verify.py           # 890 tests, all must pass
 py run.py validate              # vault schema-compliance
 py run.py security              # status: pass (or warning, never fail)
 py run.py feedback              # exits 0, valid JSON
@@ -2382,7 +2382,7 @@ cd ui; npm run build             # builds without errors
 
 ## Phase 30D2 - Notes and Graph Workspace Redesigns
 
-Phase 30D2 is the second sub-slice of Phase 30D. It rebuilds `/app/notes` and `/app/graph` as split-pane workspaces on top of the Phase 30B primitives. The legacy `'graph' | 'inspector' | 'missing'` tab model in the Graph page is removed; missing concepts are surfaced inline in the inspector. Inline raw JSON disclosure panels for `/notes`, `/note`, `/query`, `/graph`, `/graph/neighbors`, `/graph/related`, `/graph/missing`, and `/missing` are removed from the primary inspector, and both pages link to `/app/raw` for full diagnostic JSON via a `cve-details--inspector` block with the `cve-details__developer-link` contract. All filters, badges, the trust-import panel, the imported/draft contract, the safe edit workflow on `/app/notes`, and the non-destructive ranked-missing-concept action card on `/app/graph` are preserved. No backend route, schema, MCP, or runtime dependency was added. The parent Phase 30D remains In Progress; Phase 30D3 (Import, Bundles, Exports, Security) remains planned.
+Phase 30D2 is the second sub-slice of Phase 30D. It rebuilds `/app/notes` and `/app/graph` as split-pane workspaces on top of the Phase 30B primitives. The legacy `'graph' | 'inspector' | 'missing'` tab model in the Graph page is removed; missing concepts are surfaced inline in the inspector. Inline raw JSON disclosure panels for `/notes`, `/note`, `/query`, `/graph`, `/graph/neighbors`, `/graph/related`, `/graph/missing`, and `/missing` are removed from the primary inspector, and both pages link to `/app/raw` for full diagnostic JSON via a `cve-details--inspector` block with the `cve-details__developer-link` contract. All filters, badges, the trust-import panel, the imported/draft contract, the safe edit workflow on `/app/notes`, and the non-destructive ranked-missing-concept action card on `/app/graph` are preserved. No backend route, schema, MCP, or runtime dependency was added. Phase 30D3 (Import, Bundles, Exports, Security) has since landed and the parent Phase 30D is now Complete.
 
 The Phase 30D2 work adds 24 deterministic guardrail tests in `mcp/test_verify.py`, bringing the total to 866.
 
@@ -2416,7 +2416,53 @@ The Phase 30D2 work adds 24 deterministic guardrail tests in `mcp/test_verify.py
 **Verification steps for Phase 30D2:**
 
 ```bash
-py mcp/test_verify.py            # 866 tests, all must pass
+py mcp/test_verify.py            # 890 tests, all must pass
+py run.py validate               # vault still valid
+py run.py security               # status: pass
+py run.py feedback               # exits 0, valid JSON
+py run.py export --overwrite     # status: ok
+cd ui; npm run build             # builds without errors
+```
+
+---
+
+## Phase 30D3 - Import, Bundles, Exports, and Security Workflow Redesigns
+
+Phase 30D3 is the third and final sub-slice of Phase 30D. It rebuilds `/app/import`, `/app/bundles`, `/app/exports`, and `/app/security` on top of the Phase 30B primitives. All four pages now use `AppLayout layoutMode="wide"`, sectioned workflow cards (`cve-p30d3-section`), a `cve-toolbar` header with a state pill, banner-driven status messages (`cve-banner`), `cve-status-strip` summaries, and Developer deep-links to `/app/raw`. Raw JSON is confined to `cve-details--inspector` blocks - never a primary panel. ImportReview preserves all Phase 26 testids and source types (markdown + obsidian), separates Preview from Write behind a confirmation checkbox and stale-detection banner, and surfaces follow-up links to Notes, Validation, Tasks, Trust, and Security. BundleBuilder and ExportPackage share a new `ui/src/lib/bundleConfig.ts` helper so both workflows agree on filters, sections, and budgets. ExportPackage defaults the security gate to ON and gates Submit behind a typed `OVERWRITE` confirmation when overwrite is requested. SecurityScan defaults to a full-vault scan (no sampling) with a pre-run note count tile via `fetchNotes`; sampling, filters, sections, and per-note budgets are demoted to an Advanced scope `<details>` disclosure that is closed by default. Findings render in a bounded `cve-table` with severity / rule / path / field / detail columns inside an internal-scroll region. No backend route, schema, MCP, or runtime dependency was added. The parent Phase 30D is now Complete; Phases 30E and 30F remain Planned.
+
+The Phase 30D3 work adds 24 deterministic guardrail tests in `mcp/test_verify.py`, bringing the total to 890.
+
+| Test | Purpose |
+|---|---|
+| `test_p30d3_1_all_pages_layout_wide` | All four workflow pages declare `layoutMode="wide"` |
+| `test_p30d3_2_all_components_use_cve_toolbar` | Each redesigned component renders a `cve-toolbar` header |
+| `test_p30d3_3_all_components_use_cve_banner` | Each redesigned component renders at least one `cve-banner` |
+| `test_p30d3_4_all_components_use_cve_status_strip` | Each redesigned component renders a `cve-status-strip` with `cve-status-tile` entries |
+| `test_p30d3_5_import_preserves_existing_source_types` | ImportReview keeps the markdown + obsidian source types only |
+| `test_p30d3_6_import_separates_preview_and_write` | ImportReview keeps Preview and Write as separate buttons with stale-banner and confirmation checkbox |
+| `test_p30d3_7_bundles_uses_shared_helper` | BundleBuilder imports from the shared `bundleConfig` helper |
+| `test_p30d3_8_bundles_sticky_action_and_state_pane` | BundleBuilder has a sticky Generate action and a state-aware right pane |
+| `test_p30d3_9_exports_uses_shared_helper` | ExportPackage imports from the shared `bundleConfig` helper |
+| `test_p30d3_10_exports_security_gate_default_on` | ExportPackage defaults `requireSecurityPass` to true |
+| `test_p30d3_11_exports_overwrite_confirmation_gate` | ExportPackage gates Submit behind a typed `OVERWRITE` confirmation |
+| `test_p30d3_12_exports_separate_route_from_bundles` | Exports lives on its own route distinct from Bundles |
+| `test_p30d3_13_security_full_vault_default` | SecurityScan defaults to a full-vault scan with a pre-run note count tile |
+| `test_p30d3_14_security_advanced_disclosure` | SecurityScan demotes sampling / filters / budgets to an Advanced scope disclosure |
+| `test_p30d3_15_security_bounded_findings_table` | SecurityScan renders findings in a bounded `cve-table` inside `cve-p30d3-findings-table` |
+| `test_p30d3_16_state_pills_present` | Each redesigned component exposes a state-pill testid |
+| `test_p30d3_17_no_primary_inline_raw_json` | Raw JSON only appears inside `cve-details--inspector` blocks |
+| `test_p30d3_18_developer_deep_links` | Each redesigned component exposes a Developer deep-link to `/app/raw` |
+| `test_p30d3_19_no_tailwind_dark_literals` | Phase 30D3 files avoid Tailwind dark palette literals |
+| `test_p30d3_20_form_labels` | Every text/search/number/email input has a `<label for>` or `aria-label` |
+| `test_p30d3_21_static_links_resolve` | Every static `/app/<page>` link in 30D3 components resolves to a real page file |
+| `test_p30d3_22_phase27_28_still_deferred` | ROADMAP keeps Phase 27 and 28 Deferred |
+| `test_p30d3_23_phase30d3_and_30d_complete` | ROADMAP marks Phase 30D3 and the parent Phase 30D Complete; 30E/30F remain Planned |
+| `test_p30d3_24_no_em_dashes_in_phase30d3_files` | Phase 30D3 files contain no em dashes and `ui/package.json` introduces no new runtime dependencies |
+
+**Verification steps for Phase 30D3:**
+
+```bash
+py mcp/test_verify.py            # 890 tests, all must pass
 py run.py validate               # vault still valid
 py run.py security               # status: pass
 py run.py feedback               # exits 0, valid JSON

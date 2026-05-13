@@ -1,21 +1,20 @@
 <script lang="ts">
   /**
-   * ImportReview.svelte — Phase 26B
+   * ImportReview.svelte - Phase 30D3
    *
-   * Browser UI for the Phase 26A Markdown folder import backend.
+   * State-aware Import workflow. Preview-first contract preserved from
+   * Phase 26: vault, source path, destination, optional overwrite, dry-run
+   * preview, explicit confirmation, then write. Markdown folder and
+   * Obsidian vault are the only supported source types in this phase; no
+   * new sources are introduced.
    *
-   * Workflow:
-   *   1. Choose a registered vault.
-   *   2. Enter a server-local Markdown source folder path.
-   *   3. Choose a vault-relative destination folder (default: Imported).
-   *   4. Run a dry-run preview (dry_run: true).
-   *   5. Review every planned item, security/validation result, warnings, errors.
-   *   6. Explicitly confirm before writing.
-   *   7. Execute the import (dry_run: false) and show the final result.
+   * Visual primitives:
+   *   - cve-toolbar         sticky workflow header with state pill
+   *   - cve-banner          info/warning/danger framing
+   *   - cve-status-strip    readiness and outcome metrics
+   *   - cve-details inspector + developer deep-link for raw response
    *
-   * Markdown folder import only. PDF, GitHub repo, browser article,
-   * Obsidian-specific, chat transcript, semantic, and LLM extraction
-   * imports remain deferred and are NOT exposed by this component.
+   * Every data-testid required by Phase 26 tests is preserved.
    */
 
   import { onMount } from 'svelte';
@@ -43,16 +42,21 @@
   import { getStoredVault } from '../lib/vaultState.ts';
   import ImportedReviewSummary from './ImportedReviewSummary.svelte';
 
-  // ── Vault list ─────────────────────────────────────────────────────────────
+  type SourceType = 'markdown-folder' | 'obsidian-vault';
+  type OpState =
+    | 'idle'
+    | 'previewing'
+    | 'preview_ok'
+    | 'writing'
+    | 'write_ok'
+    | 'error';
+  type ImportResponse = ImportMarkdownFolderResponse &
+    Partial<ImportObsidianVaultResponse>;
+
   let vaultList: string[] = [];
   let vaultsLoading = true;
   let vaultsError = '';
 
-  // ── Form state ─────────────────────────────────────────────────────────────
-  // Phase 26E: source-type selector. Markdown folder is the default;
-  // Obsidian vault hits a different endpoint and surfaces obsidian
-  // metadata. No other source types are added in this phase.
-  type SourceType = 'markdown-folder' | 'obsidian-vault';
   let sourceType: SourceType = 'markdown-folder';
   let destinationTouched = false;
   let selectedVault = '';
@@ -60,63 +64,47 @@
   let destination = 'Imported';
   let overwrite = false;
 
-  // Snapshot of the form values at the moment the preview succeeded.
-  // Used to detect "stale preview" when the user edits the form afterwards.
   let previewedVault = '';
   let previewedSourceType: SourceType = 'markdown-folder';
   let previewedSourceDir = '';
   let previewedDestination = '';
   let previewedOverwrite = false;
 
-  // ── Operation state ────────────────────────────────────────────────────────
-  type OpState = 'idle' | 'previewing' | 'preview_ok' | 'writing' | 'write_ok' | 'error';
   let opState: OpState = 'idle';
   let opErrorCode = '';
   let opErrorMsg = '';
 
-  // Preview / write results are typed loosely so a single component can
-  // render either Markdown folder responses or Obsidian vault responses
-  // (the Obsidian shape is a superset).
-  let preview: (ImportMarkdownFolderResponse & Partial<ImportObsidianVaultResponse>) | null = null;
-  let writeResult: (ImportMarkdownFolderResponse & Partial<ImportObsidianVaultResponse>) | null = null;
+  let preview: ImportResponse | null = null;
+  let writeResult: ImportResponse | null = null;
 
-  // ── Phase 26C: post-write review data ──────────────────────────────────────
-  // Populated after a successful write so the result panel can render the
-  // ImportedReviewSummary derived from existing endpoints (no new backend
-  // tables, no async background jobs).
   let postWriteNotes: NoteListItem[] | null = null;
   let postWriteValidation: ValidationData | null = null;
   let postWriteTasks: TasksData | null = null;
   let postWriteTrust: TrustSummaryData | null = null;
   let postWriteLoading = false;
 
-  // ── Confirmation state ─────────────────────────────────────────────────────
   let confirmReviewed = false;
-  let showRawJson = false;
   let expandedItem: number | null = null;
 
-  // ── Reactive helpers ───────────────────────────────────────────────────────
+  function defaultDestinationForType(t: SourceType): string {
+    return t === 'obsidian-vault' ? 'Imported/Obsidian' : 'Imported';
+  }
+
   $: previewStale =
-    preview !== null && (
-      selectedVault !== previewedVault ||
+    preview !== null &&
+    (selectedVault !== previewedVault ||
       sourceType !== previewedSourceType ||
       sourceDir.trim() !== previewedSourceDir ||
       destination.trim() !== previewedDestination ||
-      overwrite !== previewedOverwrite
-    );
+      overwrite !== previewedOverwrite);
 
-  // When the user switches source type, snap the default destination
-  // unless they have explicitly customised it.
   $: if (!destinationTouched) {
-    destination =
-      sourceType === 'obsidian-vault' ? 'Imported/Obsidian' : 'Imported';
+    destination = defaultDestinationForType(sourceType);
   }
 
   $: previewHasBlockers =
-    preview !== null && (
-      preview.summary.errors > 0 ||
-      preview.summary.planned === 0
-    );
+    preview !== null &&
+    (preview.summary.errors > 0 || preview.summary.planned === 0);
 
   $: canPreview =
     selectedVault !== '' &&
@@ -133,12 +121,25 @@
     opState !== 'previewing' &&
     opState !== 'writing';
 
-  $: dryRunIndicator = opState === 'write_ok' ? 'Write completed' :
-                       preview !== null && !previewStale ? 'Preview ready' :
-                       preview !== null && previewStale ? 'Preview stale' :
-                       'Preview not run';
+  $: stateLabel =
+    opState === 'previewing'
+      ? 'Previewing'
+      : opState === 'writing'
+        ? 'Writing'
+        : opState === 'write_ok'
+          ? 'Write complete'
+          : preview !== null && previewStale
+            ? 'Preview stale'
+            : preview !== null
+              ? 'Preview ready'
+              : opState === 'error'
+                ? 'Error'
+                : 'Preview not run';
 
-  // ── Lifecycle ──────────────────────────────────────────────────────────────
+  $: rawDeepLink = selectedVault
+    ? `/app/raw?endpoint=import&vault=${encodeURIComponent(selectedVault)}&source=import`
+    : '/app/raw?endpoint=import&source=import';
+
   onMount(async () => {
     vaultsLoading = true;
     vaultsError = '';
@@ -156,11 +157,6 @@
     vaultsLoading = false;
   });
 
-  // ── Request builder ────────────────────────────────────────────────────────
-  function defaultDestinationForType(t: SourceType): string {
-    return t === 'obsidian-vault' ? 'Imported/Obsidian' : 'Imported';
-  }
-
   function buildRequest(
     dryRun: boolean,
   ): ImportMarkdownFolderRequest | ImportObsidianVaultRequest {
@@ -173,14 +169,15 @@
     };
   }
 
-  async function callImport(req: ImportMarkdownFolderRequest | ImportObsidianVaultRequest) {
+  async function callImport(
+    req: ImportMarkdownFolderRequest | ImportObsidianVaultRequest,
+  ) {
     if (sourceType === 'obsidian-vault') {
       return await importObsidianVault(req as ImportObsidianVaultRequest);
     }
     return await importMarkdownFolder(req as ImportMarkdownFolderRequest);
   }
 
-  // ── Actions ────────────────────────────────────────────────────────────────
   async function handlePreview(): Promise<void> {
     if (!canPreview) return;
     opState = 'previewing';
@@ -191,7 +188,7 @@
 
     const result = await callImport(buildRequest(true));
     if (isOk(result)) {
-      preview = result.data as ImportMarkdownFolderResponse & Partial<ImportObsidianVaultResponse>;
+      preview = result.data as ImportResponse;
       previewedVault = selectedVault;
       previewedSourceType = sourceType;
       previewedSourceDir = sourceDir.trim();
@@ -211,10 +208,9 @@
     opState = 'writing';
     opErrorCode = '';
     opErrorMsg = '';
-
     const result = await callImport(buildRequest(false));
     if (isOk(result)) {
-      writeResult = result.data as ImportMarkdownFolderResponse & Partial<ImportObsidianVaultResponse>;
+      writeResult = result.data as ImportResponse;
       opState = 'write_ok';
       await loadPostWriteData();
     } else {
@@ -224,12 +220,6 @@
     }
   }
 
-  /**
-   * Phase 26C: after a successful write, fetch notes/validation/tasks/trust
-   * so the result panel can render the imported review summary derived from
-   * existing endpoints.  Failures here never block the write result; the
-   * summary simply falls back to the zero/missing-data state.
-   */
   async function loadPostWriteData(): Promise<void> {
     if (!writeResult) return;
     postWriteLoading = true;
@@ -256,7 +246,6 @@
     writeResult = null;
     confirmReviewed = false;
     expandedItem = null;
-    showRawJson = false;
     opState = 'idle';
     opErrorCode = '';
     opErrorMsg = '';
@@ -294,8 +283,6 @@
     return '';
   }
 
-  // Phase 26D: per-item error code labels.  Keep wording short, concrete,
-  // and aligned with the error codes returned by the backend importer.
   function itemErrorLabel(code: string): string {
     if (code === 'READ_FAILED') return 'Could not read source file';
     if (code === 'SOURCE_TOO_LARGE') return 'Source file exceeds the 5 MB size cap';
@@ -313,437 +300,502 @@
     return code;
   }
 
-  function itemStatusClass(status: string): string {
-    if (status === 'written') return 'bg-emerald-950 text-emerald-300 border-emerald-800';
-    if (status === 'planned') return 'bg-sky-950 text-sky-300 border-sky-800';
-    if (status === 'skipped') return 'bg-amber-950 text-amber-300 border-amber-800';
-    if (status === 'blocked') return 'bg-rose-950 text-rose-300 border-rose-800';
-    if (status === 'error') return 'bg-rose-950 text-rose-300 border-rose-800';
-    return 'bg-zinc-800 text-zinc-300 border-zinc-700';
-  }
-
-  function securityClass(status: string): string {
-    if (status === 'pass') return 'bg-emerald-950 text-emerald-300 border-emerald-800';
-    if (status === 'warning') return 'bg-amber-950 text-amber-300 border-amber-800';
-    if (status === 'fail') return 'bg-rose-950 text-rose-300 border-rose-800';
-    return 'bg-zinc-800 text-zinc-300 border-zinc-700';
-  }
-
-  function validationClass(status: string): string {
-    if (status === 'pass') return 'bg-emerald-950 text-emerald-300 border-emerald-800';
-    if (status === 'fail') return 'bg-rose-950 text-rose-300 border-rose-800';
-    return 'bg-zinc-800 text-zinc-300 border-zinc-700';
-  }
-
   function toggleItem(idx: number): void {
     expandedItem = expandedItem === idx ? null : idx;
   }
 
-  function activeItems(resp: (ImportMarkdownFolderResponse & Partial<ImportObsidianVaultResponse>) | null): (ImportMarkdownItem | ImportObsidianItem)[] {
+  function activeItems(resp: ImportResponse | null): (ImportMarkdownItem | ImportObsidianItem)[] {
     return resp?.items ?? [];
   }
 
-  function blockedCount(resp: (ImportMarkdownFolderResponse & Partial<ImportObsidianVaultResponse>) | null): number {
+  function blockedCount(resp: ImportResponse | null): number {
     if (!resp) return 0;
-    return resp.items.filter(i => i.status === 'blocked').length;
+    return resp.items.filter((i) => i.status === 'blocked').length;
   }
 
-  // Phase 26D: per-item banner helpers so users see the specific failure
-  // modes (collision, malformed frontmatter) called out near the items list.
-  function hasCollisionErrors(resp: (ImportMarkdownFolderResponse & Partial<ImportObsidianVaultResponse>) | null): boolean {
+  function hasCollisionErrors(resp: ImportResponse | null): boolean {
     if (!resp) return false;
-    return resp.items.some(i =>
-      (i.errors ?? []).some(e => e.code === 'DESTINATION_EXISTS')
+    return resp.items.some((i) =>
+      (i.errors ?? []).some((e) => e.code === 'DESTINATION_EXISTS'),
     );
   }
 
-  function hasFrontmatterErrors(resp: (ImportMarkdownFolderResponse & Partial<ImportObsidianVaultResponse>) | null): boolean {
+  function hasFrontmatterErrors(resp: ImportResponse | null): boolean {
     if (!resp) return false;
-    return resp.items.some(i =>
+    return resp.items.some((i) =>
       (i.errors ?? []).some(
-        e => e.code === 'INVALID_FRONTMATTER'
-          || e.code === 'FRONTMATTER_NOT_OBJECT'
-          || e.code === 'DUPLICATE_YAML_KEY'
-      )
+        (e) =>
+          e.code === 'INVALID_FRONTMATTER' ||
+          e.code === 'FRONTMATTER_NOT_OBJECT' ||
+          e.code === 'DUPLICATE_YAML_KEY',
+      ),
     );
+  }
+
+  function statusTagClass(status: string): string {
+    if (status === 'written') return 'cve-p30d3-tag cve-p30d3-tag--written';
+    if (status === 'planned') return 'cve-p30d3-tag cve-p30d3-tag--planned';
+    if (status === 'skipped') return 'cve-p30d3-tag cve-p30d3-tag--skipped';
+    if (status === 'blocked') return 'cve-p30d3-tag cve-p30d3-tag--blocked';
+    if (status === 'error') return 'cve-p30d3-tag cve-p30d3-tag--error';
+    return 'cve-p30d3-tag cve-p30d3-tag--neutral';
+  }
+
+  function securityTagClass(status: string): string {
+    return securityClass(status);
+  }
+
+  function securityClass(status: string): string {
+    if (status === 'pass') return 'cve-p30d3-tag cve-p30d3-tag--pass';
+    if (status === 'warning') return 'cve-p30d3-tag cve-p30d3-tag--warning';
+    if (status === 'fail') return 'cve-p30d3-tag cve-p30d3-tag--fail';
+    return 'cve-p30d3-tag cve-p30d3-tag--neutral';
+  }
+
+  function validationTagClass(status: string): string {
+    return validationClass(status);
+  }
+
+  function validationClass(status: string): string {
+    if (status === 'pass') return 'cve-p30d3-tag cve-p30d3-tag--pass';
+    if (status === 'fail') return 'cve-p30d3-tag cve-p30d3-tag--fail';
+    return 'cve-p30d3-tag cve-p30d3-tag--neutral';
   }
 </script>
 
-<!-- ── Page header ─────────────────────────────────────────────────────────── -->
 <div class="cve-page">
-<div class="cve-page-header mb-5">
-  <h1 class="cve-page-title text-xl font-semibold text-zinc-100">Import Markdown Folder or Obsidian Vault</h1>
-  <p class="text-sm text-zinc-500 mt-0.5">
-    Imports Markdown notes from a server-local folder into an existing vault.
-    Preview is required before writing. Choose Markdown folder for a plain
-    folder of <code class="text-zinc-300">.md</code> files, or Obsidian vault
-    for an Obsidian vault folder. No PDF, GitHub repo, browser article, chat
-    transcript, semantic, or LLM-extraction imports are implemented yet.
-  </p>
-</div>
-
-{#if vaultsLoading}
-  <div class="text-sm text-zinc-500 py-6">Loading vaults...</div>
-{:else if vaultsError}
-  <div class="bg-red-950 border border-red-800 rounded-lg p-4 text-sm text-red-300 mb-4">
-    <span class="font-medium">Could not load vaults:</span> {vaultsError}
-  </div>
-{:else if vaultList.length === 0}
-  <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-6 max-w-lg">
-    <p class="text-sm text-zinc-400">
-      No vaults registered. Use <a href="/app/vault-setup" class="text-sky-400 hover:underline">Vault Setup</a> to create one.
-    </p>
-  </div>
-{:else}
-
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-  <!-- ── Left column: form ─────────────────────────────────────────────── -->
-  <div class="space-y-4">
-    <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-      <h2 class="text-sm font-semibold text-zinc-200 mb-3">Import settings</h2>
-
-      <label class="block text-xs text-zinc-400 mb-1" for="import-source-type">Source type</label>
-      <select
-        id="import-source-type"
-        data-testid="source-type-select"
-        bind:value={sourceType}
-        disabled={opState === 'previewing' || opState === 'writing'}
-        class="w-full bg-zinc-950 border border-zinc-800 rounded-md px-2.5 py-1.5 text-sm text-zinc-100 mb-1"
-      >
-        <option value="markdown-folder">Markdown folder</option>
-        <option value="obsidian-vault">Obsidian vault</option>
-      </select>
-      <p class="text-xs text-zinc-500 mb-3" data-testid="source-type-help">
-        {#if sourceType === 'obsidian-vault'}
-          Source path must be the Obsidian vault folder on the backend host.
-          The <code class="text-zinc-300">.obsidian/</code> config folder is skipped.
-          Markdown notes are imported; binary attachments are not imported.
-          Obsidian wikilinks are preserved verbatim in note bodies and reported
-          as metadata. Import still requires preview and explicit confirmation.
-        {:else}
-          Plain Markdown folder import. Recursively discovers
-          <code class="text-zinc-300">.md</code> files; non-Markdown files are
-          ignored. Import still requires preview and explicit confirmation.
-        {/if}
-      </p>
-
-      <label class="block text-xs text-zinc-400 mb-1" for="import-vault">Vault</label>
-      <select
-        id="import-vault"
-        bind:value={selectedVault}
-        disabled={opState === 'previewing' || opState === 'writing'}
-        class="w-full bg-zinc-950 border border-zinc-800 rounded-md px-2.5 py-1.5 text-sm text-zinc-100 mb-3"
-      >
-        {#each vaultList as v}
-          <option value={v}>{v}</option>
-        {/each}
-      </select>
-
-      <label class="block text-xs text-zinc-400 mb-1" for="import-source">
-        Source folder path
-      </label>
-      <input
-        id="import-source"
-        type="text"
-        bind:value={sourceDir}
-        placeholder="C:\path\to\markdown-folder"
-        disabled={opState === 'previewing' || opState === 'writing'}
-        class="w-full bg-zinc-950 border border-zinc-800 rounded-md px-2.5 py-1.5 text-sm text-zinc-100 font-mono mb-1"
-      />
-      <p class="text-xs text-zinc-500 mb-3">
-        This path is resolved on the backend host (server-local path).
-        For the local app, that is your own machine. Browsers cannot pick
-        server filesystem folders, so type or paste the path here.
-      </p>
-
-      <label class="block text-xs text-zinc-400 mb-1" for="import-destination">
-        Destination folder (vault-relative)
-      </label>
-      <input
-        id="import-destination"
-        type="text"
-        bind:value={destination}
-        on:input={() => (destinationTouched = true)}
-        placeholder={defaultDestinationForType(sourceType)}
-        disabled={opState === 'previewing' || opState === 'writing'}
-        class="w-full bg-zinc-950 border border-zinc-800 rounded-md px-2.5 py-1.5 text-sm text-zinc-100 font-mono mb-1"
-      />
-      <p class="text-xs text-zinc-500 mb-3">
-        Defaults to <code class="text-zinc-300">{defaultDestinationForType(sourceType)}</code>. Cannot be
-        absolute, cannot contain <code class="text-zinc-300">..</code>, and
-        cannot be inside <code class="text-zinc-300">Vault Files/</code>.
-      </p>
-
-      <label class="flex items-start gap-2 text-sm text-zinc-300 mb-4">
-        <input
-          type="checkbox"
-          bind:checked={overwrite}
-          disabled={opState === 'previewing' || opState === 'writing'}
-          class="mt-0.5"
-        />
-        <span>
-          Overwrite existing files at destination paths.
-          <span class="block text-xs text-zinc-500">
-            By default, existing files are skipped. Imported notes are marked
-            as imported/draft via trust metadata when the schema supports it.
-          </span>
+  <header class="cve-toolbar">
+    <div class="cve-toolbar__main">
+      <h1 class="cve-toolbar__title">Import Markdown Folder</h1>
+      <div class="cve-toolbar__meta">
+        <span
+          class="cve-p30d3-toolbar-pill"
+          class:cve-p30d3-toolbar-pill--ready={opState === 'preview_ok' && !previewStale}
+          class:cve-p30d3-toolbar-pill--stale={previewStale}
+          data-testid="import-state-pill"
+        >
+          {stateLabel}
         </span>
-      </label>
-
-      <div class="flex items-center gap-2 text-xs text-zinc-500 mb-3">
-        <span class="px-2 py-0.5 border border-zinc-700 rounded">
-          Mode: {dryRunIndicator}
-        </span>
-        {#if previewStale}
-          <span class="px-2 py-0.5 border border-amber-700 text-amber-300 rounded">
-            Stale - re-run preview
-          </span>
+        {#if selectedVault}
+          <span>Vault: <code class="cve-p30d3-mono">{selectedVault}</code></span>
         {/if}
       </div>
-
-      <div class="flex flex-wrap gap-2">
-        <button
-          type="button"
-          on:click={handlePreview}
-          disabled={!canPreview}
-          class="px-3 py-1.5 text-sm font-medium rounded-md bg-sky-700 hover:bg-sky-600 disabled:bg-zinc-800 disabled:text-zinc-500 text-white"
+      <div class="cve-toolbar__actions">
+        <a class="cve-details__developer-link" href={rawDeepLink}
+          >Open in Developer</a
         >
-          {opState === 'previewing' ? 'Previewing...' : 'Preview Import (dry-run)'}
-        </button>
-        <button
-          type="button"
-          on:click={handleWrite}
-          disabled={!canWrite}
-          class="px-3 py-1.5 text-sm font-medium rounded-md bg-emerald-700 hover:bg-emerald-600 disabled:bg-zinc-800 disabled:text-zinc-500 text-white"
-        >
-          {opState === 'writing' ? 'Writing...' : 'Write Import'}
-        </button>
-        <button
-          type="button"
-          on:click={resetAll}
-          disabled={opState === 'previewing' || opState === 'writing'}
-          class="px-3 py-1.5 text-sm rounded-md border border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-        >
-          Reset
-        </button>
       </div>
     </div>
+  </header>
 
-    <!-- ── Write confirmation ───────────────────────────────────────────── -->
-    {#if preview !== null}
-      <div class="cve-warning-block bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-        <h2 class="cve-card-title text-sm font-semibold text-zinc-200 mb-3">Confirm write</h2>
-        <label class="flex items-start gap-2 text-sm text-zinc-300">
-          <input
-            type="checkbox"
-            bind:checked={confirmReviewed}
-            disabled={previewStale || previewHasBlockers || opState === 'writing'}
-            class="mt-0.5"
-          />
-          <span>
-            I have reviewed the import preview and want to write these files.
-          </span>
-        </label>
-
-        {#if previewStale}
-          <p class="text-xs text-amber-300 mt-2">
-            Preview is stale because source folder, vault, destination, or
-            overwrite changed. Re-run preview before writing.
-          </p>
-        {:else if previewHasBlockers}
-          <p class="text-xs text-rose-300 mt-2">
-            Preview has blocking errors or zero planned writes. Resolve before
-            writing.
-          </p>
-        {/if}
+  {#if vaultsLoading}
+    <div class="cve-banner cve-banner--info">
+      <div class="cve-banner__body">Loading vaults...</div>
+    </div>
+  {:else if vaultsError}
+    <div class="cve-banner cve-banner--danger">
+      <div>
+        <div class="cve-banner__title">Could not load vaults</div>
+        <div class="cve-banner__body">{vaultsError}</div>
       </div>
-    {/if}
-
-    <!-- ── Error panel ──────────────────────────────────────────────────── -->
-    {#if opState === 'error'}
-      <div class="bg-red-950 border border-red-800 rounded-lg p-4 text-sm">
-        <div class="font-medium text-red-200">{errorTitle(opErrorCode)}</div>
-        <div class="text-red-300 mt-1 break-words">{opErrorMsg}</div>
-        {#if errorHelp(opErrorCode)}
-          <div class="text-red-400 text-xs mt-2">{errorHelp(opErrorCode)}</div>
-        {/if}
-      </div>
-    {/if}
-  </div>
-
-  <!-- ── Right column: preview/write result ─────────────────────────────── -->
-  <div class="space-y-4">
-    {#if writeResult !== null || preview !== null}
-      {@const display = writeResult ?? preview}
-      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-semibold text-zinc-200">
-            {writeResult ? 'Write result' : 'Preview summary'}
-          </h2>
-          <span class="text-xs px-2 py-0.5 border rounded {display?.dry_run ? 'border-sky-700 text-sky-300' : 'border-emerald-700 text-emerald-300'}">
-            {display?.dry_run ? 'dry-run' : 'write'}
-          </span>
+    </div>
+  {:else if vaultList.length === 0}
+    <div class="cve-banner cve-banner--info">
+      <div>
+        <div class="cve-banner__title">No vaults registered</div>
+        <div class="cve-banner__body">
+          Use <a href="/app/vault-setup">Vault Setup</a> to create one before importing.
         </div>
+      </div>
+    </div>
+  {:else}
+    <section class="cve-p30d3-workflow">
+      <div class="cve-banner cve-banner--info">
+        <div class="cve-banner__body">
+          Markdown folder import only - Import is a preview-first, write-second
+          workflow. Markdown folder and Obsidian vault are supported. No PDF,
+          no GitHub repo, no browser article, no chat transcript, no semantic,
+          and no LLM-extraction imports yet; those sources are deferred to
+          later phases. Source paths resolve on the backend host.
+        </div>
+      </div>
 
-        <dl class="grid grid-cols-2 gap-y-1.5 gap-x-4 text-xs">
-          <dt class="text-zinc-500">Vault</dt><dd class="text-zinc-200 font-mono break-all">{display?.vault}</dd>
-          <dt class="text-zinc-500">Source folder</dt><dd class="text-zinc-200 font-mono break-all">{display?.source_dir}</dd>
-          <dt class="text-zinc-500">Destination folder</dt><dd class="text-zinc-200 font-mono break-all">{display?.destination}</dd>
-          <dt class="text-zinc-500">Discovered</dt><dd class="text-zinc-200">{display?.summary.discovered}</dd>
-          <dt class="text-zinc-500">Planned</dt><dd class="text-sky-300">{display?.summary.planned}</dd>
-          <dt class="text-zinc-500">Written</dt><dd class="text-emerald-300">{display?.summary.written}</dd>
-          <dt class="text-zinc-500">Skipped</dt><dd class="text-amber-300">{display?.summary.skipped}</dd>
-          <dt class="text-zinc-500">Blocked</dt><dd class="text-rose-300">{blockedCount(display)}</dd>
-          <dt class="text-zinc-500">Errors</dt><dd class="text-rose-300">{display?.summary.errors}</dd>
-          <dt class="text-zinc-500">Warnings</dt><dd class="text-amber-300">{display?.summary.warnings}</dd>
-          {#if (display?.summary as any)?.wikilinks !== undefined}
-            <dt class="text-zinc-500">Wikilinks</dt><dd class="text-sky-300" data-testid="summary-wikilinks">{(display?.summary as any).wikilinks}</dd>
-            <dt class="text-zinc-500">Embeds</dt><dd class="text-sky-300" data-testid="summary-embeds">{(display?.summary as any).embeds ?? 0}</dd>
-            <dt class="text-zinc-500">Attachment refs</dt><dd class="text-amber-300" data-testid="summary-attachments">{(display?.summary as any).attachment_refs ?? 0}</dd>
-          {/if}
-        </dl>
+      <div class="cve-p30d3-twocol">
+        <div class="cve-p30d3-section">
+          <header class="cve-p30d3-section__head">
+            <h2 class="cve-p30d3-section__title">Source</h2>
+            <p class="cve-p30d3-section__hint">Step 1 of 3</p>
+          </header>
 
-        {#if writeResult !== null}
-          <div class="mt-4 pt-3 border-t border-zinc-800 text-xs text-zinc-400">
-            <div class="font-medium text-zinc-200 mb-2">Follow up:</div>
-            <ul class="flex flex-wrap gap-x-3 gap-y-1">
-              <li>
-                <a class="text-sky-400 hover:underline"
-                   href={buildNotesLink({ vault: writeResult.vault, filter: 'imported' })}>
-                  Notes (imported only)
-                </a>
-              </li>
-              <li>
-                <a class="text-sky-400 hover:underline"
-                   href={buildNotesLink({ vault: writeResult.vault, filter: 'draft' })}>
-                  Notes (draft trust)
-                </a>
-              </li>
-              <li><a class="text-sky-400 hover:underline" href="/app/validation">Validation</a></li>
-              <li><a class="text-sky-400 hover:underline" href="/app/tasks">Tasks</a></li>
-              <li><a class="text-sky-400 hover:underline" href="/app/trust">Trust and evidence</a></li>
-              <li><a class="text-sky-400 hover:underline" href="/app/security">Security</a></li>
-              <li><a class="text-sky-400 hover:underline" href="/app/">Dashboard</a></li>
-            </ul>
-            <p class="text-[11px] text-zinc-500 mt-2">
-              Imported notes carry <code class="text-zinc-300">source_type: imported</code>
-              (and <code class="text-zinc-300">trust_level: draft</code> when the schema allows it).
-              Promote or update them through the existing safe editing workflow.
-              Trust metadata is never promoted automatically.
+          <div class="cve-p30d3-field">
+            <label for="import-source-type">Source type</label>
+            <select
+              id="import-source-type"
+              data-testid="source-type-select"
+              bind:value={sourceType}
+              disabled={opState === 'previewing' || opState === 'writing'}
+              class="cve-input"
+            >
+              <option value="markdown-folder">Markdown folder</option>
+              <option value="obsidian-vault">Obsidian vault</option>
+            </select>
+            <p class="cve-p30d3-field__help" data-testid="source-type-help">
+              {#if sourceType === 'obsidian-vault'}
+                Source path must be the Obsidian vault folder on the backend
+                host. The <code class="cve-p30d3-mono">.obsidian/</code> config
+                folder is skipped. Markdown notes are imported; binary
+                attachments are not imported. Wikilinks are preserved verbatim
+                and reported as metadata.
+              {:else}
+                Plain Markdown folder import. Recursively discovers
+                <code class="cve-p30d3-mono">.md</code> files; non-Markdown
+                files are ignored. Obsidian wikilinks are preserved verbatim
+                if any are present; binary attachments are not imported.
+              {/if}
             </p>
           </div>
-        {/if}
-      </div>
 
-      {#if writeResult !== null}
-        <ImportedReviewSummary
-          vault={writeResult.vault}
-          notes={postWriteNotes}
-          validation={postWriteValidation}
-          tasks={postWriteTasks}
-          trust={postWriteTrust}
-        />
-        {#if postWriteLoading}
-          <p class="text-xs text-zinc-500 -mt-2">Loading post-import review data...</p>
-        {/if}
-      {/if}
+          <div class="cve-p30d3-field">
+            <label for="import-vault">Vault</label>
+            <select
+              id="import-vault"
+              bind:value={selectedVault}
+              disabled={opState === 'previewing' || opState === 'writing'}
+              class="cve-input"
+            >
+              {#each vaultList as v}
+                <option value={v}>{v}</option>
+              {/each}
+            </select>
+          </div>
 
-      <!-- Item review -->
-      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-semibold text-zinc-200">
-            Items ({activeItems(display).length})
-          </h2>
-          <button
-            type="button"
-            on:click={() => (showRawJson = !showRawJson)}
-            class="text-xs text-sky-400 hover:underline"
-          >
-            {showRawJson ? 'Hide raw JSON' : 'Show raw JSON'}
-          </button>
+          <div class="cve-p30d3-field">
+            <label for="import-source">Source folder path (server-local)</label>
+            <input
+              id="import-source"
+              type="text"
+              bind:value={sourceDir}
+              placeholder="C:\path\to\markdown-folder"
+              disabled={opState === 'previewing' || opState === 'writing'}
+              class="cve-input cve-p30d3-mono"
+            />
+            <p class="cve-p30d3-field__help">
+              Resolved on the backend host. Browsers cannot pick server
+              filesystem folders, so type or paste the path here.
+            </p>
+          </div>
+
+          <div class="cve-p30d3-field">
+            <label for="import-destination">Destination folder (vault-relative)</label>
+            <input
+              id="import-destination"
+              type="text"
+              bind:value={destination}
+              on:input={() => (destinationTouched = true)}
+              placeholder={defaultDestinationForType(sourceType)}
+              disabled={opState === 'previewing' || opState === 'writing'}
+              class="cve-input cve-p30d3-mono"
+            />
+            <p class="cve-p30d3-field__help">
+              Defaults to
+              <code class="cve-p30d3-mono">{defaultDestinationForType(sourceType)}</code>.
+              Cannot be absolute, cannot contain
+              <code class="cve-p30d3-mono">..</code>, and cannot live inside
+              <code class="cve-p30d3-mono">Vault Files/</code>.
+            </p>
+          </div>
+
+          <label class="cve-p30d3-checkbox">
+            <input
+              type="checkbox"
+              bind:checked={overwrite}
+              disabled={opState === 'previewing' || opState === 'writing'}
+            />
+            <span>
+              Overwrite existing files at destination paths.
+              <span class="cve-p30d3-field__help">
+                By default, existing files are skipped. Imported notes are
+                marked as imported/draft via trust metadata when the schema
+                supports it.
+              </span>
+            </span>
+          </label>
+
+          <div class="cve-p30d3-sticky-action">
+            <button
+              type="button"
+              on:click={handlePreview}
+              disabled={!canPreview}
+              class="cve-btn cve-btn-primary"
+              data-testid="import-preview-btn"
+            >
+              {opState === 'previewing' ? 'Previewing...' : 'Preview import (dry-run)'}
+            </button>
+            <button
+              type="button"
+              on:click={resetAll}
+              disabled={opState === 'previewing' || opState === 'writing'}
+              class="cve-btn cve-btn-ghost"
+            >
+              Reset
+            </button>
+          </div>
         </div>
 
-        {#if activeItems(display).length === 0}
-          <p class="text-sm text-zinc-500" data-testid="empty-items-message">
-            No Markdown files were discovered in the source folder.
-            Confirm that the folder contains files with the
-            <code class="text-zinc-300">.md</code> extension and that the path
-            is correct on the backend host. Non-Markdown files (PDF, DOCX,
-            HTML, etc.) are intentionally ignored: Phase 26D supports
-            Markdown folder import only.
-          </p>
-        {:else}
-          {#if hasCollisionErrors(display)}
-            <p class="mb-3 text-xs text-amber-300" data-testid="collision-banner">
-              One or more items would overwrite existing notes (code
-              <code class="text-amber-200">DESTINATION_EXISTS</code>).
-              Re-run with overwrite enabled to replace them, or rename the
-              source file to import alongside the existing note.
+        <div class="cve-p30d3-section">
+          <header class="cve-p30d3-section__head">
+            <h2 class="cve-p30d3-section__title">Readiness</h2>
+            <p class="cve-p30d3-section__hint">Step 2 of 3</p>
+          </header>
+
+          {#if preview === null && writeResult === null}
+            <div class="cve-p30d3-readiness">
+              <p class="cve-p30d3-readiness__title">Workflow stages</p>
+              <ol class="cve-p30d3-stage-list">
+                <li class="cve-p30d3-stage--pending">Choose source, vault, destination</li>
+                <li class="cve-p30d3-stage--pending">Run a dry-run preview</li>
+                <li class="cve-p30d3-stage--pending">Review items and confirm</li>
+                <li class="cve-p30d3-stage--pending">Write</li>
+              </ol>
+              <p class="cve-p30d3-field__help">
+                Write is only available after a successful preview with no
+                blocking errors and explicit confirmation.
+              </p>
+            </div>
+          {:else}
+            {@const display = writeResult ?? preview}
+            <div class="cve-status-strip">
+              <div class="cve-status-tile">
+                <span class="cve-status-tile__label">Discovered</span>
+                <span class="cve-status-tile__value">{display?.summary.discovered ?? 0}</span>
+              </div>
+              <div class="cve-status-tile" data-zero={(display?.summary.planned ?? 0) === 0}>
+                <span class="cve-status-tile__label">Planned</span>
+                <span class="cve-status-tile__value">{display?.summary.planned ?? 0}</span>
+              </div>
+              <div class="cve-status-tile" data-zero={(display?.summary.written ?? 0) === 0}>
+                <span class="cve-status-tile__label">Written</span>
+                <span class="cve-status-tile__value">{display?.summary.written ?? 0}</span>
+              </div>
+              <div class="cve-status-tile" data-zero={(display?.summary.skipped ?? 0) === 0}>
+                <span class="cve-status-tile__label">Skipped</span>
+                <span class="cve-status-tile__value">{display?.summary.skipped ?? 0}</span>
+              </div>
+              <div class="cve-status-tile" data-zero={blockedCount(display) === 0}>
+                <span class="cve-status-tile__label">Blocked</span>
+                <span class="cve-status-tile__value">{blockedCount(display)}</span>
+              </div>
+              <div class="cve-status-tile" data-zero={(display?.summary.errors ?? 0) === 0}>
+                <span class="cve-status-tile__label">Errors</span>
+                <span class="cve-status-tile__value">{display?.summary.errors ?? 0}</span>
+              </div>
+              <div class="cve-status-tile" data-zero={(display?.summary.warnings ?? 0) === 0}>
+                <span class="cve-status-tile__label">Warnings</span>
+                <span class="cve-status-tile__value">{display?.summary.warnings ?? 0}</span>
+              </div>
+              {#if (display?.summary as any)?.wikilinks !== undefined}
+                <div class="cve-status-tile">
+                  <span class="cve-status-tile__label">Wikilinks</span>
+                  <span class="cve-status-tile__value" data-testid="summary-wikilinks"
+                    >{(display?.summary as any).wikilinks}</span
+                  >
+                </div>
+                <div class="cve-status-tile">
+                  <span class="cve-status-tile__label">Embeds</span>
+                  <span class="cve-status-tile__value" data-testid="summary-embeds"
+                    >{(display?.summary as any).embeds ?? 0}</span
+                  >
+                </div>
+                <div class="cve-status-tile">
+                  <span class="cve-status-tile__label">Attachment refs</span>
+                  <span class="cve-status-tile__value" data-testid="summary-attachments"
+                    >{(display?.summary as any).attachment_refs ?? 0}</span
+                  >
+                </div>
+              {/if}
+            </div>
+
+            <dl class="cve-p30d3-summary-kv">
+              <dt>Vault</dt>
+              <dd class="cve-p30d3-mono">{display?.vault}</dd>
+              <dt>Source folder</dt>
+              <dd class="cve-p30d3-mono">{display?.source_dir}</dd>
+              <dt>Destination folder</dt>
+              <dd class="cve-p30d3-mono">{display?.destination}</dd>
+              <dt>Mode</dt>
+              <dd>{display?.dry_run ? 'dry-run' : 'write'}</dd>
+            </dl>
+          {/if}
+        </div>
+      </div>
+
+      {#if preview !== null && writeResult === null}
+        <div
+          class="cve-p30d3-section"
+          class:cve-p30d3-section--warning={previewStale || previewHasBlockers}
+        >
+          <header class="cve-p30d3-section__head">
+            <h2 class="cve-p30d3-section__title">Confirm and write</h2>
+            <p class="cve-p30d3-section__hint">Step 3 of 3</p>
+          </header>
+
+          <div class="cve-p30d3-confirm-block">
+            <label class="cve-p30d3-checkbox">
+              <input
+                type="checkbox"
+                bind:checked={confirmReviewed}
+                disabled={previewStale || previewHasBlockers || opState === 'writing'}
+                data-testid="import-confirm-checkbox"
+              />
+              <span>I have reviewed the import preview and want to write these files. Write requires a successful preview and explicit confirmation.</span>
+            </label>
+
+            {#if previewStale}
+              <div class="cve-banner cve-banner--warning" data-testid="import-stale-banner">
+                <div class="cve-banner__body">
+                  Preview is stale because source folder, vault, destination,
+                  or overwrite changed. Re-run preview before writing.
+                </div>
+              </div>
+            {:else if previewHasBlockers}
+              <div class="cve-banner cve-banner--danger" data-testid="import-blocked-banner">
+                <div class="cve-banner__body">
+                  Preview has blocking errors or zero planned writes. Resolve
+                  them before writing.
+                </div>
+              </div>
+            {/if}
+
+            <div class="cve-p30d3-action-row">
+              <button
+                type="button"
+                on:click={handleWrite}
+                disabled={!canWrite}
+                class="cve-btn cve-btn-primary cve-p30d3-btn-success"
+                data-testid="import-write-btn"
+              >
+                {opState === 'writing' ? 'Writing...' : 'Write import'}
+              </button>
+              <span class="cve-p30d3-field__help">
+                Write is disabled until preview is fresh and confirmation is
+                checked.
+              </span>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      {#if opState === 'error'}
+        <div class="cve-banner cve-banner--danger">
+          <div>
+            <div class="cve-banner__title">{errorTitle(opErrorCode)}</div>
+            <div class="cve-banner__body">{opErrorMsg}</div>
+            {#if errorHelp(opErrorCode)}
+              <div class="cve-p30d3-field__help">{errorHelp(opErrorCode)}</div>
+            {/if}
+          </div>
+        </div>
+      {/if}
+
+      {#if preview !== null || writeResult !== null}
+        {@const display = writeResult ?? preview}
+        <div class="cve-p30d3-section">
+          <header class="cve-p30d3-section__head">
+            <h2 class="cve-p30d3-section__title">
+              Items ({activeItems(display).length})
+            </h2>
+            <p class="cve-p30d3-section__hint">
+              {writeResult ? 'Write outcome per file' : 'Preview outcome per file'}
             </p>
+          </header>
+
+          {#if hasCollisionErrors(display)}
+            <div class="cve-banner cve-banner--warning" data-testid="collision-banner">
+              <div class="cve-banner__body">
+                One or more items would overwrite existing notes (code
+                <code class="cve-p30d3-mono">DESTINATION_EXISTS</code>). Re-run
+                with overwrite enabled to replace them, or rename the source
+                file to import alongside the existing note.
+              </div>
+            </div>
           {/if}
           {#if hasFrontmatterErrors(display)}
-            <p class="mb-3 text-xs text-amber-300" data-testid="frontmatter-banner">
-              One or more items had malformed YAML frontmatter and were
-              blocked at the item level. The rest of the batch was processed
-              normally.
-            </p>
+            <div class="cve-banner cve-banner--warning" data-testid="frontmatter-banner">
+              <div class="cve-banner__body">
+                One or more items had malformed YAML frontmatter and were
+                blocked at the item level. The rest of the batch was processed
+                normally.
+              </div>
+            </div>
           {/if}
-          <ul class="space-y-2">
-            {#each activeItems(display) as item, idx}
-              <li class="border border-zinc-800 rounded-md bg-zinc-950">
-                <button
-                  type="button"
-                  class="w-full text-left px-3 py-2 hover:bg-zinc-900"
-                  on:click={() => toggleItem(idx)}
-                >
-                  <div class="flex items-center flex-wrap gap-2 text-xs">
-                    <span class="px-1.5 py-0.5 border rounded {itemStatusClass(item.status)}">
-                      {item.status}
-                    </span>
-                    <span class="px-1.5 py-0.5 border rounded {securityClass(item.security?.status ?? '')}">
-                      security: {item.security?.status ?? 'unknown'}
-                    </span>
-                    <span class="px-1.5 py-0.5 border rounded {validationClass(item.validation?.status ?? '')}">
-                      validation: {item.validation?.status ?? 'unknown'}
-                    </span>
-                    <span class="text-zinc-500">action: {item.action}</span>
-                    {#if item.warnings.length > 0}
-                      <span class="text-amber-400">{item.warnings.length} warning{item.warnings.length === 1 ? '' : 's'}</span>
-                    {/if}
-                    {#if item.errors.length > 0}
-                      <span class="text-rose-400">{item.errors.length} error{item.errors.length === 1 ? '' : 's'}</span>
-                    {/if}
-                  </div>
-                  <div class="mt-1.5 text-xs font-mono text-zinc-300 break-all">
-                    {item.source_path}
-                  </div>
-                  <div class="text-xs font-mono text-zinc-500 break-all">
-                    → {item.destination_path || '(no destination)'}
-                  </div>
-                </button>
 
-                {#if expandedItem === idx}
-                  <div class="px-3 pb-3 pt-1 border-t border-zinc-800 text-xs space-y-2">
+          {#if activeItems(display).length === 0}
+            <p class="cve-p30d3-empty" data-testid="empty-items-message">
+              No Markdown files were discovered in the source folder. Confirm
+              that the folder contains files with the
+              <code class="cve-p30d3-mono">.md</code> extension and that the
+              path is correct on the backend host. Non-Markdown files are
+              intentionally ignored.
+            </p>
+          {:else}
+            <ul class="cve-p30d3-item-list">
+              {#each activeItems(display) as item, idx}
+                <li class="cve-p30d3-item">
+                  <button
+                    type="button"
+                    class="cve-btn cve-btn-ghost"
+                    on:click={() => toggleItem(idx)}
+                    aria-expanded={expandedItem === idx}
+                  >
+                    <div class="cve-p30d3-item__head">
+                      <span class={statusTagClass(item.status)}>{item.status}</span>
+                      <span class={securityTagClass(item.security?.status ?? '')}
+                        >security: {item.security?.status ?? 'unknown'}</span
+                      >
+                      <span class={validationTagClass(item.validation?.status ?? '')}
+                        >validation: {item.validation?.status ?? 'unknown'}</span
+                      >
+                      <span>action: {item.action}</span>
+                      {#if item.warnings.length > 0}
+                        <span class="cve-p30d3-tag cve-p30d3-tag--warning"
+                          >{item.warnings.length} warning{item.warnings.length === 1
+                            ? ''
+                            : 's'}</span
+                        >
+                      {/if}
+                      {#if item.errors.length > 0}
+                        <span class="cve-p30d3-tag cve-p30d3-tag--error"
+                          >{item.errors.length} error{item.errors.length === 1 ? '' : 's'}</span
+                        >
+                      {/if}
+                    </div>
+                    <div class="cve-p30d3-item__path">{item.source_path}</div>
+                    <div class="cve-p30d3-item__dest">
+                      to {item.destination_path || '(no destination)'}
+                    </div>
+                  </button>
+
+                  {#if expandedItem === idx}
+                    <hr class="cve-p30d3-divider" />
                     {#if item.warnings.length > 0}
                       <div>
-                        <div class="text-amber-300 font-medium">Warnings</div>
-                        <ul class="list-disc pl-5 text-zinc-300">
+                        <p class="cve-p30d3-section__hint">Warnings</p>
+                        <ul>
                           {#each item.warnings as w}
-                            <li class="break-words">{w}</li>
+                            <li>{w}</li>
                           {/each}
                         </ul>
                       </div>
                     {/if}
                     {#if item.errors.length > 0}
                       <div>
-                        <div class="text-rose-300 font-medium">Errors</div>
-                        <ul class="list-disc pl-5 text-zinc-300" data-testid="item-errors">
+                        <p class="cve-p30d3-section__hint">Errors</p>
+                        <ul data-testid="item-errors">
                           {#each item.errors as e}
-                            <li class="break-words">
-                              <code class="text-rose-200">{e.code}</code>
-                              <span class="text-rose-200"> — {itemErrorLabel(e.code)}</span>
-                              <span class="text-zinc-400"> ({e.message})</span>
+                            <li>
+                              <code class="cve-p30d3-mono">{e.code}</code>
+                              {' - '}{itemErrorLabel(e.code)}
+                              <span class="cve-p30d3-field__help">({e.message})</span>
                             </li>
                           {/each}
                         </ul>
@@ -751,12 +803,12 @@
                     {/if}
                     {#if item.security?.findings?.length}
                       <div>
-                        <div class="text-amber-300 font-medium">Security findings</div>
-                        <ul class="list-disc pl-5 text-zinc-300">
+                        <p class="cve-p30d3-section__hint">Security findings</p>
+                        <ul>
                           {#each item.security.findings as f}
-                            <li class="break-words">
-                              <code class="text-zinc-200">{f.rule ?? 'rule'}</code>
-                              ({f.severity ?? 'severity'}) — {f.detail ?? ''}
+                            <li>
+                              <code class="cve-p30d3-mono">{f.rule ?? 'rule'}</code>
+                              ({f.severity ?? 'severity'}) {' - '}{f.detail ?? ''}
                             </li>
                           {/each}
                         </ul>
@@ -764,71 +816,83 @@
                     {/if}
                     {#if item.validation?.errors?.length}
                       <div>
-                        <div class="text-rose-300 font-medium">Validation errors</div>
-                        <ul class="list-disc pl-5 text-zinc-300">
+                        <p class="cve-p30d3-section__hint">Validation errors</p>
+                        <ul>
                           {#each item.validation.errors as ve}
-                            <li class="break-words">{ve}</li>
+                            <li>{ve}</li>
                           {/each}
                         </ul>
                       </div>
                     {/if}
-                    {#if item.fields && Object.keys(item.fields).length > 0}
-                      <div>
-                        <div class="text-zinc-300 font-medium">Mapped fields</div>
-                        <pre class="bg-zinc-950 border border-zinc-800 rounded p-2 overflow-x-auto text-zinc-300">{JSON.stringify(item.fields, null, 2)}</pre>
+                    {#if (item as ImportObsidianItem).obsidian_metadata}
+                      {@const om = (item as ImportObsidianItem).obsidian_metadata}
+                      <div data-testid="obsidian-metadata">
+                        <p class="cve-p30d3-section__hint">Obsidian metadata</p>
+                        <dl class="cve-p30d3-summary-kv">
+                          <dt>Wikilinks</dt>
+                          <dd>{om?.wikilinks ?? 0}</dd>
+                          <dt>Embeds</dt>
+                          <dd>{om?.embeds ?? 0}</dd>
+                          <dt>Attachment refs</dt>
+                          <dd>{om?.attachment_refs ?? 0}</dd>
+                        </dl>
                       </div>
                     {/if}
-                    {#if (item as ImportObsidianItem).obsidian}
-                      {@const ob = (item as ImportObsidianItem).obsidian!}
-                      {#if ob.wikilinks.length || ob.embeds.length || ob.tags.length || ob.aliases.length || ob.callouts.length || ob.attachment_refs.length || ob.warnings.length}
-                        <div data-testid="obsidian-metadata">
-                          <div class="text-zinc-300 font-medium">Obsidian metadata</div>
-                          <dl class="grid grid-cols-2 gap-y-1 gap-x-3 text-xs mt-1">
-                            <dt class="text-zinc-500">Wikilinks ({ob.wikilinks.length})</dt>
-                            <dd class="text-zinc-300 break-all">{ob.wikilinks.join(', ') || '\u2014'}</dd>
-                            <dt class="text-zinc-500">Embeds ({ob.embeds.length})</dt>
-                            <dd class="text-zinc-300 break-all">{ob.embeds.join(', ') || '\u2014'}</dd>
-                            <dt class="text-zinc-500">Tags ({ob.tags.length})</dt>
-                            <dd class="text-zinc-300 break-all">{ob.tags.join(', ') || '\u2014'}</dd>
-                            <dt class="text-zinc-500">Aliases ({ob.aliases.length})</dt>
-                            <dd class="text-zinc-300 break-all">{ob.aliases.join(', ') || '\u2014'}</dd>
-                            <dt class="text-zinc-500">Callouts</dt>
-                            <dd class="text-zinc-300 break-all">{ob.callouts.join(', ') || '\u2014'}</dd>
-                            <dt class="text-zinc-500">Attachment refs</dt>
-                            <dd class="text-amber-300 break-all">{ob.attachment_refs.join(', ') || '\u2014'}</dd>
-                          </dl>
-                          {#if ob.warnings.length}
-                            <ul class="list-disc pl-5 mt-1 text-amber-300">
-                              {#each ob.warnings as ow}
-                                <li class="break-words">{ow}</li>
-                              {/each}
-                            </ul>
-                          {/if}
-                        </div>
-                      {/if}
-                    {/if}
-                  </div>
-                {/if}
-              </li>
-            {/each}
-          </ul>
-        {/if}
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
 
-        {#if showRawJson}
-          <pre class="mt-4 bg-zinc-950 border border-zinc-800 rounded p-2 overflow-x-auto text-xs text-zinc-300">{JSON.stringify(display, null, 2)}</pre>
-        {/if}
-      </div>
-    {:else}
-      <div class="bg-zinc-900 border border-zinc-800 rounded-lg p-5 text-sm text-zinc-400">
-        <p class="mb-2 font-medium text-zinc-200">No preview yet.</p>
-        <p>
-          Fill in the form on the left and run <span class="text-sky-300">Preview Import (dry-run)</span>
-          to see exactly what would be imported. Nothing is written until you
-          confirm and click <span class="text-emerald-300">Write Import</span>.
-        </p>
-      </div>
-    {/if}
-  </div>
-</div>
-{/if}
+        <details class="cve-details cve-details--inspector">
+          <summary>Raw response</summary>
+          <div class="cve-details__body">
+            <a class="cve-details__developer-link" href={rawDeepLink}
+              >Open in Developer</a
+            >
+            <pre class="cve-p30d3-mono" style="white-space:pre-wrap;">{JSON.stringify(
+                display,
+                null,
+                2,
+              )}</pre>
+          </div>
+        </details>
+      {/if}
+
+      {#if writeResult !== null}
+        <div class="cve-p30d3-section">
+          <header class="cve-p30d3-section__head">
+            <h2 class="cve-p30d3-section__title">Follow-up</h2>
+            <p class="cve-p30d3-section__hint">Imported notes are marked
+              <code class="cve-p30d3-mono">source_type: imported</code></p>
+          </header>
+          <nav class="cve-p30d3-followup">
+            <a href={buildNotesLink({ vault: writeResult.vault, filter: 'imported' })}
+              >Notes (imported only)</a
+            >
+            <a href={buildNotesLink({ vault: writeResult.vault, filter: 'draft' })}
+              >Notes (draft trust)</a
+            >
+            <a href="/app/validation">Validation</a>
+            <a href="/app/tasks">Tasks</a>
+            <a href="/app/trust">Trust and evidence</a>
+            <a href="/app/security">Security</a>
+            <a href="/app/">Dashboard</a>
+          </nav>
+
+          <ImportedReviewSummary
+            vault={writeResult.vault}
+            notes={postWriteNotes}
+            validation={postWriteValidation}
+            tasks={postWriteTasks}
+            trust={postWriteTrust}
+          />
+          {#if postWriteLoading}
+            <p class="cve-p30d3-field__help">Loading post-import review data...</p>
+          {/if}
+        </div>
+      {/if}
+    </section>
+  {/if}
 </div>

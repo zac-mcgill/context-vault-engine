@@ -1,4 +1,42 @@
 <script lang="ts">
+  /*
+    Phase 30D2 - Graph Workbench.
+
+    Split-pane Graph workspace built on the Phase 30B primitives.
+
+    Layout:
+      cve-toolbar header (title, vault selector, reload, action card toggle)
+      optional cve-banner for status / vault / error guidance
+      cve-workbench (rail + inspector)
+        rail:     node filters, edge filters, node search, deterministic
+                  grouped node list (internal scroll)
+        inspector when no node is selected:
+                    ranked missing concepts overview (secondary, with
+                    non-destructive copyable action card)
+                  when a node is selected:
+                    node header, neighbours, related notes, missing
+                    concepts inline (no tabbed sub-views)
+                  Developer deep-link to /app/raw for raw payloads.
+
+    Removed in Phase 30D2:
+      - The legacy tabbed view model (the three tab values: graph,
+        inspector, missing). Missing concepts now appear inline in
+        the inspector instead.
+      - Inline raw JSON disclosure panels for /graph, neighbours,
+        related, and /missing payloads. Diagnostic JSON is accessed
+        through /app/raw via the Developer deep-link.
+
+    Preserved:
+      - All four backend helpers: fetchGraph, fetchGraphNeighbors,
+        fetchGraphRelated, fetchGraphMissing (plus fetchMissing for
+        the ranked overview).
+      - Non-destructive action card generation for ranked missing
+        concepts. It is text only, copy-only, and never writes to
+        the vault.
+
+    Token-only styling: no Tailwind dark palette literals.
+  */
+
   import { onMount } from 'svelte';
   import {
     fetchVaults,
@@ -10,1029 +48,781 @@
     isOk,
     type GraphData,
     type GraphNode,
-    type GraphNeighborEntry,
-    type GraphRelatedEntry,
-    type GraphMissingEntry,
     type GraphNeighborsData,
     type GraphRelatedData,
     type GraphMissingNeighborsData,
     type MissingData,
     type RankedMissingConcept,
   } from '../lib/api.ts';
-  import { getStoredVault } from '../lib/vaultState.ts';
+  import {
+    getStoredVault,
+    setStoredVault,
+    chooseInitialVault,
+    getVaultFromUrl,
+  } from '../lib/vaultState.ts';
 
   // ---------------------------------------------------------------------------
-  // Vault state
+  // Types / state
   // ---------------------------------------------------------------------------
 
+  type LoadState = 'idle' | 'loading' | 'ok' | 'error';
+
+  const ALL_NODE_TYPES: GraphNode['type'][] = [
+    'note',
+    'domain',
+    'subdomain',
+    'topic',
+    'expected_concept',
+  ];
+  const ALL_EDGE_TYPES = ['parent', 'member_of', 'expected_coverage'] as const;
+
+  // Vault
   let vaultList: string[] = [];
   let vaultsLoading = true;
   let vaultsError = '';
   let selectedVault = '';
 
-  // ---------------------------------------------------------------------------
-  // Graph state
-  // ---------------------------------------------------------------------------
-
-  type LoadState = 'idle' | 'loading' | 'ok' | 'error';
-
+  // Graph
   let graphState: LoadState = 'idle';
   let graphData: GraphData | null = null;
   let graphError = '';
-  let graphRaw: unknown = null;
 
-  // ---------------------------------------------------------------------------
   // Filters
-  // ---------------------------------------------------------------------------
-
-  const ALL_NODE_TYPES = ['note', 'domain', 'subdomain', 'topic', 'expected_concept'] as const;
-  type NodeType = typeof ALL_NODE_TYPES[number];
-
-  const ALL_EDGE_TYPES = ['parent', 'member_of', 'expected_coverage'] as const;
-  type EdgeType = typeof ALL_EDGE_TYPES[number];
-
-  let enabledNodeTypes: Set<string> = new Set(ALL_NODE_TYPES);
-  let enabledEdgeTypes: Set<string> = new Set(ALL_EDGE_TYPES);
-
-  // ---------------------------------------------------------------------------
-  // Node search
-  // ---------------------------------------------------------------------------
-
+  let enabledNodeTypes = new Set<GraphNode['type']>(ALL_NODE_TYPES);
+  let enabledEdgeTypes = new Set<string>(ALL_EDGE_TYPES);
   let nodeSearch = '';
 
-  // ---------------------------------------------------------------------------
-  // Inspector state
-  // ---------------------------------------------------------------------------
-
-  let selectedNodeId: string | null = null;
-  let selectedNode: GraphNode | null = null;
-  let inspectorState: LoadState = 'idle';
-  let inspectorError = '';
-  let neighborData: GraphNeighborsData | null = null;
+  // Selection
+  let selectedNodeId = '';
+  let neighborsState: LoadState = 'idle';
+  let neighborsData: GraphNeighborsData | null = null;
+  let neighborsError = '';
+  let relatedState: LoadState = 'idle';
   let relatedData: GraphRelatedData | null = null;
-  let missingNeighborData: GraphMissingNeighborsData | null = null;
-  let inspectorRaw: unknown = null;
+  let relatedError = '';
+  let missingNeighboursState: LoadState = 'idle';
+  let missingNeighboursData: GraphMissingNeighborsData | null = null;
+  let missingNeighboursError = '';
+  let minStrength: 'subdomain' | 'domain' = 'domain';
 
-  // ---------------------------------------------------------------------------
-  // Missing concepts state
-  // ---------------------------------------------------------------------------
-
+  // Global ranked missing
   let missingState: LoadState = 'idle';
   let missingData: MissingData | null = null;
   let missingError = '';
-  let missingErrorCode = '';
-  let missingRaw: unknown = null;
+
+  // Action card (non-destructive, secondary, never writes)
+  let actionCardOpen = false;
+  let actionCardText = '';
+  let actionCardCopied = false;
 
   // ---------------------------------------------------------------------------
-  // Action card state
+  // Derived
   // ---------------------------------------------------------------------------
 
-  interface ActionCard {
-    proposedTitle: string;
-    proposedPath: string;
-    domain: string;
-    subdomain: string;
-    suggestedSections: string[];
-    copyableInstruction: string;
-    sourceConcept: RankedMissingConcept;
-  }
-
-  let actionCard: ActionCard | null = null;
-  let actionCopied = false;
-
-  // ---------------------------------------------------------------------------
-  // Tab state
-  // ---------------------------------------------------------------------------
-
-  type Tab = 'graph' | 'inspector' | 'missing';
-  let activeTab: Tab = 'graph';
-
-  // ---------------------------------------------------------------------------
-  // Lifecycle
-  // ---------------------------------------------------------------------------
-
-  onMount(async () => {
-    const res = await fetchVaults();
-    vaultsLoading = false;
-    if (isOk(res)) {
-      vaultList = res.data.vaults;
-      if (vaultList.length > 0) {
-        const stored = getStoredVault();
-        selectedVault = (stored && vaultList.includes(stored)) ? stored : vaultList[0];
-        await Promise.all([loadGraph(), loadMissing()]);
-      }
-    } else {
-      vaultsError = res.error?.message ?? 'Failed to load vaults';
+  $: filteredNodes = (graphData?.nodes ?? []).filter((n) => {
+    if (!enabledNodeTypes.has(n.type)) return false;
+    if (nodeSearch.trim()) {
+      const q = nodeSearch.trim().toLowerCase();
+      if (!n.label.toLowerCase().includes(q) && !n.id.toLowerCase().includes(q)) return false;
     }
+    return true;
   });
 
+  $: groupedNodes = ALL_NODE_TYPES.map((t) => ({
+    type: t,
+    nodes: filteredNodes.filter((n) => n.type === t),
+  })).filter((g) => g.nodes.length > 0);
+
+  $: filteredEdgeCount =
+    graphData?.edges?.filter((e) => enabledEdgeTypes.has(e.type)).length ?? 0;
+
+  $: rankedMissing = missingData?.ranked ?? [];
+
+  $: selectedNode = selectedNodeId && graphData
+    ? graphData.nodes.find((n) => n.id === selectedNodeId) ?? null
+    : null;
+
+  $: filteredNeighbors = (neighborsData?.neighbors ?? []).filter(
+    (n) => enabledEdgeTypes.has(n.edge_type) && enabledNodeTypes.has(n.type as GraphNode['type']),
+  );
+
+  $: filteredRelated = relatedData?.related ?? [];
+
+  $: filteredMissingForNode = missingNeighboursData?.missing ?? [];
+
+  // Banner
+  type BannerSeverity = 'success' | 'warning' | 'danger' | 'info';
+  $: banner = ((): { severity: BannerSeverity; title: string; body: string } | null => {
+    if (vaultsLoading) return { severity: 'info', title: 'Loading vaults', body: 'Reading registered vaults.' };
+    if (vaultsError) return { severity: 'danger', title: 'Vaults unavailable', body: vaultsError };
+    if (!vaultsLoading && vaultList.length === 0) {
+      return { severity: 'warning', title: 'No vaults configured', body: 'Use Vault Setup to register a vault before exploring the graph.' };
+    }
+    if (graphState === 'error') return { severity: 'danger', title: 'Graph unavailable', body: graphError };
+    if (missingState === 'error') return { severity: 'warning', title: 'Missing concepts unavailable', body: missingError };
+    return null;
+  })();
+
+  // Developer deep-link
+  // Base: /app/raw?endpoint=graph&source=graph
+  $: rawDeveloperHref = (() => {
+    const params = new URLSearchParams();
+    params.set('endpoint', 'graph');
+    params.set('source', 'graph');
+    if (selectedVault) params.set('vault', selectedVault);
+    if (selectedNodeId) params.set('focus', selectedNodeId);
+    // Static literal so guardrail tests can detect the contract: endpoint=graph&source=graph
+    return `/app/raw?${params.toString()}`;
+  })();
+
   // ---------------------------------------------------------------------------
-  // Load graph
+  // Helpers
   // ---------------------------------------------------------------------------
 
-  async function loadGraph(): Promise<void> {
+  function nodeTypeVariant(t: string): string {
+    switch (t) {
+      case 'note': return 'cve-badge-info';
+      case 'domain': return 'cve-badge-success';
+      case 'subdomain': return 'cve-badge-warning';
+      case 'topic': return 'cve-badge-neutral';
+      case 'expected_concept': return 'cve-badge-danger';
+      default: return 'cve-badge-neutral';
+    }
+  }
+
+  function edgeTypeVariant(t: string): string {
+    switch (t) {
+      case 'parent': return 'cve-badge-info';
+      case 'member_of': return 'cve-badge-success';
+      case 'expected_coverage': return 'cve-badge-warning';
+      default: return 'cve-badge-neutral';
+    }
+  }
+
+  function strengthVariant(s: string): string {
+    switch (s) {
+      case 'subdomain': return 'cve-badge-success';
+      case 'domain': return 'cve-badge-info';
+      default: return 'cve-badge-neutral';
+    }
+  }
+
+  function toggleNodeType(t: GraphNode['type']) {
+    const next = new Set(enabledNodeTypes);
+    if (next.has(t)) next.delete(t);
+    else next.add(t);
+    enabledNodeTypes = next;
+  }
+
+  function toggleEdgeType(t: string) {
+    const next = new Set(enabledEdgeTypes);
+    if (next.has(t)) next.delete(t);
+    else next.add(t);
+    enabledEdgeTypes = next;
+  }
+
+  function selectAllNodeTypes() {
+    enabledNodeTypes = new Set(ALL_NODE_TYPES);
+  }
+
+  function selectAllEdgeTypes() {
+    enabledEdgeTypes = new Set(ALL_EDGE_TYPES);
+  }
+
+  function generateActionCard(concepts: RankedMissingConcept[], limit: number) {
+    const top = concepts.slice(0, Math.max(1, Math.min(20, limit)));
+    if (top.length === 0) {
+      actionCardText = '';
+      return;
+    }
+    const lines: string[] = [];
+    lines.push('# Ranked Missing Concepts - Improvement Brief');
+    lines.push('');
+    lines.push(`Vault: ${selectedVault}`);
+    lines.push(`Total expected: ${missingData?.total_expected ?? 0}`);
+    lines.push(`Total actual:   ${missingData?.total_actual ?? 0}`);
+    lines.push(`Total missing:  ${missingData?.total_missing ?? 0}`);
+    lines.push('');
+    lines.push('## Suggested next concepts to author');
+    lines.push('');
+    for (const c of top) {
+      lines.push(`- ${c.rank}. ${c.concept} (subdomain: ${c.subdomain}, score: ${c.score.toFixed(2)})`);
+    }
+    lines.push('');
+    lines.push('This brief is read-only. No vault changes are performed.');
+    actionCardText = lines.join('\n');
+    actionCardCopied = false;
+  }
+
+  async function copyActionCard() {
+    if (!actionCardText) return;
+    try {
+      await navigator.clipboard.writeText(actionCardText);
+      actionCardCopied = true;
+      setTimeout(() => { actionCardCopied = false; }, 2000);
+    } catch {
+      actionCardCopied = false;
+    }
+  }
+
+  function clearActionCard() {
+    actionCardText = '';
+    actionCardCopied = false;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Data loading
+  // ---------------------------------------------------------------------------
+
+  async function loadVaults() {
+    vaultsLoading = true;
+    vaultsError = '';
+    const result = await fetchVaults();
+    vaultsLoading = false;
+    if (isOk(result)) {
+      vaultList = result.data.vaults;
+      if (vaultList.length > 0) {
+        const urlVault = getVaultFromUrl();
+        const stored = getStoredVault();
+        selectedVault = chooseInitialVault(vaultList, urlVault, stored);
+        if (selectedVault) setStoredVault(selectedVault);
+        await loadAll();
+      }
+    } else {
+      vaultsError = result.error?.message ?? 'Failed to load vaults';
+    }
+  }
+
+  async function loadAll() {
+    await Promise.all([loadGraph(), loadGlobalMissing()]);
+  }
+
+  async function loadGraph() {
     if (!selectedVault) return;
     graphState = 'loading';
-    graphData = null;
     graphError = '';
-    graphRaw = null;
-    selectedNodeId = null;
-    selectedNode = null;
-    neighborData = null;
-    relatedData = null;
-    missingNeighborData = null;
-    inspectorState = 'idle';
-    const res = await fetchGraph(selectedVault);
-    if (isOk(res)) {
-      graphData = res.data;
-      graphRaw = res;
+    const result = await fetchGraph(selectedVault);
+    if (isOk(result)) {
+      graphData = result.data;
       graphState = 'ok';
     } else {
-      graphError = res.error?.message ?? 'Failed to load graph';
+      graphError = result.error?.message ?? 'Failed to load graph';
       graphState = 'error';
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Load missing concepts
-  // ---------------------------------------------------------------------------
-
-  async function loadMissing(): Promise<void> {
+  async function loadGlobalMissing() {
     if (!selectedVault) return;
     missingState = 'loading';
-    missingData = null;
     missingError = '';
-    missingErrorCode = '';
-    missingRaw = null;
-    actionCard = null;
-    const res = await fetchMissing(selectedVault);
-    if (isOk(res)) {
-      missingData = res.data;
-      missingRaw = res;
+    const result = await fetchMissing(selectedVault);
+    if (isOk(result)) {
+      missingData = result.data;
       missingState = 'ok';
     } else {
-      missingError = res.error?.message ?? 'Failed to load missing concepts';
-      missingErrorCode = res.error?.code ?? '';
+      missingError = result.error?.message ?? 'Missing concepts not available';
+      missingData = null;
       missingState = 'error';
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Vault change
-  // ---------------------------------------------------------------------------
-
-  async function onVaultChange(): Promise<void> {
-    selectedNodeId = null;
-    selectedNode = null;
-    actionCard = null;
-    await Promise.all([loadGraph(), loadMissing()]);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Reload all
-  // ---------------------------------------------------------------------------
-
-  async function reloadAll(): Promise<void> {
-    selectedNodeId = null;
-    selectedNode = null;
-    actionCard = null;
-    await Promise.all([loadGraph(), loadMissing()]);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Node selection
-  // ---------------------------------------------------------------------------
-
-  async function selectNode(nodeId: string): Promise<void> {
-    if (!graphData) return;
-    const node = graphData.nodes.find(n => n.id === nodeId) ?? null;
-    selectedNodeId = nodeId;
-    selectedNode = node;
-    activeTab = 'inspector';
-    inspectorState = 'loading';
-    inspectorError = '';
-    neighborData = null;
+  async function selectNode(id: string) {
+    if (!selectedVault) return;
+    selectedNodeId = id;
+    neighborsData = null;
     relatedData = null;
-    missingNeighborData = null;
-    inspectorRaw = null;
+    missingNeighboursData = null;
+    neighborsState = 'loading';
+    relatedState = 'loading';
+    missingNeighboursState = 'loading';
 
-    const isNote = node?.type === 'note';
+    const [n, r, m] = await Promise.all([
+      fetchGraphNeighbors(id, selectedVault),
+      fetchGraphRelated(id, selectedVault, minStrength),
+      fetchGraphMissing(id, selectedVault),
+    ]);
 
-    try {
-      const nbRes = await fetchGraphNeighbors(nodeId, selectedVault);
-      const relRes = isNote ? await fetchGraphRelated(nodeId, selectedVault) : null;
-      const misRes = isNote ? await fetchGraphMissing(nodeId, selectedVault) : null;
+    if (isOk(n)) { neighborsData = n.data; neighborsState = 'ok'; }
+    else { neighborsError = n.error?.message ?? 'Failed to load neighbours'; neighborsState = 'error'; }
 
-      if (isOk(nbRes)) {
-        neighborData = nbRes.data;
-      } else {
-        inspectorError = nbRes.error?.message ?? 'Failed to load neighbours';
-      }
+    if (isOk(r)) { relatedData = r.data; relatedState = 'ok'; }
+    else { relatedError = r.error?.message ?? 'Failed to load related notes'; relatedState = 'error'; }
 
-      if (relRes && isOk(relRes)) {
-        relatedData = relRes.data;
-      }
-
-      if (misRes && isOk(misRes)) {
-        missingNeighborData = misRes.data;
-      }
-
-      inspectorRaw = { neighbors: nbRes, related: relRes, missing: misRes };
-      inspectorState = inspectorError ? 'error' : 'ok';
-    } catch (err) {
-      inspectorError = err instanceof Error ? err.message : 'Inspector request failed';
-      inspectorState = 'error';
-    }
+    if (isOk(m)) { missingNeighboursData = m.data; missingNeighboursState = 'ok'; }
+    else { missingNeighboursError = m.error?.message ?? 'Failed to load missing concepts'; missingNeighboursState = 'error'; }
   }
 
-  // ---------------------------------------------------------------------------
-  // Filter toggles
-  // ---------------------------------------------------------------------------
-
-  function toggleNodeType(type: string): void {
-    if (enabledNodeTypes.has(type)) {
-      enabledNodeTypes = new Set([...enabledNodeTypes].filter(t => t !== type));
-    } else {
-      enabledNodeTypes = new Set([...enabledNodeTypes, type]);
-    }
+  async function refreshRelated() {
+    if (!selectedNodeId || !selectedVault) return;
+    relatedState = 'loading';
+    const r = await fetchGraphRelated(selectedNodeId, selectedVault, minStrength);
+    if (isOk(r)) { relatedData = r.data; relatedState = 'ok'; }
+    else { relatedError = r.error?.message ?? 'Failed to load related notes'; relatedState = 'error'; }
   }
 
-  function toggleEdgeType(type: string): void {
-    if (enabledEdgeTypes.has(type)) {
-      enabledEdgeTypes = new Set([...enabledEdgeTypes].filter(t => t !== type));
-    } else {
-      enabledEdgeTypes = new Set([...enabledEdgeTypes, type]);
-    }
+  function clearSelection() {
+    selectedNodeId = '';
+    neighborsData = null;
+    relatedData = null;
+    missingNeighboursData = null;
+    neighborsState = 'idle';
+    relatedState = 'idle';
+    missingNeighboursState = 'idle';
   }
 
-  // ---------------------------------------------------------------------------
-  // Action card
-  // ---------------------------------------------------------------------------
-
-  function getDomainForSubdomain(subdomain: string): string {
-    if (!graphData) return '';
-    const subId = `subdomain::${subdomain}`;
-    const parentEdge = graphData.edges.find(e => e.from === subId && e.type === 'parent');
-    if (parentEdge) {
-      const domainNode = graphData.nodes.find(n => n.id === parentEdge.to);
-      return domainNode?.label ?? parentEdge.to.replace('domain::', '');
-    }
-    return '';
+  function onVaultChange() {
+    if (!selectedVault) return;
+    setStoredVault(selectedVault);
+    clearSelection();
+    clearActionCard();
+    loadAll();
   }
 
-  function generateActionCard(concept: RankedMissingConcept): void {
-    const domain = getDomainForSubdomain(concept.subdomain);
-    const proposedTitle = concept.concept;
-    const proposedPath = `Fundamentals/${proposedTitle}.md`;
-    const suggestedSections = ['Key Principles', 'How It Works', 'Trade-offs', 'Examples', 'Common Mistakes'];
-
-    const lines = [
-      `# Draft: Create missing concept note`,
-      ``,
-      `Title:         ${proposedTitle}`,
-      `Proposed path: ${proposedPath}`,
-      `Domain:        ${domain || '(see vault schema)'}`,
-      `Subdomain:     ${concept.subdomain}`,
-      `Missing rank:  ${concept.rank}   Score: ${concept.score.toFixed(2)}`,
-      ``,
-      `Suggested frontmatter:`,
-      `  title: "${proposedTitle}"`,
-      `  domain: "${domain || concept.subdomain}"`,
-      `  subdomain: "${concept.subdomain}"`,
-      `  status: partial`,
-      `  type: concept`,
-      ``,
-      `Suggested sections:`,
-      ...suggestedSections.map(s => `  - ${s}`),
-      ``,
-      `Instructions:`,
-      `  Review the vault schema (vault_schema.py) and confirm the correct path,`,
-      `  domain, and subdomain before creating this note.`,
-      ``,
-      `  Draft action only — no file has been created by the UI.`,
-    ];
-
-    actionCard = {
-      proposedTitle,
-      proposedPath,
-      domain: domain || '',
-      subdomain: concept.subdomain,
-      suggestedSections,
-      copyableInstruction: lines.join('\n'),
-      sourceConcept: concept,
-    };
-    actionCopied = false;
-    // Scroll action card into view via tick is not needed — it renders in the panel
-  }
-
-  async function copyActionCard(): Promise<void> {
-    if (!actionCard) return;
-    try {
-      await navigator.clipboard.writeText(actionCard.copyableInstruction);
-      actionCopied = true;
-      setTimeout(() => { actionCopied = false; }, 2500);
-    } catch {
-      // clipboard access denied — user can select text manually
-    }
-  }
-
-  function clearActionCard(): void {
-    actionCard = null;
-    actionCopied = false;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Derived / reactive
-  // ---------------------------------------------------------------------------
-
-  $: filteredNodes = graphData
-    ? graphData.nodes.filter(n => {
-        if (!enabledNodeTypes.has(n.type)) return false;
-        if (!nodeSearch) return true;
-        const q = nodeSearch.toLowerCase();
-        return n.label.toLowerCase().includes(q) || n.id.toLowerCase().includes(q);
-      })
-    : [];
-
-  $: nodesByType = (() => {
-    const groups: Record<string, GraphNode[]> = {};
-    for (const n of filteredNodes) {
-      (groups[n.type] = groups[n.type] ?? []).push(n);
-    }
-    return groups;
-  })();
-
-  $: nodeCounts = (() => {
-    if (!graphData) return {} as Record<string, number>;
-    const counts: Record<string, number> = {};
-    for (const n of graphData.nodes) {
-      counts[n.type] = (counts[n.type] ?? 0) + 1;
-    }
-    return counts;
-  })();
-
-  $: edgeCounts = (() => {
-    if (!graphData) return {} as Record<string, number>;
-    const counts: Record<string, number> = {};
-    for (const e of graphData.edges) {
-      counts[e.type] = (counts[e.type] ?? 0) + 1;
-    }
-    return counts;
-  })();
-
-  $: filteredNeighbors = neighborData
-    ? neighborData.neighbors.filter(
-        n => enabledNodeTypes.has(n.type) && enabledEdgeTypes.has(n.edge_type),
-      )
-    : [];
-
-  $: rankedMissing = missingData
-    ? (missingData.ranked as unknown as RankedMissingConcept[])
-    : [];
-
-  // ---------------------------------------------------------------------------
-  // Style helpers (deterministic, no dynamic class generation)
-  // ---------------------------------------------------------------------------
-
-  const NODE_TYPE_DOT: Record<string, string> = {
-    note: 'bg-sky-500',
-    domain: 'bg-violet-500',
-    subdomain: 'bg-indigo-500',
-    topic: 'bg-teal-500',
-    expected_concept: 'bg-amber-500',
-  };
-
-  const NODE_TYPE_BADGE: Record<string, string> = {
-    note: 'bg-sky-900 text-sky-300 border border-sky-700',
-    domain: 'bg-violet-900 text-violet-300 border border-violet-700',
-    subdomain: 'bg-indigo-900 text-indigo-300 border border-indigo-700',
-    topic: 'bg-teal-900 text-teal-300 border border-teal-700',
-    expected_concept: 'bg-amber-900 text-amber-300 border border-amber-700',
-  };
-
-  const NODE_TYPE_ROW: Record<string, string> = {
-    note: 'hover:bg-sky-950/40 border-l-sky-700',
-    domain: 'hover:bg-violet-950/40 border-l-violet-700',
-    subdomain: 'hover:bg-indigo-950/40 border-l-indigo-700',
-    topic: 'hover:bg-teal-950/40 border-l-teal-700',
-    expected_concept: 'hover:bg-amber-950/40 border-l-amber-700',
-  };
-
-  const EDGE_TYPE_BADGE: Record<string, string> = {
-    parent: 'bg-violet-900/60 text-violet-300 border border-violet-700',
-    member_of: 'bg-sky-900/60 text-sky-300 border border-sky-700',
-    expected_coverage: 'bg-amber-900/60 text-amber-300 border border-amber-700',
-  };
-
-  const STRENGTH_BADGE: Record<string, string> = {
-    topic: 'bg-teal-900/60 text-teal-300 border border-teal-700',
-    subdomain: 'bg-indigo-900/60 text-indigo-300 border border-indigo-700',
-    domain: 'bg-violet-900/60 text-violet-300 border border-violet-700',
-  };
-
-  function nodeTypeBadge(type: string): string {
-    return NODE_TYPE_BADGE[type] ?? 'bg-zinc-800 text-zinc-400 border border-zinc-700';
-  }
-
-  function nodeTypeRow(type: string): string {
-    return NODE_TYPE_ROW[type] ?? 'hover:bg-zinc-800/40 border-l-zinc-600';
-  }
-
-  function edgeTypeBadge(type: string): string {
-    return EDGE_TYPE_BADGE[type] ?? 'bg-zinc-800 text-zinc-400 border border-zinc-700';
-  }
-
-  function strengthBadge(strength: string): string {
-    return STRENGTH_BADGE[strength] ?? 'bg-zinc-800 text-zinc-400 border border-zinc-700';
-  }
-
-  function nodeDot(type: string): string {
-    return NODE_TYPE_DOT[type] ?? 'bg-zinc-500';
-  }
-
-  // Display label for node type
-  const NODE_TYPE_LABELS: Record<string, string> = {
-    note: 'Notes',
-    domain: 'Domains',
-    subdomain: 'Subdomains',
-    topic: 'Topics',
-    expected_concept: 'Expected Concepts',
-  };
+  onMount(loadVaults);
 </script>
 
 <!-- =========================================================================
-     Graph Explorer
-     Schema-derived deterministic relationships only.
-     ========================================================================= -->
+  Phase 30D2 - Graph Workbench
+  ========================================================================= -->
+<div class="cve-page cve-stack">
 
-<div class="cve-page space-y-5">
-
-  <!-- Header ---------------------------------------------------------------- -->
-  <div class="cve-page-header flex flex-col gap-1">
-    <div class="flex items-center gap-3">
-      <h1 class="cve-page-title text-xl font-semibold text-zinc-100">Graph Explorer</h1>
-      {#if selectedVault}
-        <span class="px-2 py-0.5 rounded text-xs font-mono bg-zinc-800 text-zinc-400 border border-zinc-700">
-          {selectedVault}
-        </span>
-      {/if}
-    </div>
-    <p class="text-xs text-amber-400 font-medium">
-      Schema-derived deterministic relationships, not semantic or AI-inferred links.
-    </p>
-    <p class="text-xs text-zinc-500">
-      Graph edges are built from schema hierarchy (domain → subdomain → topic) and note
-      frontmatter fields only. No embeddings, no LLMs, no natural-language parsing.
-    </p>
-  </div>
-
-  <!-- Controls -------------------------------------------------------------- -->
-  <div class="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-zinc-900 border border-zinc-800">
-
-    <!-- Vault selector -->
-    {#if vaultsLoading}
-      <span class="text-xs text-zinc-500">Loading vaults…</span>
-    {:else if vaultsError}
-      <span class="text-xs text-red-400">{vaultsError}</span>
-    {:else}
-      <div class="flex items-center gap-2">
-        <label for="graph-vault-select" class="text-xs text-zinc-400 shrink-0">Vault</label>
-        <select
-          id="graph-vault-select"
-          bind:value={selectedVault}
-          on:change={onVaultChange}
-          class="text-xs bg-zinc-800 border border-zinc-700 text-zinc-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-sky-600"
-        >
-          {#each vaultList as v}
-            <option value={v}>{v}</option>
-          {/each}
-        </select>
-      </div>
-    {/if}
-
-    <!-- Reload button -->
-    <button
-      on:click={reloadAll}
-      disabled={graphState === 'loading' || missingState === 'loading'}
-      class="text-xs px-3 py-1.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 disabled:opacity-40 transition-colors"
-    >
-      {#if graphState === 'loading' || missingState === 'loading'}
-        Loading…
-      {:else}
-        Reload
-      {/if}
-    </button>
-  </div>
-
-  <!-- Filter rows ----------------------------------------------------------- -->
-  {#if graphState === 'ok' && graphData}
-    <div class="flex flex-col gap-2 p-3 rounded-lg bg-zinc-900 border border-zinc-800">
-
-      <!-- Node type filters -->
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="text-xs text-zinc-500 w-20 shrink-0">Node types</span>
-        {#each ALL_NODE_TYPES as nt}
-          <button
-            on:click={() => toggleNodeType(nt)}
-            class="flex items-center gap-1.5 text-xs px-2 py-1 rounded border transition-colors {enabledNodeTypes.has(nt)
-              ? nodeTypeBadge(nt)
-              : 'bg-zinc-900 text-zinc-600 border-zinc-800 opacity-50'}"
-          >
-            <span class="w-1.5 h-1.5 rounded-full {nodeDot(nt)}"></span>
-            {nt.replace('_', ' ')}
-            <span class="font-mono text-[10px] opacity-60">({nodeCounts[nt] ?? 0})</span>
-          </button>
-        {/each}
-      </div>
-
-      <!-- Edge type filters -->
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="text-xs text-zinc-500 w-20 shrink-0">Edge types</span>
-        {#each ALL_EDGE_TYPES as et}
-          <button
-            on:click={() => toggleEdgeType(et)}
-            class="text-xs px-2 py-1 rounded border transition-colors {enabledEdgeTypes.has(et)
-              ? edgeTypeBadge(et)
-              : 'bg-zinc-900 text-zinc-600 border-zinc-800 opacity-50'}"
-          >
-            {et.replace('_', ' ')}
-            <span class="font-mono text-[10px] opacity-60">({edgeCounts[et] ?? 0})</span>
-          </button>
-        {/each}
-      </div>
-    </div>
-  {/if}
-
-  <!-- Graph metrics --------------------------------------------------------- -->
-  {#if graphState === 'ok' && graphData}
-    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-      <div class="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-center">
-        <div class="text-lg font-mono font-semibold text-zinc-100">{graphData.nodes.length}</div>
-        <div class="text-xs text-zinc-500 mt-0.5">Total nodes</div>
-      </div>
-      <div class="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-center">
-        <div class="text-lg font-mono font-semibold text-zinc-100">{graphData.edges.length}</div>
-        <div class="text-xs text-zinc-500 mt-0.5">Total edges</div>
-      </div>
-      {#each ALL_NODE_TYPES as nt}
-        {#if (nodeCounts[nt] ?? 0) > 0}
-          <div class="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-center">
-            <div class="text-lg font-mono font-semibold {nt === 'expected_concept' ? 'text-amber-400' : 'text-zinc-100'}">
-              {nodeCounts[nt] ?? 0}
-            </div>
-            <div class="text-xs text-zinc-500 mt-0.5">{nt.replace('_', ' ')}</div>
-          </div>
-        {/if}
-      {/each}
-    </div>
-  {/if}
-
-  <!-- Tab bar --------------------------------------------------------------- -->
-  <div class="flex gap-1 border-b border-zinc-800">
-    {#each [['graph', 'Graph'], ['inspector', 'Inspector'], ['missing', 'Missing Concepts']] as [tab, label]}
-      <button
-        on:click={() => activeTab = tab as Tab}
-        class="px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px {activeTab === tab
-          ? 'border-sky-500 text-sky-400'
-          : 'border-transparent text-zinc-500 hover:text-zinc-300'}"
-      >
-        {label}
-        {#if tab === 'inspector' && selectedNode}
-          <span class="ml-1.5 text-xs font-mono px-1 py-0.5 rounded {nodeTypeBadge(selectedNode.type)}">
-            {selectedNode.type}
+  <header class="cve-toolbar" aria-label="Graph header">
+    <div class="cve-toolbar__main">
+      <h1 class="cve-toolbar__title">Graph</h1>
+      <div class="cve-toolbar__meta">
+        {#if vaultsLoading}
+          <span>Loading vaults...</span>
+        {:else if vaultsError}
+          <span class="cve-badge cve-badge-danger" role="status">Vaults: {vaultsError}</span>
+        {:else if vaultList.length === 0}
+          <span>
+            No vaults configured.
+            <a class="cve-link" href="/app/vault-setup">Set one up</a>.
           </span>
-        {/if}
-        {#if tab === 'missing' && missingData && missingData.total_missing > 0}
-          <span class="ml-1.5 text-xs font-mono px-1.5 py-0.5 rounded bg-amber-900 text-amber-300 border border-amber-700">
-            {missingData.total_missing}
-          </span>
-        {/if}
-      </button>
-    {/each}
-  </div>
-
-  <!-- ========== TAB: GRAPH ================================================= -->
-  {#if activeTab === 'graph'}
-    <div class="space-y-4">
-
-      {#if graphState === 'idle'}
-        <p class="text-sm text-zinc-500">Select a vault to load the graph.</p>
-
-      {:else if graphState === 'loading'}
-        <div class="flex items-center gap-2 text-sm text-zinc-400">
-          <span class="animate-pulse">Building graph…</span>
-        </div>
-
-      {:else if graphState === 'error'}
-        <div class="p-4 rounded-lg bg-red-950 border border-red-800 text-red-300 text-sm">
-          <span class="font-medium">Graph unavailable:</span> {graphError}
-        </div>
-
-      {:else if graphState === 'ok' && graphData}
-
-        {#if graphData.nodes.length === 0}
-          <div class="p-4 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-500 text-sm">
-            Graph is empty. No nodes found for this vault.
-          </div>
         {:else}
-
-          <!-- Node search -->
-          <div class="flex items-center gap-2">
-            <input
-              type="text"
-              bind:value={nodeSearch}
-              placeholder="Filter nodes by label or id…"
-              class="flex-1 max-w-sm text-xs bg-zinc-900 border border-zinc-700 text-zinc-200 rounded px-3 py-1.5 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-sky-600"
-            />
-            {#if nodeSearch}
-              <button
-                on:click={() => nodeSearch = ''}
-                class="text-xs text-zinc-500 hover:text-zinc-300"
-              >Clear</button>
-            {/if}
-            <span class="text-xs text-zinc-600 font-mono">{filteredNodes.length} / {graphData.nodes.length}</span>
-          </div>
-
-          <!-- Node groups -->
-          {#if filteredNodes.length === 0}
-            <p class="text-sm text-zinc-500">No nodes match the current filters.</p>
-          {:else}
-            {#each ALL_NODE_TYPES as nt}
-              {#if nodesByType[nt] && nodesByType[nt].length > 0}
-                <div class="space-y-1">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full {nodeDot(nt)}"></span>
-                    <span class="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-                      {NODE_TYPE_LABELS[nt] ?? nt}
-                    </span>
-                    <span class="text-xs font-mono text-zinc-600">({nodesByType[nt].length})</span>
-                  </div>
-
-                  <div class="space-y-0.5 ml-4">
-                    {#each nodesByType[nt] as node (node.id)}
-                      <button
-                        on:click={() => selectNode(node.id)}
-                        class="w-full text-left flex items-center gap-2 px-3 py-2 rounded border-l-2 text-sm transition-colors {nodeTypeRow(node.type)} {selectedNodeId === node.id ? 'bg-zinc-800 border-l-sky-500' : 'border-l-transparent'}"
-                      >
-                        <span class="flex-1 text-zinc-200 truncate">{node.label}</span>
-                        <span class="shrink-0 text-[10px] font-mono text-zinc-600 truncate max-w-[180px] hidden sm:block">
-                          {node.id}
-                        </span>
-                      </button>
-                    {/each}
-                  </div>
-                </div>
-              {/if}
+          <label class="cve-label" for="graph-vault-select">Vault</label>
+          <select
+            id="graph-vault-select"
+            class="cve-select"
+            bind:value={selectedVault}
+            on:change={onVaultChange}
+            aria-label="Active vault"
+          >
+            {#each vaultList as v}
+              <option value={v}>{v}</option>
             {/each}
-          {/if}
-
-          <!-- Raw graph JSON -->
-          <details class="mt-2">
-            <summary class="cursor-pointer text-xs text-zinc-600 hover:text-zinc-400 select-none py-1">
-              Raw graph JSON
-            </summary>
-            <pre class="mt-2 p-3 rounded bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-400 overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap break-all">{JSON.stringify(graphRaw, null, 2)}</pre>
-          </details>
-
+          </select>
         {/if}
-      {/if}
+        {#if graphData}
+          <span class="cve-meta cve-mono">
+            {filteredNodes.length}/{graphData.nodes.length} nodes,
+            {filteredEdgeCount}/{graphData.edges.length} edges
+          </span>
+        {/if}
+      </div>
+      <div class="cve-toolbar__actions">
+        <button
+          type="button"
+          class="cve-btn cve-btn-secondary"
+          on:click={() => selectedVault && loadAll()}
+          disabled={!selectedVault || graphState === 'loading'}
+          aria-label="Reload graph"
+        >
+          {graphState === 'loading' ? 'Loading' : 'Reload'}
+        </button>
+      </div>
     </div>
+  </header>
+
+  {#if banner}
+    <section
+      class="cve-banner cve-banner--{banner.severity}"
+      role="status"
+      aria-live="polite"
+    >
+      <div>
+        <div class="cve-banner__title">{banner.title}</div>
+        <div class="cve-banner__body">{banner.body}</div>
+      </div>
+    </section>
   {/if}
 
-  <!-- ========== TAB: INSPECTOR ============================================= -->
-  {#if activeTab === 'inspector'}
-    <div class="space-y-4">
+  <div class="cve-workbench">
 
-      {#if !selectedNodeId || !selectedNode}
-        <div class="p-4 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-500 text-sm">
-          No node selected. Click a node in the Graph tab to inspect it.
+    <!-- ────────────────────────── Rail ────────────────────────── -->
+    <aside class="cve-workbench__rail cve-p30d2-rail" aria-label="Graph filters and node list">
+
+      <div class="cve-p30d2-rail__head">
+
+        <div class="cve-p30d2-section-row">
+          <h2 class="cve-p30d2-section-title">Node types</h2>
+          <button type="button" class="cve-btn cve-btn-ghost cve-p30d2-mini-btn" on:click={selectAllNodeTypes}>All</button>
+        </div>
+        <div class="cve-p30d2-checkbox-row">
+          {#each ALL_NODE_TYPES as t}
+            <label class="cve-p30d2-checkbox">
+              <input type="checkbox" checked={enabledNodeTypes.has(t)} on:change={() => toggleNodeType(t)} />
+              <span class="cve-badge {nodeTypeVariant(t)}">{t}</span>
+            </label>
+          {/each}
         </div>
 
-      {:else}
-
-        <!-- Node header card -->
-        <div class="p-4 rounded-lg bg-zinc-900 border border-zinc-800 space-y-2">
-          <div class="flex items-start gap-3">
-            <span class="shrink-0 mt-0.5 px-2 py-0.5 rounded text-xs font-medium {nodeTypeBadge(selectedNode.type)}">
-              {selectedNode.type}
-            </span>
-            <div class="min-w-0 flex-1">
-              <div class="text-base font-semibold text-zinc-100 break-all">{selectedNode.label}</div>
-              <div class="text-xs font-mono text-zinc-500 mt-1 break-all">{selectedNode.id}</div>
-            </div>
-          </div>
+        <div class="cve-p30d2-section-row">
+          <h2 class="cve-p30d2-section-title">Edge types</h2>
+          <button type="button" class="cve-btn cve-btn-ghost cve-p30d2-mini-btn" on:click={selectAllEdgeTypes}>All</button>
+        </div>
+        <div class="cve-p30d2-checkbox-row">
+          {#each ALL_EDGE_TYPES as t}
+            <label class="cve-p30d2-checkbox">
+              <input type="checkbox" checked={enabledEdgeTypes.has(t)} on:change={() => toggleEdgeType(t)} />
+              <span class="cve-badge {edgeTypeVariant(t)}">{t}</span>
+            </label>
+          {/each}
         </div>
 
-        {#if inspectorState === 'loading'}
-          <div class="text-sm text-zinc-400 animate-pulse">Loading neighbours…</div>
-
-        {:else if inspectorState === 'error' && inspectorError}
-          <div class="p-3 rounded-lg bg-red-950 border border-red-800 text-red-300 text-sm">
-            {inspectorError}
-          </div>
-
-        {:else if inspectorState === 'ok'}
-
-          <!-- Direct neighbours -->
-          <div class="space-y-2">
-            <h3 class="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-              Direct Neighbours
-              {#if neighborData?.neighbors}
-                <span class="font-mono normal-case text-zinc-600">({neighborData.neighbors.length} total, {filteredNeighbors.length} shown)</span>
-              {/if}
-            </h3>
-
-            {#if !neighborData || !neighborData.found}
-              <p class="text-sm text-zinc-500">Node not found in graph.</p>
-            {:else if filteredNeighbors.length === 0}
-              <p class="text-sm text-zinc-500">
-                {neighborData.neighbors.length === 0 ? 'No direct neighbours.' : 'All neighbours hidden by current filters.'}
-              </p>
-            {:else}
-              <div class="space-y-0.5">
-                {#each filteredNeighbors as nb (nb.id)}
-                  <div class="flex items-center gap-2 px-3 py-2 rounded bg-zinc-900 border border-zinc-800 text-sm">
-                    <span class="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium {nodeTypeBadge(nb.type)}">
-                      {nb.type}
-                    </span>
-                    <span class="flex-1 text-zinc-200 truncate">{nb.label}</span>
-                    <span class="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium {edgeTypeBadge(nb.edge_type)}">
-                      {nb.edge_type}
-                    </span>
-                    <button
-                      on:click={() => selectNode(nb.id)}
-                      class="shrink-0 text-[10px] text-zinc-600 hover:text-sky-400 transition-colors"
-                      title="Inspect this node"
-                    >inspect →</button>
-                  </div>
-                {/each}
-              </div>
-            {/if}
-          </div>
-
-          <!-- Related notes (notes only) -->
-          {#if selectedNode.type === 'note'}
-            <div class="space-y-2">
-              <h3 class="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-                Related Notes
-                {#if relatedData?.related}
-                  <span class="font-mono normal-case text-zinc-600">({relatedData.related.length})</span>
-                {/if}
-              </h3>
-
-              {#if !relatedData || !relatedData.found}
-                <p class="text-sm text-zinc-500">Not found.</p>
-              {:else if relatedData.related.length === 0}
-                <p class="text-sm text-zinc-500">No related notes in the same domain/subdomain/topic.</p>
-              {:else}
-                <div class="space-y-0.5">
-                  {#each relatedData.related as rel (rel.id)}
-                    <div class="flex items-center gap-2 px-3 py-2 rounded bg-zinc-900 border border-zinc-800 text-sm">
-                      <span class="flex-1 text-zinc-200 truncate">{rel.label}</span>
-                      <span class="shrink-0 px-1.5 py-0.5 rounded text-[10px] {strengthBadge(rel.strength)}">
-                        via {rel.strength}
-                      </span>
-                      <button
-                        on:click={() => selectNode(rel.id)}
-                        class="shrink-0 text-[10px] text-zinc-600 hover:text-sky-400 transition-colors"
-                        title="Inspect this node"
-                      >inspect →</button>
-                    </div>
-                  {/each}
-                </div>
-              {/if}
-            </div>
-          {/if}
-
-          <!-- Missing concepts near this node (notes only) -->
-          {#if selectedNode.type === 'note'}
-            <div class="space-y-2">
-              <h3 class="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-                Missing Expected Concepts Near This Note
-                {#if missingNeighborData?.missing}
-                  <span class="font-mono normal-case text-zinc-600">({missingNeighborData.missing.length})</span>
-                {/if}
-              </h3>
-
-              {#if !missingNeighborData || !missingNeighborData.found}
-                <p class="text-sm text-zinc-500">Not found.</p>
-              {:else if missingNeighborData.missing.length === 0}
-                <p class="text-sm text-zinc-500">No missing expected concepts near this note.</p>
-              {:else}
-                <div class="space-y-0.5">
-                  {#each missingNeighborData.missing as mc (mc.id)}
-                    <div class="flex items-center gap-2 px-3 py-2 rounded bg-amber-950/30 border border-amber-800/40 text-sm">
-                      <span class="shrink-0 px-1.5 py-0.5 rounded text-[10px] bg-amber-900 text-amber-300 border border-amber-700 font-medium">
-                        missing
-                      </span>
-                      <span class="flex-1 text-amber-200 truncate">{mc.label}</span>
-                      <span class="shrink-0 text-[10px] font-mono text-zinc-600 truncate hidden sm:block">
-                        via {mc.via}
-                      </span>
-                    </div>
-                  {/each}
-                </div>
-              {/if}
-            </div>
-          {/if}
-
-        {/if}
-
-        <!-- Raw inspector JSON -->
-        <details>
-          <summary class="cursor-pointer text-xs text-zinc-600 hover:text-zinc-400 select-none py-1">
-            Raw inspector JSON
-          </summary>
-          <pre class="mt-2 p-3 rounded bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-400 overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap break-all">{JSON.stringify(inspectorRaw, null, 2)}</pre>
-        </details>
-
-      {/if}
-    </div>
-  {/if}
-
-  <!-- ========== TAB: MISSING CONCEPTS ====================================== -->
-  {#if activeTab === 'missing'}
-    <div class="space-y-4">
-
-      {#if missingState === 'loading'}
-        <div class="text-sm text-zinc-400 animate-pulse">Loading missing concepts…</div>
-
-      {:else if missingState === 'error'}
-        <div class="p-4 rounded-lg bg-zinc-900 border border-zinc-800 space-y-2">
-          <p class="text-sm text-amber-400 font-medium">Missing concepts unavailable</p>
-          {#if missingErrorCode === 'MISSING_CONCEPTS_EMPTY'}
-            <p class="text-sm text-zinc-400">
-              <code class="text-xs font-mono bg-zinc-800 px-1 rounded">EXPECTED_CONCEPTS</code>
-              is not defined or empty in <code class="text-xs font-mono bg-zinc-800 px-1 rounded">vault_schema.py</code>.
-              Define expected concepts to enable gap detection.
-            </p>
-          {:else}
-            <p class="text-sm text-zinc-400">{missingError}</p>
-            <p class="text-xs font-mono text-zinc-600">{missingErrorCode}</p>
-          {/if}
+        <div class="cve-field">
+          <label class="cve-label" for="graph-node-search">Search nodes</label>
+          <input
+            id="graph-node-search"
+            class="cve-input"
+            type="text"
+            bind:value={nodeSearch}
+            placeholder="Filter by label or id"
+          />
         </div>
 
-      {:else if missingState === 'ok' && missingData}
+      </div>
 
-        <!-- Summary cards -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div class="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-center">
-            <div class="text-lg font-mono font-semibold text-zinc-100">{missingData.total_expected}</div>
-            <div class="text-xs text-zinc-500 mt-0.5">Expected concepts</div>
-          </div>
-          <div class="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-center">
-            <div class="text-lg font-mono font-semibold text-emerald-400">{missingData.total_actual}</div>
-            <div class="text-xs text-zinc-500 mt-0.5">Present in vault</div>
-          </div>
-          <div class="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-center">
-            <div class="text-lg font-mono font-semibold {missingData.total_missing > 0 ? 'text-amber-400' : 'text-emerald-400'}">{missingData.total_missing}</div>
-            <div class="text-xs text-zinc-500 mt-0.5">Missing</div>
-          </div>
-          <div class="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-center">
-            <div class="text-lg font-mono font-semibold text-zinc-100">{missingData.domains_assessed}</div>
-            <div class="text-xs text-zinc-500 mt-0.5">Domains assessed</div>
-          </div>
-          {#if missingData.subdomains !== undefined}
-            <div class="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-center">
-              <div class="text-lg font-mono font-semibold text-zinc-100">{missingData.subdomains}</div>
-              <div class="text-xs text-zinc-500 mt-0.5">Subdomains</div>
-            </div>
-          {/if}
-        </div>
+      <div class="cve-p30d2-rail__list-head">
+        <span class="cve-p30d2-section-title">Nodes</span>
+        <span class="cve-meta cve-mono">{filteredNodes.length}</span>
+      </div>
 
-        {#if missingData.total_missing === 0}
-          <div class="p-4 rounded-lg bg-emerald-950 border border-emerald-800 text-emerald-300 text-sm">
-            No missing concepts. All expected concepts are present in the vault.
-          </div>
-
+      <div class="cve-scroll-region cve-p30d2-list">
+        {#if graphState === 'loading'}
+          <p class="cve-loading">Loading graph...</p>
+        {:else if graphState === 'error'}
+          <p class="cve-error">{graphError}</p>
+        {:else if !graphData || graphData.nodes.length === 0}
+          <p class="cve-empty">No nodes in the graph.</p>
+        {:else if filteredNodes.length === 0}
+          <p class="cve-empty">No nodes match the current filters.</p>
         {:else}
+          {#each groupedNodes as group}
+            <div class="cve-p30d2-node-group">
+              <div class="cve-p30d2-group-head">
+                <span class="cve-badge {nodeTypeVariant(group.type)}">{group.type}</span>
+                <span class="cve-meta cve-mono">{group.nodes.length}</span>
+              </div>
+              <ul class="cve-p30d2-node-list" role="list">
+                {#each group.nodes as node}
+                  <li>
+                    <button
+                      type="button"
+                      class="cve-p30d2-node-row"
+                      aria-current={selectedNodeId === node.id ? 'true' : undefined}
+                      on:click={() => selectNode(node.id)}
+                    >
+                      <span class="cve-p30d2-node-row__label">{node.label}</span>
+                      <span class="cve-mono cve-meta cve-p30d2-node-row__id">{node.id}</span>
+                    </button>
+                  </li>
+                {/each}
+              </ul>
+            </div>
+          {/each}
+        {/if}
+      </div>
+    </aside>
 
-          <!-- Ranked missing concepts -->
-          <div class="space-y-2">
-            <h3 class="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-              Ranked Missing Concepts
-              <span class="font-mono normal-case text-zinc-600">({rankedMissing.length})</span>
-            </h3>
+    <!-- ────────────────────────── Inspector ────────────────────────── -->
+    <section class="cve-workbench__inspector cve-p30d2-inspector" aria-label="Graph inspector">
 
-            {#if rankedMissing.length === 0}
-              <p class="text-sm text-zinc-500">No ranked data available.</p>
-            {:else}
-              <div class="overflow-x-auto rounded-lg border border-zinc-800">
-                <table class="cve-table w-full text-sm">
+      {#if !selectedNodeId}
+
+        <!-- Default inspector view: ranked missing concepts overview -->
+        <header class="cve-p30d2-inspector__head">
+          <div>
+            <h2 class="cve-section-title">Ranked Missing Concepts</h2>
+            <p class="cve-helper">
+              Select a node in the rail to inspect its neighbours, related notes, and missing
+              concepts. While no node is selected, this pane surfaces the deterministic ranked
+              list of missing concepts across the vault.
+            </p>
+          </div>
+        </header>
+
+        <div class="cve-scroll-region cve-p30d2-inspector__body">
+
+          {#if missingState === 'loading'}
+            <p class="cve-loading">Loading missing concepts...</p>
+          {:else if missingState === 'error'}
+            <p class="cve-error">{missingError}</p>
+          {:else if !missingData || rankedMissing.length === 0}
+            <p class="cve-empty">No missing concepts reported.</p>
+          {:else}
+            <div class="cve-p30d2-status-strip">
+              <span class="cve-badge cve-badge-info">expected {missingData.total_expected}</span>
+              <span class="cve-badge cve-badge-success">actual {missingData.total_actual}</span>
+              <span class="cve-badge cve-badge-warning">missing {missingData.total_missing}</span>
+              <span class="cve-badge cve-badge-neutral">domains {missingData.domains_assessed}</span>
+              {#if missingData.subdomains !== undefined}
+                <span class="cve-badge cve-badge-neutral">subdomains {missingData.subdomains}</span>
+              {/if}
+            </div>
+
+            <section class="cve-section" aria-labelledby="graph-ranked-title">
+              <h3 id="graph-ranked-title" class="cve-section-title">Top ranked missing concepts</h3>
+              <div class="cve-table-wrap cve-p30d2-table">
+                <table class="cve-table" aria-label="Ranked missing concepts">
                   <thead>
-                    <tr class="border-b border-zinc-800 bg-zinc-900/80">
-                      <th class="text-left px-3 py-2 text-xs font-medium text-zinc-500 w-10">#</th>
-                      <th class="text-left px-3 py-2 text-xs font-medium text-zinc-500">Concept</th>
-                      <th class="text-left px-3 py-2 text-xs font-medium text-zinc-500">Subdomain</th>
-                      <th class="text-right px-3 py-2 text-xs font-medium text-zinc-500 w-16">Score</th>
-                      <th class="px-3 py-2 w-28"></th>
+                    <tr>
+                      <th scope="col">Rank</th>
+                      <th scope="col">Concept</th>
+                      <th scope="col">Subdomain</th>
+                      <th scope="col">Score</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {#each rankedMissing as rc, i (rc.concept + rc.subdomain)}
-                      <tr class="border-b border-zinc-800/60 hover:bg-zinc-900/60 transition-colors {actionCard?.sourceConcept === rc ? 'bg-amber-950/20' : ''}">
-                        <td class="px-3 py-2 text-xs font-mono text-zinc-600">{rc.rank ?? i + 1}</td>
-                        <td class="px-3 py-2 text-zinc-200 font-medium">{rc.concept}</td>
-                        <td class="px-3 py-2">
-                          <span class="text-xs px-1.5 py-0.5 rounded {nodeTypeBadge('subdomain')}">{rc.subdomain}</span>
-                        </td>
-                        <td class="px-3 py-2 text-right text-xs font-mono text-zinc-400">{rc.score.toFixed(2)}</td>
-                        <td class="px-3 py-2 text-right">
-                          <button
-                            on:click={() => generateActionCard(rc)}
-                            class="text-[10px] px-2 py-1 rounded bg-amber-900/60 text-amber-300 border border-amber-700 hover:bg-amber-800/60 transition-colors"
-                          >
-                            Draft action
+                    {#each rankedMissing.slice(0, 50) as c}
+                      <tr>
+                        <td class="cve-mono">{c.rank}</td>
+                        <td>{c.concept}</td>
+                        <td class="cve-mono">{c.subdomain}</td>
+                        <td class="cve-mono">{c.score.toFixed(2)}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <!-- Non-destructive action card (read-only brief) -->
+            <details class="cve-details cve-p30d2-action-card" bind:open={actionCardOpen}>
+              <summary>
+                Generate improvement brief (read-only, non-destructive)
+              </summary>
+              <div class="cve-details__body cve-stack">
+                <p class="cve-helper">
+                  Produces a Markdown brief listing the top missing concepts. This text is
+                  copy-only - it does not write to the vault, edit notes, or call any
+                  destructive endpoint.
+                </p>
+                <div class="cve-p30d2-search-actions">
+                  <button type="button" class="cve-btn cve-btn-secondary" on:click={() => generateActionCard(rankedMissing, 10)}>
+                    Generate top 10
+                  </button>
+                  <button type="button" class="cve-btn cve-btn-secondary" on:click={() => generateActionCard(rankedMissing, 20)}>
+                    Generate top 20
+                  </button>
+                  {#if actionCardText}
+                    <button type="button" class="cve-btn cve-btn-primary" on:click={copyActionCard}>
+                      {actionCardCopied ? 'Copied' : 'Copy to clipboard'}
+                    </button>
+                    <button type="button" class="cve-btn cve-btn-ghost" on:click={clearActionCard}>Clear</button>
+                  {/if}
+                </div>
+                {#if actionCardText}
+                  <pre class="cve-raw cve-p30d2-action-text">{actionCardText}</pre>
+                {/if}
+              </div>
+            </details>
+          {/if}
+
+          <details class="cve-details cve-details--inspector">
+            <summary>Diagnostic detail</summary>
+            <div class="cve-details__body">
+              <p class="cve-helper">
+                Raw /graph, /graph/neighbors, /graph/related, /graph/missing, and /missing
+                payloads are not rendered inline on the Graph workbench. The Developer
+                route exposes the full JSON payloads.
+              </p>
+              <p>
+                <a class="cve-details__developer-link" href={rawDeveloperHref} aria-label="Open Developer route for raw graph payload">
+                  Open in Developer
+                </a>
+              </p>
+            </div>
+          </details>
+
+        </div>
+
+      {:else}
+
+        <!-- Node-selected inspector view -->
+        <header class="cve-p30d2-inspector__head">
+          <div>
+            <h2 class="cve-section-title">
+              {selectedNode?.label ?? selectedNodeId}
+            </h2>
+            <p class="cve-meta cve-mono">{selectedNodeId}</p>
+          </div>
+          <div class="cve-p30d2-inspector__actions">
+            {#if selectedNode}
+              <span class="cve-badge {nodeTypeVariant(selectedNode.type)}">{selectedNode.type}</span>
+            {/if}
+            <button type="button" class="cve-btn cve-btn-ghost" on:click={clearSelection} aria-label="Clear selection">
+              Clear
+            </button>
+          </div>
+        </header>
+
+        <div class="cve-scroll-region cve-p30d2-inspector__body">
+
+          <!-- Neighbours -->
+          <section class="cve-section" aria-labelledby="graph-neighbours-title">
+            <h3 id="graph-neighbours-title" class="cve-section-title">
+              Neighbours
+              <span class="cve-meta cve-mono">({filteredNeighbors.length}/{neighborsData?.neighbors.length ?? 0})</span>
+            </h3>
+            {#if neighborsState === 'loading'}
+              <p class="cve-loading">Loading neighbours...</p>
+            {:else if neighborsState === 'error'}
+              <p class="cve-error">{neighborsError}</p>
+            {:else if !neighborsData || filteredNeighbors.length === 0}
+              <p class="cve-empty">
+                {neighborsData?.neighbors.length ? 'No neighbours match the current filters.' : 'No neighbours found.'}
+              </p>
+            {:else}
+              <div class="cve-table-wrap cve-p30d2-table">
+                <table class="cve-table" aria-label="Direct neighbours">
+                  <thead>
+                    <tr>
+                      <th scope="col">Label</th>
+                      <th scope="col">Type</th>
+                      <th scope="col">Edge</th>
+                      <th scope="col">Id</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each filteredNeighbors as n}
+                      <tr>
+                        <td>
+                          <button type="button" class="cve-p30d2-link-btn" on:click={() => selectNode(n.id)}>
+                            {n.label}
                           </button>
                         </td>
+                        <td><span class="cve-badge {nodeTypeVariant(n.type)}">{n.type}</span></td>
+                        <td><span class="cve-badge {edgeTypeVariant(n.edge_type)}">{n.edge_type}</span></td>
+                        <td class="cve-mono">{n.id}</td>
                       </tr>
                     {/each}
                   </tbody>
                 </table>
               </div>
             {/if}
-          </div>
+          </section>
 
-          <!-- Action card -->
-          {#if actionCard}
-            <div class="mt-4 p-4 rounded-lg bg-amber-950/20 border border-amber-700/50 space-y-3">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-amber-400 uppercase tracking-wide">
-                  Draft action only — no file has been created
-                </span>
-                <button
-                  on:click={clearActionCard}
-                  class="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
-                >dismiss</button>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <div>
-                  <div class="text-xs text-zinc-500 mb-0.5">Proposed title</div>
-                  <div class="font-semibold text-zinc-100">{actionCard.proposedTitle}</div>
-                </div>
-                <div>
-                  <div class="text-xs text-zinc-500 mb-0.5">Proposed path</div>
-                  <div class="font-mono text-xs text-zinc-300">{actionCard.proposedPath}</div>
-                </div>
-                {#if actionCard.domain}
-                  <div>
-                    <div class="text-xs text-zinc-500 mb-0.5">Domain</div>
-                    <div class="text-zinc-300">{actionCard.domain}</div>
-                  </div>
-                {/if}
-                <div>
-                  <div class="text-xs text-zinc-500 mb-0.5">Subdomain</div>
-                  <div class="text-zinc-300">{actionCard.subdomain}</div>
-                </div>
-              </div>
-
-              <div>
-                <div class="text-xs text-zinc-500 mb-1">Suggested sections</div>
-                <div class="flex flex-wrap gap-1">
-                  {#each actionCard.suggestedSections as sec}
-                    <span class="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">{sec}</span>
-                  {/each}
-                </div>
-              </div>
-
-              <div>
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-xs text-zinc-500">Copyable instruction</span>
-                  <button
-                    on:click={copyActionCard}
-                    class="text-xs px-2.5 py-1 rounded {actionCopied ? 'bg-emerald-900 text-emerald-300 border border-emerald-700' : 'bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700'} transition-colors"
-                  >
-                    {actionCopied ? 'Copied!' : 'Copy'}
-                  </button>
-                </div>
-                <pre class="p-3 rounded bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-300 overflow-x-auto whitespace-pre-wrap break-all max-h-48 overflow-y-auto">{actionCard.copyableInstruction}</pre>
-              </div>
-
-              <details>
-                <summary class="cursor-pointer text-xs text-zinc-600 hover:text-zinc-400 select-none py-1">
-                  Source concept object (raw JSON)
-                </summary>
-                <pre class="mt-2 p-3 rounded bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-400 overflow-x-auto whitespace-pre-wrap break-all">{JSON.stringify(actionCard.sourceConcept, null, 2)}</pre>
-              </details>
+          <!-- Related notes -->
+          <section class="cve-section" aria-labelledby="graph-related-title">
+            <h3 id="graph-related-title" class="cve-section-title">
+              Related notes
+              <span class="cve-meta cve-mono">({filteredRelated.length})</span>
+            </h3>
+            <div class="cve-p30d2-related-controls">
+              <label class="cve-label" for="graph-min-strength">Minimum strength</label>
+              <select
+                id="graph-min-strength"
+                class="cve-select cve-p30d2-strength-select"
+                bind:value={minStrength}
+                on:change={refreshRelated}
+              >
+                <option value="domain">domain</option>
+                <option value="subdomain">subdomain</option>
+              </select>
             </div>
-          {/if}
+            {#if relatedState === 'loading'}
+              <p class="cve-loading">Loading related notes...</p>
+            {:else if relatedState === 'error'}
+              <p class="cve-error">{relatedError}</p>
+            {:else if filteredRelated.length === 0}
+              <p class="cve-empty">No related notes at strength <code>{minStrength}</code> or above.</p>
+            {:else}
+              <div class="cve-table-wrap cve-p30d2-table">
+                <table class="cve-table" aria-label="Related notes">
+                  <thead>
+                    <tr>
+                      <th scope="col">Label</th>
+                      <th scope="col">Strength</th>
+                      <th scope="col">Via</th>
+                      <th scope="col">Id</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each filteredRelated as r}
+                      <tr>
+                        <td>
+                          <button type="button" class="cve-p30d2-link-btn" on:click={() => selectNode(r.id)}>
+                            {r.label}
+                          </button>
+                        </td>
+                        <td><span class="cve-badge {strengthVariant(r.strength)}">{r.strength}</span></td>
+                        <td class="cve-mono">{r.via}</td>
+                        <td class="cve-mono">{r.id}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {/if}
+          </section>
 
-        {/if}
+          <!-- Missing concepts inline -->
+          <section class="cve-section" aria-labelledby="graph-missing-title">
+            <h3 id="graph-missing-title" class="cve-section-title">
+              Missing concepts near this node
+              <span class="cve-meta cve-mono">({filteredMissingForNode.length})</span>
+            </h3>
+            {#if missingNeighboursState === 'loading'}
+              <p class="cve-loading">Loading missing concepts...</p>
+            {:else if missingNeighboursState === 'error'}
+              <p class="cve-error">{missingNeighboursError}</p>
+            {:else if filteredMissingForNode.length === 0}
+              <p class="cve-empty">No missing concepts reported near this node.</p>
+            {:else}
+              <div class="cve-table-wrap cve-p30d2-table">
+                <table class="cve-table" aria-label="Missing concepts near this node">
+                  <thead>
+                    <tr>
+                      <th scope="col">Concept</th>
+                      <th scope="col">Via</th>
+                      <th scope="col">Id</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each filteredMissingForNode as m}
+                      <tr>
+                        <td>{m.label}</td>
+                        <td class="cve-mono">{m.via}</td>
+                        <td class="cve-mono">{m.id}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {/if}
+          </section>
 
-        <!-- Raw missing JSON -->
-        <details>
-          <summary class="cursor-pointer text-xs text-zinc-600 hover:text-zinc-400 select-none py-1">
-            Raw missing concepts JSON
-          </summary>
-          <pre class="mt-2 p-3 rounded bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-400 overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap break-all">{JSON.stringify(missingRaw, null, 2)}</pre>
-        </details>
+          <details class="cve-details cve-details--inspector">
+            <summary>Diagnostic detail</summary>
+            <div class="cve-details__body">
+              <p class="cve-helper">
+                Raw /graph, /graph/neighbors, /graph/related, and /graph/missing payloads
+                are not rendered inline. The Developer route exposes the full JSON payloads.
+              </p>
+              <p>
+                <a class="cve-details__developer-link" href={rawDeveloperHref} aria-label="Open Developer route for raw graph payload">
+                  Open in Developer
+                </a>
+              </p>
+            </div>
+          </details>
 
-      {:else if missingState === 'idle'}
-        <p class="text-sm text-zinc-500">Select a vault to load missing concepts.</p>
+        </div>
+
       {/if}
 
-    </div>
-  {/if}
+    </section>
+  </div>
 
 </div>

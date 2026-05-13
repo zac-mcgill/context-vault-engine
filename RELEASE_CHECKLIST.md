@@ -6,7 +6,7 @@ Use this checklist before tagging a release. All steps are local and determinist
 
 ## Pre-release Verification
 
-- [ ] `python mcp/test_verify.py` passes, all 842 tests green (no skips, no failures)
+- [ ] `python mcp/test_verify.py` passes, all 866 tests green (no skips, no failures)
 - [ ] `python run.py validate` passes, all notes valid
 - [ ] `python run.py security` passes, status is `pass` or `warning` only (no `fail`)
 - [ ] `python run.py feedback` passes, exits 0, valid JSON
@@ -27,7 +27,7 @@ Use this checklist before tagging a release. All steps are local and determinist
 
 ## UI Release-Readiness
 
-The UI is not release-quality today. Phase 30A (consolidated in `UI_UX_AUDIT.md` sections 18 and 19) confirmed this and scheduled Phase 30B through Phase 30F to close the gap. Phase 30D1 is complete: `/app/validation`, `/app/tasks`, and `/app/raw` now mount real Svelte islands. Phase 30D2 (Notes and Graph) and Phase 30D3 (Import, Bundles, Exports, Security) remain planned, as do Phase 30E and Phase 30F. Until all of Phase 30 is complete, the following items must all be checked before tagging a release that claims a release-quality UI:
+The UI is not release-quality today. Phase 30A (consolidated in `UI_UX_AUDIT.md` sections 18 and 19) confirmed this and scheduled Phase 30B through Phase 30F to close the gap. Phase 30D1 is complete: `/app/validation`, `/app/tasks`, and `/app/raw` now mount real Svelte islands. Phase 30D2 is complete: `/app/notes` and `/app/graph` are now split-pane workspace redesigns. Phase 30D3 (Import, Bundles, Exports, Security) remains planned, as do Phase 30E and Phase 30F. Until all of Phase 30 is complete, the following items must all be checked before tagging a release that claims a release-quality UI:
 
 - [ ] Dark mode and light mode both verified; every `--cve-*` semantic token has a value under both `data-theme="dark"` and `data-theme="light"`; `color-scheme: dark light` declared at the root
 - [ ] No placeholder routes remain in primary workflow navigation; `/app/validation`, `/app/tasks`, and `/app/raw` mount real Svelte islands, not `PlaceholderPage.astro`

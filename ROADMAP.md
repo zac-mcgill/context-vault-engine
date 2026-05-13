@@ -92,7 +92,7 @@ The backend is strong. The local UI has reached a usable application baseline. T
 
 ## Current Active Phase
 
-Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX audit consolidation) is complete. Phase 30B (app shell, theme, layout, and primitive foundation) is complete. Phase 30C (Dashboard Redesign) is complete. Phase 30D1 (Validation, Tasks, and Raw real implementations) is complete. Phase 30D2 (Notes and Graph) and Phase 30D3 (Import, Bundles, Exports, Security) remain planned; the parent Phase 30D is still in progress. Phases 0 to 26 and Phase 29 (UI/UX Quality and Design System) remain complete: Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B, Phase 29C, Phase 29D, and Phase 29E all shipped. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain explicitly deferred and are not started, prepared, or implied by Phase 30.
+Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX audit consolidation) is complete. Phase 30B (app shell, theme, layout, and primitive foundation) is complete. Phase 30C (Dashboard Redesign) is complete. Phase 30D1 (Validation, Tasks, and Raw real implementations) is complete. Phase 30D2 (Notes and Graph workspace redesigns) is complete. Phase 30D3 (Import, Bundles, Exports, Security) remains planned; the parent Phase 30D is still in progress. Phases 0 to 26 and Phase 29 (UI/UX Quality and Design System) remain complete: Phase 29A (Roadmap formalisation and UI/UX audit), Phase 29B, Phase 29C, Phase 29D, and Phase 29E all shipped. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain explicitly deferred and are not started, prepared, or implied by Phase 30.
 
 ## Phase Status Overview
 
@@ -132,6 +132,8 @@ Phase 30 (UI Release Quality Pass). Phase 30A (screenshot-driven page-by-page UX
 | 30C   | Dashboard Redesign                      | Complete |
 | 30D   | Core Workflow Page Redesigns            | In Progress |
 | 30D1  | Validation, Tasks, Raw real impls       | Complete |
+| 30D2  | Notes and Graph workspace redesigns     | Complete |
+| 30D3  | Import, Bundles, Exports, Security      | Planned  |
 | 30E   | Review/Governance/Developer Polish      | Planned  |
 | 30F   | Final QA, A11y, Responsive, Light Mode  | Planned  |
 | 27    | Registry and Reuse Layer                | Deferred |
@@ -1076,7 +1078,7 @@ feat(ui): dashboard redesign on Phase 30B foundation (Phase 30C)
 
 #### Phase 30D - Core Workflow Page Redesigns
 
-**Status:** In Progress. Phase 30D1 complete (2026-05-19). Phase 30D2 (Notes and Graph) and Phase 30D3 (Import, Bundles, Exports, Security) remain planned.
+**Status:** In Progress. Phase 30D1 complete (2026-05-19). Phase 30D2 complete (2026-05-13). Phase 30D3 (Import, Bundles, Exports, Security) remains planned.
 
 **Scope:**
 - `/app/notes` migrate to `cve-workbench` (resizable list rail + inspector with internal scroll body).
@@ -1120,6 +1122,25 @@ feat(ui): core workflow page redesigns on Phase 30B foundation (Phase 30D)
 
 ```
 feat(ui): real validation, tasks, and raw developer pages (Phase 30D1)
+```
+
+#### Phase 30D2 - Notes and Graph Workspace Redesigns
+
+**Status:** Complete (2026-05-13).
+
+**Scope:**
+- `/app/notes` rebuilt as a `cve-workbench` split-pane workspace. Header is a `cve-toolbar` with vault selector and Refresh; status messages surface in a `cve-banner`. The rail hosts filters (text, status, difficulty, missing sections, imported-only, draft-trust-only), the POST /query search disclosure, and a deterministic note list inside a `cve-scroll-region`. The inspector shows note frontmatter, section outline, full markdown body, validation context, improvement task, and the Trust+Import panel inside its own `cve-scroll-region`. All filters, badges (`data-testid="badge-imported"`, `data-testid="badge-draft"`), the trust-import panel (`data-testid="trust-import-panel"`), and `?vault=` / `?filter=` / `?path=` deep-links are preserved.
+- `/app/graph` rebuilt as a `cve-workbench` split-pane workspace. The legacy `'graph' | 'inspector' | 'missing'` tab model is removed. The rail hosts node-type and edge-type filters, a node search input, and a grouped deterministic node list inside a `cve-scroll-region`. The inspector either surfaces the ranked missing concepts overview (default view when no node is selected) or, when a node is selected, the node header followed by Neighbours, Related notes, and Missing concepts near this node, all inline (no sub-tabs). The non-destructive copyable Action Card for missing concepts is preserved as a secondary disclosure under the ranked overview.
+- Inline raw JSON disclosure panels for `/notes`, `/note`, `/query`, `/graph`, `/graph/neighbors`, `/graph/related`, `/graph/missing`, and `/missing` are removed from the primary inspector. Both pages expose a `cve-details--inspector` block with a `cve-details__developer-link` pointing to `/app/raw?endpoint=...&vault=...&source=notes|graph` for full diagnostic JSON.
+- New Phase 30D2 primitives in `ui/src/styles/global.css`: `.cve-p30d2-rail`, `.cve-p30d2-rail__head`, `.cve-p30d2-rail__list-head`, `.cve-p30d2-section-title`, `.cve-p30d2-section-row`, `.cve-p30d2-filter-row`, `.cve-p30d2-checkbox-row`, `.cve-p30d2-checkbox`, `.cve-p30d2-fieldset`, `.cve-p30d2-search-disclosure`, `.cve-p30d2-search-actions`, `.cve-p30d2-list`, `.cve-p30d2-note-list` / `.cve-p30d2-node-list`, `.cve-p30d2-note-row` / `.cve-p30d2-node-row`, `.cve-p30d2-node-group`, `.cve-p30d2-inspector`, `.cve-p30d2-inspector__head` / `__actions` / `__body`, `.cve-p30d2-empty-pane`, `.cve-p30d2-status-strip`, `.cve-p30d2-table`, `.cve-p30d2-kv`, `.cve-p30d2-outline`, `.cve-p30d2-badge-list`, `.cve-p30d2-body` / `-body-edit`, `.cve-p30d2-edit-grid` / `-edit-row` / `-edit-complex`, `.cve-p30d2-error-list`, `.cve-p30d2-task` / `__head`, `.cve-p30d2-related-controls`, `.cve-p30d2-strength-select`, `.cve-p30d2-action-card` / `-action-text`, `.cve-p30d2-link-btn`. All token-only; no Tailwind dark literals.
+- 24 new deterministic tests (`test_p30d2_1` through `test_p30d2_24`) cover layout mode, primitive usage, internal scroll regions, imported/draft contract preservation, raw JSON removal, Developer deep-link, removal of the tab model, inline missing concepts, helper usage, dark-literal absence, form labelling, static link resolution, deferred phase guardrails, dependency stability, and em-dash hygiene. Total deterministic test count: 866.
+
+**Out of scope:** Import / Bundles / Exports / Security (Phase 30D3), Review and Governance polish (Phase 30E), final QA / a11y / responsive / light-mode pass (Phase 30F).
+
+**Suggested Commit**
+
+```
+feat(ui): notes and graph workspace redesigns (Phase 30D2)
 ```
 
 #### Phase 30E - Review, Governance, and Developer Polish

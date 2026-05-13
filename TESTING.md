@@ -1,13 +1,13 @@
 # Context Vault Engine - Testing
 
-All tests live in `mcp/test_verify.py`. The suite currently has 842 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800, 818) appear later in this document as part of the phase changelog and are not the current total.
+All tests live in `mcp/test_verify.py`. The suite currently has 866 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800, 818, 842) appear later in this document as part of the phase changelog and are not the current total.
 
 ## Current Verification Summary
 
 A full local verification consists of:
 
 ```bash
-py mcp/test_verify.py           # 842 tests, all must pass
+py mcp/test_verify.py           # 866 tests, all must pass
 py run.py validate              # vault schema-compliance
 py run.py security              # status: pass (or warning, never fail)
 py run.py feedback              # exits 0, valid JSON
@@ -2370,7 +2370,53 @@ The Phase 30D1 work adds 24 deterministic guardrail tests in `mcp/test_verify.py
 **Verification steps for Phase 30D1:**
 
 ```bash
-py mcp/test_verify.py            # 842 tests, all must pass
+py mcp/test_verify.py            # 866 tests, all must pass
+py run.py validate               # vault still valid
+py run.py security               # status: pass
+py run.py feedback               # exits 0, valid JSON
+py run.py export --overwrite     # status: ok
+cd ui; npm run build             # builds without errors
+```
+
+---
+
+## Phase 30D2 - Notes and Graph Workspace Redesigns
+
+Phase 30D2 is the second sub-slice of Phase 30D. It rebuilds `/app/notes` and `/app/graph` as split-pane workspaces on top of the Phase 30B primitives. The legacy `'graph' | 'inspector' | 'missing'` tab model in the Graph page is removed; missing concepts are surfaced inline in the inspector. Inline raw JSON disclosure panels for `/notes`, `/note`, `/query`, `/graph`, `/graph/neighbors`, `/graph/related`, `/graph/missing`, and `/missing` are removed from the primary inspector, and both pages link to `/app/raw` for full diagnostic JSON via a `cve-details--inspector` block with the `cve-details__developer-link` contract. All filters, badges, the trust-import panel, the imported/draft contract, the safe edit workflow on `/app/notes`, and the non-destructive ranked-missing-concept action card on `/app/graph` are preserved. No backend route, schema, MCP, or runtime dependency was added. The parent Phase 30D remains In Progress; Phase 30D3 (Import, Bundles, Exports, Security) remains planned.
+
+The Phase 30D2 work adds 24 deterministic guardrail tests in `mcp/test_verify.py`, bringing the total to 866.
+
+| Test | Purpose |
+|---|---|
+| `test_p30d2_1_notes_layout_workspace` | `/app/notes` declares `layoutMode="workspace"` |
+| `test_p30d2_2_graph_layout_workspace` | `/app/graph` declares `layoutMode="workspace"` |
+| `test_p30d2_3_notes_uses_cve_toolbar` | `NoteBrowser` uses the `cve-toolbar` primitive |
+| `test_p30d2_4_notes_uses_cve_workbench` | `NoteBrowser` uses `cve-workbench`, `cve-workbench__rail`, `cve-workbench__inspector` |
+| `test_p30d2_5_notes_internal_scroll_regions` | `NoteBrowser` scrolls inside its panes via `cve-scroll-region` |
+| `test_p30d2_6_notes_preserves_imported_and_draft_filters_and_badges` | Imported / draft filters, badges, trust-import panel preserved |
+| `test_p30d2_7_notes_no_primary_inline_raw_json` | No raw JSON disclosure panels for `/notes`, `/note`, or `/query` in the primary inspector |
+| `test_p30d2_8_notes_developer_deep_link` | `NoteBrowser` exposes a Developer deep-link to `/app/raw?endpoint=notes&source=notes` |
+| `test_p30d2_9_graph_uses_cve_toolbar` | `GraphExplorer` uses the `cve-toolbar` primitive |
+| `test_p30d2_10_graph_uses_cve_workbench` | `GraphExplorer` uses `cve-workbench`, `cve-workbench__rail`, `cve-workbench__inspector` |
+| `test_p30d2_11_graph_internal_scroll_regions` | `GraphExplorer` scrolls inside its panes via `cve-scroll-region` |
+| `test_p30d2_12_graph_no_old_tab_model` | `GraphExplorer` removes the tabbed graph/inspector/missing model |
+| `test_p30d2_13_graph_inline_missing_concepts` | `GraphExplorer` surfaces missing concepts inline in the inspector |
+| `test_p30d2_14_graph_uses_existing_api_helpers` | `GraphExplorer` consumes `fetchGraph`, `fetchGraphNeighbors`, `fetchGraphRelated`, `fetchGraphMissing`, `fetchMissing` |
+| `test_p30d2_15_graph_developer_deep_link` | `GraphExplorer` exposes a Developer deep-link to `/app/raw?endpoint=graph&source=graph` |
+| `test_p30d2_16_no_tailwind_dark_literals_in_migrated_files` | The four Phase 30D2 files avoid Tailwind dark palette literals |
+| `test_p30d2_17_notes_graph_search_filter_labels` | Every text/search/number `<input>` has an associated `<label for>` or `aria-label` |
+| `test_p30d2_18_notes_graph_static_links_resolve` | Every static `/app/<page>` link in the migrated components resolves to a real page file |
+| `test_p30d2_19_phase27_still_deferred` | ROADMAP keeps Phase 27 Deferred |
+| `test_p30d2_20_phase28_still_deferred` | ROADMAP keeps Phase 28 Deferred |
+| `test_p30d2_21_phase30d2_complete_and_30d_not_complete` | ROADMAP marks Phase 30D2 Complete; parent 30D not Complete; 30D3 Planned |
+| `test_p30d2_22_phase30e_and_30f_planned` | Phase 30E and 30F remain Planned |
+| `test_p30d2_23_no_new_runtime_dependencies` | `ui/package.json` introduces no React/Vue/icon/animation/charting/syntax-highlighter dependency |
+| `test_p30d2_24_no_em_dashes_in_phase30d2_files` | Phase 30D2 files contain no em dashes |
+
+**Verification steps for Phase 30D2:**
+
+```bash
+py mcp/test_verify.py            # 866 tests, all must pass
 py run.py validate               # vault still valid
 py run.py security               # status: pass
 py run.py feedback               # exits 0, valid JSON

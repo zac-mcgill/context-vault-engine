@@ -11698,6 +11698,31 @@ def main():
     test_p30d1_23_no_new_runtime_dependencies()
     test_p30d1_24_no_em_dashes_in_phase30d1_files()
 
+    test_p30d2_1_notes_layout_workspace()
+    test_p30d2_2_graph_layout_workspace()
+    test_p30d2_3_notes_uses_cve_toolbar()
+    test_p30d2_4_notes_uses_cve_workbench()
+    test_p30d2_5_notes_internal_scroll_regions()
+    test_p30d2_6_notes_preserves_imported_and_draft_filters_and_badges()
+    test_p30d2_7_notes_no_primary_inline_raw_json()
+    test_p30d2_8_notes_developer_deep_link()
+    test_p30d2_9_graph_uses_cve_toolbar()
+    test_p30d2_10_graph_uses_cve_workbench()
+    test_p30d2_11_graph_internal_scroll_regions()
+    test_p30d2_12_graph_no_old_tab_model()
+    test_p30d2_13_graph_inline_missing_concepts()
+    test_p30d2_14_graph_uses_existing_api_helpers()
+    test_p30d2_15_graph_developer_deep_link()
+    test_p30d2_16_no_tailwind_dark_literals_in_migrated_files()
+    test_p30d2_17_notes_graph_search_filter_labels()
+    test_p30d2_18_notes_graph_static_links_resolve()
+    test_p30d2_19_phase27_still_deferred()
+    test_p30d2_20_phase28_still_deferred()
+    test_p30d2_21_phase30d2_complete_and_30d_not_complete()
+    test_p30d2_22_phase30e_and_30f_planned()
+    test_p30d2_23_no_new_runtime_dependencies()
+    test_p30d2_24_no_em_dashes_in_phase30d2_files()
+
     print()
     print("=" * 60)
     print("ALL VERIFICATION TESTS PASSED")
@@ -19312,9 +19337,9 @@ def _repo_root():
 
 
 def test_doc_drift_readme_test_count():
-    """DOC-DRIFT-1: README quotes the current 842-test total, no stale counts."""
+    """DOC-DRIFT-1: README quotes the current 866-test total, no stale counts."""
     readme = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    assert "842" in readme, "README.md must mention the current test count 842"
+    assert "866" in readme, "README.md must mention the current test count 866"
     stale_phrases = [
         "553 deterministic tests",
         "548 deterministic tests",
@@ -19341,29 +19366,31 @@ def test_doc_drift_readme_test_count():
         "800 tests.",
         "818 deterministic tests",
         "818 tests.",
+        "842 deterministic tests",
+        "842 tests.",
     ]
     for phrase in stale_phrases:
         assert phrase not in readme, f"README.md still mentions stale phrase {phrase!r}"
-    print(f"  README mentions 842 tests, no stale counts present ✓")
+    print(f"  README mentions 866 tests, no stale counts present ✓")
 
 
 def test_doc_drift_testing_test_count():
-    """DOC-DRIFT-2: TESTING.md current total is 842 and historical markers retained."""
+    """DOC-DRIFT-2: TESTING.md current total is 866 and historical markers retained."""
     text = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
-    assert "842 test functions" in text, "TESTING.md must state 842 test functions"
-    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763", "787", "800", "818"):
+    assert "866 test functions" in text, "TESTING.md must state 866 test functions"
+    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763", "787", "800", "818", "842"):
         assert marker in text, f"TESTING.md must retain historical test-count marker {marker}"
-    print(f"  TESTING.md states 842 functions and keeps historical markers ✓")
+    print(f"  TESTING.md states 866 functions and keeps historical markers ✓")
 
 
 def test_doc_drift_release_checklist_test_count():
-    """DOC-DRIFT-3: RELEASE_CHECKLIST references 842 tests and required commands."""
+    """DOC-DRIFT-3: RELEASE_CHECKLIST references 866 tests and required commands."""
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "842" in text, "RELEASE_CHECKLIST.md must reference the 842-test target"
+    assert "866" in text, "RELEASE_CHECKLIST.md must reference the 866-test target"
     for req in ("test_verify.py", "run.py validate", "run.py security",
                 "run.py export", "GitHub Release"):
         assert req in text, f"RELEASE_CHECKLIST.md must contain {req!r}"
-    print(f"  RELEASE_CHECKLIST mentions 842 tests and required commands ✓")
+    print(f"  RELEASE_CHECKLIST mentions 866 tests and required commands ✓")
 
 
 def test_doc_drift_roadmap_active_phase():
@@ -20752,10 +20779,10 @@ def test_p29e_19_readme_states_phase29_complete():
 
 def test_p29e_20_release_checklist_test_count_updated():
     """P29E-20: RELEASE_CHECKLIST.md references the current test count.
-    Phase 30D1 bumped the total from 818 to 842."""
+    Phase 30D2 bumped the total from 842 to 866."""
     print("\n=== Test P29E-20: RELEASE_CHECKLIST test count ===")
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "842" in text, "RELEASE_CHECKLIST.md must reference the current 842-test target"
+    assert "866" in text, "RELEASE_CHECKLIST.md must reference the current 866-test target"
     # The previous counts must not linger in the checklist after this phase.
     assert "all 763 tests green" not in text, \
         "RELEASE_CHECKLIST.md must not still say 'all 763 tests green'"
@@ -20765,7 +20792,9 @@ def test_p29e_20_release_checklist_test_count_updated():
         "RELEASE_CHECKLIST.md must not still say 'all 800 tests green'"
     assert "all 818 tests green" not in text, \
         "RELEASE_CHECKLIST.md must not still say 'all 818 tests green'"
-    print("  RELEASE_CHECKLIST.md references 842 tests ✓")
+    assert "all 842 tests green" not in text, \
+        "RELEASE_CHECKLIST.md must not still say 'all 842 tests green'"
+    print("  RELEASE_CHECKLIST.md references 866 tests ✓")
 
 
 def test_p29e_21_ui_ux_audit_has_phase29e_note():
@@ -21723,6 +21752,378 @@ def test_p30d1_24_no_em_dashes_in_phase30d1_files():
     assert not offenders, \
         f"Phase 30D1 files must not contain em dashes; offenders: {offenders}"
     print("  No em dashes in Phase 30D1 files ✓")
+
+
+# ============================================================
+# Phase 30D2 - Notes and Graph workspace redesigns
+# ============================================================
+
+_P30D2_NOTES_PAGE = "ui/src/pages/notes.astro"
+_P30D2_GRAPH_PAGE = "ui/src/pages/graph.astro"
+_P30D2_NOTES_COMPONENT = "ui/src/components/NoteBrowser.svelte"
+_P30D2_GRAPH_COMPONENT = "ui/src/components/GraphExplorer.svelte"
+
+
+def test_p30d2_1_notes_layout_workspace():
+    """P30D2-1: /app/notes uses workspace layout mode."""
+    print("\n=== Test P30D2-1: notes.astro layoutMode=workspace ===")
+    text = _read_text(_P30D2_NOTES_PAGE)
+    assert 'layoutMode="workspace"' in text, \
+        "notes.astro must declare layoutMode=\"workspace\""
+    print("  notes.astro uses workspace layout ✓")
+
+
+def test_p30d2_2_graph_layout_workspace():
+    """P30D2-2: /app/graph uses workspace layout mode."""
+    print("\n=== Test P30D2-2: graph.astro layoutMode=workspace ===")
+    text = _read_text(_P30D2_GRAPH_PAGE)
+    assert 'layoutMode="workspace"' in text, \
+        "graph.astro must declare layoutMode=\"workspace\""
+    print("  graph.astro uses workspace layout ✓")
+
+
+def test_p30d2_3_notes_uses_cve_toolbar():
+    """P30D2-3: NoteBrowser uses the cve-toolbar primitive."""
+    print("\n=== Test P30D2-3: NoteBrowser uses cve-toolbar ===")
+    text = _read_text(_P30D2_NOTES_COMPONENT)
+    for cls in ("cve-toolbar", "cve-toolbar__main", "cve-toolbar__title", "cve-toolbar__actions"):
+        assert cls in text, f"NoteBrowser.svelte must use {cls}"
+    print("  NoteBrowser uses cve-toolbar primitives ✓")
+
+
+def test_p30d2_4_notes_uses_cve_workbench():
+    """P30D2-4: NoteBrowser uses the cve-workbench split-pane primitive."""
+    print("\n=== Test P30D2-4: NoteBrowser uses cve-workbench ===")
+    text = _read_text(_P30D2_NOTES_COMPONENT)
+    for cls in ("cve-workbench", "cve-workbench__rail", "cve-workbench__inspector"):
+        assert cls in text, f"NoteBrowser.svelte must use {cls}"
+    print("  NoteBrowser uses cve-workbench primitives ✓")
+
+
+def test_p30d2_5_notes_internal_scroll_regions():
+    """P30D2-5: NoteBrowser scrolls inside its panes, not the page."""
+    print("\n=== Test P30D2-5: NoteBrowser has internal scroll regions ===")
+    text = _read_text(_P30D2_NOTES_COMPONENT)
+    count = text.count("cve-scroll-region")
+    assert count >= 2, \
+        f"NoteBrowser must use cve-scroll-region at least twice (rail and inspector); found {count}"
+    print(f"  NoteBrowser has {count} internal scroll regions ✓")
+
+
+def test_p30d2_6_notes_preserves_imported_and_draft_filters_and_badges():
+    """P30D2-6: NoteBrowser preserves imported/draft filters, badges,
+    and the trust-import panel data-testid."""
+    print("\n=== Test P30D2-6: NoteBrowser preserves imported/draft contract ===")
+    text = _read_text(_P30D2_NOTES_COMPONENT)
+    for marker in (
+        "filterImportedOnly",
+        "filterDraftTrustOnly",
+        'data-testid="filter-imported-only"',
+        'data-testid="filter-draft-trust-only"',
+        'data-testid="badge-imported"',
+        'data-testid="trust-import-panel"',
+        "isImportedNote",
+        "isDraftTrustNote",
+    ):
+        assert marker in text, \
+            f"NoteBrowser.svelte must keep {marker!r} from the Phase 26 imported/draft contract"
+    print("  NoteBrowser preserves imported/draft contract ✓")
+
+
+def test_p30d2_7_notes_no_primary_inline_raw_json():
+    """P30D2-7: NoteBrowser does not render raw JSON disclosure panels
+    for /notes, /note, or /query in the primary inspector. Inline diagnostic
+    JSON is removed in favour of the Developer deep-link."""
+    print("\n=== Test P30D2-7: NoteBrowser drops primary raw JSON disclosures ===")
+    text = _read_text(_P30D2_NOTES_COMPONENT)
+    forbidden_summaries = (
+        "Show raw note JSON",
+        "Show raw notes list JSON",
+        "Show raw update response",
+        "Show raw query response",
+        ">Raw JSON<",
+    )
+    for summary in forbidden_summaries:
+        assert summary not in text, \
+            f"NoteBrowser must not render the raw JSON disclosure {summary!r}"
+    # The component must not stringify the full notes list or the full note
+    # detail/query response into the primary panels.
+    for forbidden in (
+        "JSON.stringify(noteDetailRaw",
+        "JSON.stringify(notesRaw",
+        "JSON.stringify(saveRaw",
+        "JSON.stringify(searchResponseData",
+    ):
+        assert forbidden not in text, \
+            f"NoteBrowser must not emit {forbidden!r} into the primary inspector"
+    print("  NoteBrowser drops primary raw JSON disclosures ✓")
+
+
+def test_p30d2_8_notes_developer_deep_link():
+    """P30D2-8: NoteBrowser exposes a Developer deep-link to /app/raw."""
+    print("\n=== Test P30D2-8: NoteBrowser Developer deep-link ===")
+    text = _read_text(_P30D2_NOTES_COMPONENT)
+    assert "cve-details--inspector" in text, \
+        "NoteBrowser must wrap the Developer deep-link in cve-details--inspector"
+    assert "cve-details__developer-link" in text, \
+        "NoteBrowser must use cve-details__developer-link"
+    assert "/app/raw" in text, \
+        "NoteBrowser must link to /app/raw"
+    assert "source=notes" in text, \
+        "NoteBrowser must tag the deep-link with source=notes"
+    print("  NoteBrowser provides Developer deep-link ✓")
+
+
+def test_p30d2_9_graph_uses_cve_toolbar():
+    """P30D2-9: GraphExplorer uses the cve-toolbar primitive."""
+    print("\n=== Test P30D2-9: GraphExplorer uses cve-toolbar ===")
+    text = _read_text(_P30D2_GRAPH_COMPONENT)
+    for cls in ("cve-toolbar", "cve-toolbar__main", "cve-toolbar__title", "cve-toolbar__actions"):
+        assert cls in text, f"GraphExplorer.svelte must use {cls}"
+    print("  GraphExplorer uses cve-toolbar primitives ✓")
+
+
+def test_p30d2_10_graph_uses_cve_workbench():
+    """P30D2-10: GraphExplorer uses the cve-workbench split-pane primitive."""
+    print("\n=== Test P30D2-10: GraphExplorer uses cve-workbench ===")
+    text = _read_text(_P30D2_GRAPH_COMPONENT)
+    for cls in ("cve-workbench", "cve-workbench__rail", "cve-workbench__inspector"):
+        assert cls in text, f"GraphExplorer.svelte must use {cls}"
+    print("  GraphExplorer uses cve-workbench primitives ✓")
+
+
+def test_p30d2_11_graph_internal_scroll_regions():
+    """P30D2-11: GraphExplorer scrolls inside its panes, not the page."""
+    print("\n=== Test P30D2-11: GraphExplorer internal scroll regions ===")
+    text = _read_text(_P30D2_GRAPH_COMPONENT)
+    count = text.count("cve-scroll-region")
+    assert count >= 2, \
+        f"GraphExplorer must use cve-scroll-region at least twice (rail and inspector); found {count}"
+    print(f"  GraphExplorer has {count} internal scroll regions ✓")
+
+
+def test_p30d2_12_graph_no_old_tab_model():
+    """P30D2-12: GraphExplorer drops the tabbed graph/inspector/missing model."""
+    print("\n=== Test P30D2-12: GraphExplorer drops tab model ===")
+    text = _read_text(_P30D2_GRAPH_COMPONENT)
+    forbidden = (
+        "activeTab",
+        "type Tab",
+        ": Tab =",
+        "'graph' | 'inspector' | 'missing'",
+        '"graph" | "inspector" | "missing"',
+    )
+    for token in forbidden:
+        assert token not in text, \
+            f"GraphExplorer must not retain the old tab model token {token!r}"
+    print("  GraphExplorer has no remaining tab model tokens ✓")
+
+
+def test_p30d2_13_graph_inline_missing_concepts():
+    """P30D2-13: GraphExplorer surfaces missing concepts inline in the
+    inspector (no separate tab), and references the missing API data."""
+    print("\n=== Test P30D2-13: GraphExplorer inline missing concepts ===")
+    text = _read_text(_P30D2_GRAPH_COMPONENT)
+    assert "missingData" in text, \
+        "GraphExplorer must use missingData for the ranked missing list"
+    assert "missingNeighboursData" in text, \
+        "GraphExplorer must use missingNeighboursData for per-node missing concepts"
+    assert "Missing concepts near this node" in text, \
+        "GraphExplorer must surface per-node missing concepts inline in the inspector"
+    assert "Ranked Missing Concepts" in text, \
+        "GraphExplorer must surface ranked missing concepts as the default inspector view"
+    print("  GraphExplorer surfaces missing concepts inline ✓")
+
+
+def test_p30d2_14_graph_uses_existing_api_helpers():
+    """P30D2-14: GraphExplorer uses the existing typed graph helpers."""
+    print("\n=== Test P30D2-14: GraphExplorer uses typed graph helpers ===")
+    text = _read_text(_P30D2_GRAPH_COMPONENT)
+    for helper in ("fetchGraph", "fetchGraphNeighbors", "fetchGraphRelated", "fetchGraphMissing", "fetchMissing"):
+        assert helper in text, \
+            f"GraphExplorer must call existing helper {helper!r}"
+    print("  GraphExplorer uses existing typed graph helpers ✓")
+
+
+def test_p30d2_15_graph_developer_deep_link():
+    """P30D2-15: GraphExplorer exposes a Developer deep-link to /app/raw."""
+    print("\n=== Test P30D2-15: GraphExplorer Developer deep-link ===")
+    text = _read_text(_P30D2_GRAPH_COMPONENT)
+    assert "cve-details--inspector" in text, \
+        "GraphExplorer must wrap the Developer deep-link in cve-details--inspector"
+    assert "cve-details__developer-link" in text, \
+        "GraphExplorer must use cve-details__developer-link"
+    assert "/app/raw" in text, \
+        "GraphExplorer must link to /app/raw"
+    assert "source=graph" in text, \
+        "GraphExplorer must tag the deep-link with source=graph"
+    print("  GraphExplorer provides Developer deep-link ✓")
+
+
+def test_p30d2_16_no_tailwind_dark_literals_in_migrated_files():
+    """P30D2-16: Migrated Notes/Graph files contain no Tailwind dark literals."""
+    print("\n=== Test P30D2-16: no Tailwind dark literals in migrated files ===")
+    import re
+    files = [
+        _P30D2_NOTES_PAGE, _P30D2_GRAPH_PAGE,
+        _P30D2_NOTES_COMPONENT, _P30D2_GRAPH_COMPONENT,
+    ]
+    pattern = re.compile(
+        r"\b(?:bg|text|border|ring|divide|placeholder|from|to|via)-"
+        r"(?:zinc|neutral|slate|gray|stone|emerald|amber|rose|sky|violet|indigo|teal|cyan|lime|orange|red|green|blue|pink|fuchsia|purple)-"
+        r"[0-9]{2,3}\b"
+    )
+    offenders: list[tuple[str, str]] = []
+    for f in files:
+        for m in pattern.finditer(_read_text(f)):
+            offenders.append((f, m.group(0)))
+    assert not offenders, \
+        f"Migrated Phase 30D2 files must not use Tailwind dark literals: {offenders[:5]}"
+    print("  Migrated Phase 30D2 files use only cve-* token classes ✓")
+
+
+def test_p30d2_17_notes_graph_search_filter_labels():
+    """P30D2-17: Every text/search/number input in the migrated Notes and
+    Graph components has an associated <label for=...> or aria-label."""
+    print("\n=== Test P30D2-17: Notes/Graph form labels ===")
+    import re
+    for f in (_P30D2_NOTES_COMPONENT, _P30D2_GRAPH_COMPONENT):
+        text = _read_text(f)
+        for m in re.finditer(r"<input\b[^>]*>", text):
+            tag = m.group(0)
+            type_match = re.search(r'\btype="([^"]+)"', tag)
+            input_type = type_match.group(1) if type_match else "text"
+            if input_type not in ("text", "search", "number"):
+                continue
+            id_match = re.search(r'\bid="([^"]+)"', tag)
+            has_label = False
+            if id_match:
+                label_pattern = re.compile(
+                    r'<label\b[^>]*\bfor="' + re.escape(id_match.group(1)) + r'"'
+                )
+                if label_pattern.search(text):
+                    has_label = True
+            if 'aria-label="' in tag:
+                has_label = True
+            assert has_label, \
+                f"{f}: <input> tag has no associated <label for> or aria-label: {tag[:120]}"
+    print("  Notes and Graph inputs are properly labelled ✓")
+
+
+def test_p30d2_18_notes_graph_static_links_resolve():
+    """P30D2-18: Every static /app/<page> link in the migrated Notes and
+    Graph components resolves to a page in ui/src/pages."""
+    print("\n=== Test P30D2-18: Notes/Graph /app links resolve ===")
+    import re
+    from pathlib import Path
+    pages_dir = _repo_root() / "ui" / "src" / "pages"
+    for f in (_P30D2_NOTES_COMPONENT, _P30D2_GRAPH_COMPONENT):
+        text = _read_text(f)
+        for m in re.finditer(r'href="(/app/[A-Za-z0-9_/\-]+)', text):
+            target = m.group(1)
+            # Strip query suffix, then derive expected page file.
+            page = target[len("/app/"):]
+            if not page:
+                continue
+            candidates = [
+                pages_dir / f"{page}.astro",
+                pages_dir / page / "index.astro",
+            ]
+            assert any(c.is_file() for c in candidates), \
+                f"{f} links to {target} which has no matching page file"
+    print("  Notes and Graph /app links resolve to real pages ✓")
+
+
+def test_p30d2_19_phase27_still_deferred():
+    """P30D2-19: ROADMAP.md keeps Phase 27 deferred."""
+    print("\n=== Test P30D2-19: Phase 27 deferred ===")
+    text = _read_text("ROADMAP.md")
+    assert "| 27" in text and "Deferred" in text, \
+        "ROADMAP.md must keep Phase 27 deferred"
+    print("  Phase 27 remains deferred ✓")
+
+
+def test_p30d2_20_phase28_still_deferred():
+    """P30D2-20: ROADMAP.md keeps Phase 28 deferred."""
+    print("\n=== Test P30D2-20: Phase 28 deferred ===")
+    text = _read_text("ROADMAP.md")
+    assert "| 28" in text and "Deferred" in text, \
+        "ROADMAP.md must keep Phase 28 deferred"
+    print("  Phase 28 remains deferred ✓")
+
+
+def test_p30d2_21_phase30d2_complete_and_30d_not_complete():
+    """P30D2-21: ROADMAP.md records Phase 30D2 as Complete, leaves the
+    parent Phase 30D row non-complete, and keeps Phase 30D3 Planned."""
+    print("\n=== Test P30D2-21: Phase 30D2 Complete; 30D not Complete; 30D3 Planned ===")
+    text = _read_text("ROADMAP.md")
+    forbidden_rows = (
+        "| 30D   | Core Workflow Page Redesigns            | Complete",
+    )
+    for row in forbidden_rows:
+        assert row not in text, \
+            f"ROADMAP.md must not mark Phase 30D Complete; found {row!r}"
+    assert "| 30D2" in text, "ROADMAP.md must include a 30D2 status row"
+    # The 30D2 row must include the Complete status marker on the same line.
+    found_complete = False
+    for line in text.splitlines():
+        if line.startswith("| 30D2") and "Complete" in line:
+            found_complete = True
+            break
+    assert found_complete, "ROADMAP.md must mark Phase 30D2 as Complete in the status table"
+    # 30D3 must remain Planned.
+    found_30d3_planned = False
+    for line in text.splitlines():
+        if line.startswith("| 30D3") and "Planned" in line:
+            found_30d3_planned = True
+            break
+    assert found_30d3_planned, "ROADMAP.md must keep Phase 30D3 Planned"
+    print("  Phase 30D2 Complete; parent 30D not Complete; 30D3 Planned ✓")
+
+
+def test_p30d2_22_phase30e_and_30f_planned():
+    """P30D2-22: Phase 30E and 30F remain Planned."""
+    print("\n=== Test P30D2-22: Phase 30E/30F planned ===")
+    text = _read_text("ROADMAP.md")
+    assert "| 30E   | Review/Governance/Developer Polish      | Planned" in text, \
+        "ROADMAP.md must keep Phase 30E Planned"
+    assert "| 30F   | Final QA, A11y, Responsive, Light Mode  | Planned" in text, \
+        "ROADMAP.md must keep Phase 30F Planned"
+    print("  Phase 30E and 30F remain Planned ✓")
+
+
+def test_p30d2_23_no_new_runtime_dependencies():
+    """P30D2-23: ui/package.json does not pick up React/Vue/icon/animation
+    libraries in Phase 30D2."""
+    print("\n=== Test P30D2-23: ui/package.json deps unchanged ===")
+    import json
+    pkg = json.loads(_read_text("ui/package.json"))
+    deps = set((pkg.get("dependencies") or {}).keys())
+    dev_deps = set((pkg.get("devDependencies") or {}).keys())
+    forbidden = {"react", "react-dom", "vue", "lucide-react",
+                 "@heroicons/react", "framer-motion", "react-icons",
+                 "@radix-ui/react-icons", "chart.js", "d3", "recharts",
+                 "highlight.js", "prismjs", "shiki"}
+    sneaked_in = (deps | dev_deps) & forbidden
+    assert not sneaked_in, \
+        f"ui/package.json must not introduce {sorted(sneaked_in)} in Phase 30D2"
+    print("  No new runtime dependencies in Phase 30D2 ✓")
+
+
+def test_p30d2_24_no_em_dashes_in_phase30d2_files():
+    """P30D2-24: Files touched by Phase 30D2 contain no em dashes."""
+    print("\n=== Test P30D2-24: no em dashes in Phase 30D2 files ===")
+    files = [
+        _P30D2_NOTES_PAGE, _P30D2_GRAPH_PAGE,
+        _P30D2_NOTES_COMPONENT, _P30D2_GRAPH_COMPONENT,
+        "ui/src/styles/global.css",
+        "ROADMAP.md", "UI_UX_AUDIT.md", "TESTING.md",
+        "README.md", "RELEASE_CHECKLIST.md",
+    ]
+    offenders = [f for f in files if "\u2014" in _read_text(f)]
+    assert not offenders, \
+        f"Phase 30D2 files must not contain em dashes; offenders: {offenders}"
+    print("  No em dashes in Phase 30D2 files ✓")
 
 
 if __name__ == "__main__":

@@ -100,6 +100,8 @@ Phase 31B (App Header and Toolbar Normalisation Pass) is a focused UI polish and
 
 Phase 31C (Release Candidate Visual QA and Defect Triage) is a QA and defect-triage pass, not feature work. Phase 31C records the result of attempting a release-candidate visual QA pass over the 15 migrated /app routes. The automated agent that executed Phase 31C did not open a browser, did not exercise live keyboard traversal, and did not run an assistive technology, so the manual browser visual QA, keyboard QA, and screen-reader QA rows in `RELEASE_CHECKLIST.md` remain manual and unchecked. Phase 31C performed automated source-level verification only (`py mcp/test_verify.py`, `py run.py validate`, `py run.py security`, `py run.py feedback`, `py run.py export --overwrite`, `cd ui && npm run build`) and adds deterministic guardrails that prevent later documentation from overclaiming that rendered visual QA was performed automatically. Phase 31C makes no backend route, API contract, schema, or MCP changes, introduces no new runtime dependency, imports no external font, redesigns no page bodies, removes no routes, and adds no new write actions. Phase 31C does not start Phase 27 (Registry and Reuse Layer) and does not start Phase 28 (Optional Semantic Retrieval); both remain Deferred.
 
+The next planned phase is **Phase 32 (Human Release QA and Evidence Capture)**, which begins the post-release productisation roadmap (Phases 32-41). This roadmap block focuses on release readiness, public presentation, packaging, onboarding, supportability, and trust rather than new engine capability. It does not start Phase 27 or Phase 28; both remain Deferred. It does not introduce semantic retrieval, embeddings, LLM extraction, autonomous note writing, SaaS positioning, or multi-tenant cloud positioning.
+
 ## Phase Status Overview
 
 | Phase | Name                                    | Status   |
@@ -147,6 +149,16 @@ Phase 31C (Release Candidate Visual QA and Defect Triage) is a QA and defect-tri
 | 31A   | Release Candidate Verification          | Complete |
 | 31B   | App Header and Toolbar Normalisation    | Complete |
 | 31C   | RC Visual QA and Defect Triage          | Complete |
+| 32    | Human Release QA and Evidence Capture   | Planned  |
+| 33    | Official Website and Public Docs        | Planned  |
+| 34    | Windows Desktop Distribution            | Planned  |
+| 35    | Deterministic In-App Guidance Assistant | Planned  |
+| 36    | First-Run Onboarding Workflow           | Planned  |
+| 37    | Local Diagnostics and Support Report    | Planned  |
+| 38    | Backup, Restore, and Migration Safety   | Planned  |
+| 39    | MCP Client Setup and Connection Testing | Planned  |
+| 40    | Public Security Posture and Release Trust | Planned |
+| 41    | Example Vaults and Demonstration Packs  | Planned  |
 | 27    | Registry and Reuse Layer                | Deferred |
 | 28    | Optional Semantic Retrieval             | Deferred |
 
@@ -1340,6 +1352,373 @@ Phase 31C executed only automated source-level checks and a static source review
 
 ```
 docs(release): record Phase 31C visual QA and defect triage outcome
+```
+
+---
+
+## Next Productisation Roadmap
+
+The next roadmap block (Phases 32-41) is about release readiness, public presentation, packaging, onboarding, supportability, and trust. It is not new engine capability. The project's local-first, deterministic-first, security-focused direction is preserved throughout. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain Deferred and are not started, prepared, or implied by any phase in this block. No phase in this block introduces semantic retrieval, embeddings, LLM extraction, autonomous note writing, SaaS positioning, or multi-tenant cloud positioning.
+
+### Phase 32 - Human Release QA and Evidence Capture
+
+**Status:** Planned.
+
+**Purpose**
+
+Perform real release-candidate QA in a browser and capture honest evidence. Phase 31C executed only automated source-level verification; Phase 32 is the human-driven complement.
+
+**Deliver**
+
+- Manual browser visual QA across all 15 `/app/*` routes.
+- Viewport checks: ultrawide, 2560x1440, 1920x1080, 1366x768, and a narrow mobile/tablet width.
+- Light and dark theme checks.
+- Keyboard-only traversal checks.
+- Basic screen-reader checks using a real assistive technology (NVDA, JAWS, VoiceOver, or Narrator) where possible.
+- Screenshot/evidence capture policy.
+- Release-note wording that clearly states what was and was not manually verified.
+
+**Acceptance**
+
+- No claim of browser, keyboard, or screen-reader QA unless actually performed.
+- `RELEASE_CHECKLIST.md` remains the source of truth for manual QA rows.
+- Any defects found are documented and triaged.
+- No backend route, API contract, schema, or MCP changes.
+
+**Suggested Commit**
+
+```
+docs(release): record Phase 32 human visual QA evidence
+```
+
+---
+
+### Phase 33 - Official Website and Public Product Documentation
+
+**Status:** Planned.
+
+**Purpose**
+
+Create a public-facing product website/documentation layer so new users can understand the project without reading the entire repository.
+
+**Deliver**
+
+- Website content plan and initial site/docs structure.
+- Home page explaining the product in plain language.
+- How-it-works page: Markdown vault -> schema validation -> security scan -> bundle/export -> MCP/API/UI.
+- Security model page.
+- Install/run page.
+- Releases/downloads/checksums page.
+- Roadmap page.
+- Licence/commercial licensing note.
+- Screenshots or UI previews where appropriate.
+
+**Acceptance**
+
+- Website does not position the project as generic SaaS, generic RAG, a cloud AI product, or an Obsidian replacement.
+- Website reflects AGPL licensing and the separate commercial licensing possibility.
+- Website links back to GitHub, README, QUICKSTART, API, and RELEASE_CHECKLIST.
+- No runtime feature work.
+
+**Suggested Commit**
+
+```
+docs(site): scaffold official product website and public docs
+```
+
+---
+
+### Phase 34 - Windows Desktop Distribution
+
+**Status:** Planned.
+
+**Purpose**
+
+Reduce install friction by packaging the existing local app flow for Windows.
+
+**Deliver**
+
+- Staged packaging plan:
+  1. Portable Windows bundle.
+  2. Windows `.exe` launcher.
+  3. Installer.
+  4. Signed release.
+- Launcher behaviour reuses the existing local app model:
+  - start or reuse the backend server,
+  - verify/build UI presence,
+  - open the browser to `/app`,
+  - show clear dependency/setup errors.
+- Release hashes/checksums.
+- Source availability and AGPL compliance notes.
+
+**Acceptance**
+
+- No rewrite into Electron unless explicitly chosen later.
+- Packaging must preserve local-first behaviour.
+- The packaged app must not hide where user vault data lives.
+- Packaged releases must not commit generated artefacts.
+- No semantic retrieval or registry work.
+
+**Suggested Commit**
+
+```
+build(dist): plan Windows desktop distribution staging
+```
+
+---
+
+### Phase 35 - Deterministic In-App Guidance Assistant
+
+**Status:** Planned.
+
+**Purpose**
+
+Add bot-like help without embeddings or LLM dependency.
+
+**Deliver**
+
+- Deterministic guidance panel in the UI.
+- Static help registry keyed by route, user intent, and current vault state.
+- Uses existing API state such as validation, tasks, trust, security, import state, and context controller recommendations.
+- Answers concise operational questions such as:
+  - What should I do next?
+  - Why is this note draft?
+  - Can I export safely?
+  - How do I import notes?
+  - What does pending mean?
+- Provides route links and next actions.
+
+**Acceptance**
+
+- No embeddings.
+- No semantic retrieval.
+- No LLM invocation.
+- No autonomous note mutation.
+- Answers must be derived from current state and curated help content.
+- Mutating actions must remain explicit and human-confirmed.
+
+**Suggested Commit**
+
+```
+feat(ui): add deterministic in-app guidance assistant
+```
+
+---
+
+### Phase 36 - First-Run Onboarding Workflow
+
+**Status:** Planned.
+
+**Purpose**
+
+Turn the app from technically complete into approachable for a first-time user.
+
+**Deliver**
+
+- First-run onboarding page or guided workflow.
+- User mode choices:
+  - Explore demo vault.
+  - Create new vault.
+  - Import Markdown folder.
+  - Import Obsidian vault.
+- Guided steps:
+  - select/create vault,
+  - validate,
+  - inspect first task,
+  - build first context bundle,
+  - run security scan,
+  - export package,
+  - optional MCP setup.
+- Persistent completion state, local only.
+
+**Acceptance**
+
+- Onboarding is non-destructive by default.
+- Import and write actions retain preview/confirmation gates.
+- The user can skip onboarding.
+- No new backend capability unless strictly required for state tracking.
+
+**Suggested Commit**
+
+```
+feat(ui): add first-run onboarding workflow
+```
+
+---
+
+### Phase 37 - Local Diagnostics and Support Report
+
+**Status:** Planned.
+
+**Purpose**
+
+Make local debugging and support practical without exposing private content.
+
+**Deliver**
+
+- Diagnostics UI page or CLI command.
+- Safe support report containing:
+  - app version,
+  - Python version,
+  - OS,
+  - UI build status,
+  - config/vault status,
+  - validation/security/feedback/export command availability,
+  - private cloud mode status without secrets,
+  - recent structured errors if available.
+- Redaction rules.
+
+**Acceptance**
+
+- Must not include note bodies by default.
+- Must not include tokens, credentials, or secret environment values.
+- Must not leak full vault content.
+- Must clearly mark any local absolute paths if included.
+- Output is deterministic enough to test.
+
+**Suggested Commit**
+
+```
+feat(diagnostics): add local diagnostics and safe support report
+```
+
+---
+
+### Phase 38 - Backup, Restore, and Migration Safety
+
+**Status:** Planned.
+
+**Purpose**
+
+Protect real user vaults and config before the app is used seriously.
+
+**Deliver**
+
+- Backup plan for vaults, config, feedback, state, and relevant local metadata.
+- Restore workflow with preview.
+- Restore validation before write.
+- Migration checks for schema/config changes.
+- Clear overwrite warnings.
+- Generated artefacts excluded by default.
+
+**Acceptance**
+
+- Restore must reject unsafe paths.
+- Restore must not overwrite without explicit confirmation.
+- Backup should be local and inspectable.
+- No cloud backup feature.
+- No registry implementation.
+
+**Suggested Commit**
+
+```
+feat(backup): add backup, restore, and migration safety
+```
+
+---
+
+### Phase 39 - MCP Client Setup and Connection Testing
+
+**Status:** Planned.
+
+**Purpose**
+
+Make the MCP story usable by people who are not already familiar with MCP configuration.
+
+**Deliver**
+
+- MCP setup guide in the UI or docs.
+- Copyable client configuration snippets.
+- Show correct command and working directory.
+- Explain the local stdio model.
+- Read-only safety notice.
+- Optional handshake/test command if feasible.
+- Troubleshooting checklist.
+
+**Acceptance**
+
+- Do not claim compatibility with a specific MCP client unless tested.
+- Keep examples conservative and clearly marked.
+- MCP tools remain read-only unless a future explicit phase changes that.
+
+**Suggested Commit**
+
+```
+docs(mcp): add MCP client setup and connection testing guide
+```
+
+---
+
+### Phase 40 - Public Security Posture and Release Trust
+
+**Status:** Planned.
+
+**Purpose**
+
+Make the public security claim credible for release users.
+
+**Deliver**
+
+- `SECURITY.md` plan or section in roadmap.
+- Threat model documentation.
+- Responsible disclosure process.
+- Release checksums/hashes.
+- Dependency audit guidance.
+- Optional SBOM plan.
+- Clear "protects against / does not protect against" section.
+- AGPL source availability note for packaged and network deployments.
+
+**Acceptance**
+
+- Security posture must be honest.
+- No claim that deterministic scanning proves factual correctness.
+- No claim that local-first means risk-free.
+- No secrets committed.
+- Release artefact hygiene remains enforced.
+
+**Suggested Commit**
+
+```
+docs(security): publish public security posture and release trust plan
+```
+
+---
+
+### Phase 41 - Example Vaults and Demonstration Packs
+
+**Status:** Planned.
+
+**Purpose**
+
+Show concrete use cases without bloating the core product.
+
+**Deliver**
+
+- Example/demo plan for:
+  - cybersecurity analyst lab vault,
+  - software project documentation vault,
+  - personal knowledge vault,
+  - compliance/process vault,
+  - local LLM project-memory vault.
+- Each example should define:
+  - purpose,
+  - before/after validation state,
+  - sample bundle/export,
+  - screenshots or static review artefacts,
+  - what capability it demonstrates.
+- Decide whether examples live in the repo, `examples/`, releases, or a companion repository.
+
+**Acceptance**
+
+- Examples must not bloat the main app.
+- Examples must avoid private/personal data.
+- Generated exports must not be accidentally committed unless intentionally included as static demo artefacts.
+- No new core engine behaviour required.
+
+**Suggested Commit**
+
+```
+docs(examples): plan example vaults and demonstration packs
 ```
 
 ---

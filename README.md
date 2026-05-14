@@ -118,6 +118,7 @@ Each command exits `0` on success, `1` on failure, and writes structured JSON ou
 
 ---
 
+
 ## Non-Goals
 
 This project is not:
@@ -129,6 +130,10 @@ This project is not:
 - A cloud-first platform
 - A database-heavy enterprise system
 - A semantic search engine (no embeddings in current implementation)
+
+## Planned/Future
+
+- An optional OpenAI-compatible context gateway is planned (see ROADMAP.md, Phase 46). This will be a disabled-by-default, optional adapter for OpenAI-compatible clients (e.g. OffGrid, mobile LLM apps) to consume validated context from Context Vault Engine. It will not require OpenAI, will not expose the deterministic core, and will not change the local-first, schema-enforced model. No implementation is claimed; see the roadmap for details.
 
 ---
 

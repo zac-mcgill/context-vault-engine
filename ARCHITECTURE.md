@@ -1,3 +1,6 @@
+## Planned Optional Adapters / Gateways
+
+An OpenAI-compatible context gateway is planned (see ROADMAP.md, Phase 46). This will be an optional, disabled-by-default HTTP adapter that exposes a minimal OpenAI-compatible API surface for interoperability with mobile/local LLM clients. It will not be part of the deterministic core, will not expose unrestricted engine routes, and will not change the schema, validation, or security model. No implementation is claimed; see the roadmap for details.
 # Context Vault Engine - Architecture
 
 ## Overview

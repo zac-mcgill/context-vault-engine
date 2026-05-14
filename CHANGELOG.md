@@ -6,6 +6,24 @@ Documentation-only update recording the completion of Phase 39A (MCP Stdio Verif
 
 ## Unreleased - ROADMAP deep normalisation
 
+## Unreleased - OpenAI-Compatible Context Gateway Roadmap Phase
+
+Documentation-only addition of Phase 46 (OpenAI-Compatible Context Gateway) to the roadmap. This phase plans an optional, disabled-by-default gateway that exposes a minimal OpenAI-compatible API surface for interoperability with mobile/local LLM clients, strictly separated from the deterministic core. No runtime code, tests, API routes, UI, or artefacts are implemented in this phase. Supporting documentation updated for consistency. No implementation claims are made.
+
+### Added
+
+- `ROADMAP.md` Phase 46 (OpenAI-Compatible Context Gateway) as a planned phase, with full section and table entry.
+- Documentation guardrails and security constraints for the gateway.
+- Supporting doc references updated where appropriate.
+
+### Non-goals
+
+- No OpenAI dependency, no cloud requirement, no semantic retrieval, no embeddings, no autonomous writing, no MCP-over-network, no HTTP API replacement, no mobile app implementation, no agent framework rewrite, no change to private cloud assumptions.
+
+### Verification
+
+- Documentation-only; no runtime code, tests, or artefacts added.
+
 Documentation-only restructure of `ROADMAP.md` that removes stale "Current
 Active Phase" narrative carried forward from earlier phases, reorganises the
 file under a fixed section template, and adds 14 new deterministic guards to
@@ -117,7 +135,7 @@ Add a local, preview-first backup and restore surface so users can capture and r
 
 ### Non-goals
 
-Phase 38 does not start Phase 27 (Registry and Reuse Layer) or Phase 28 (Optional Semantic Retrieval); both remain Deferred. No semantic retrieval, embeddings, LLM calls, autonomous note writing, registry/reuse, desktop packaging, onboarding workflow, new runtime dependency, new UI framework, React, external icon library, animation library, remote telemetry, crash upload service, automatic issue reporting, or cloud backup target was added.
+Phase 38 does not start Phase 27 (Registry and Reuse Layer) or Phase 28 (Optional Semantic Retrieval); both remain Deferred. No semantic retrieval, embeddings, LLM calls, autonomous note writing, registry/reuse, backup/restore, desktop packaging, onboarding workflow, MCP client setup work, new runtime dependency, new UI framework, React, external icon library, animation library, remote telemetry, crash upload service, or automatic issue reporting was added.
 
 ## Unreleased - Phase 37: Local Diagnostics and Support Report
 
@@ -188,6 +206,24 @@ Expected result:
 - Obsidian-compatible Markdown import is implemented; full Obsidian graph semantics, automatic wikilink rewriting, attachment copying/import, binary attachment processing, and richer Obsidian-native behaviour remain deferred.
 - Browser visual QA, live keyboard QA, and screen-reader QA remain manual and must be performed by a human against a real browser and, where applicable, a real assistive technology before any release tag claims those passes.
 - Autonomous note writing is not enabled; pending memory changes remain human-reviewed before acceptance.
+
+## Unreleased - Runtime Mode Isolation Roadmap Phase
+
+Documentation-only addition of Phase 47 (Runtime Mode Isolation and Local App Auth Recovery) to the roadmap. This phase formalises a planned hardening phase to address local app / private cloud mode environment collision and mode leakage, as observed during Tailscale mobile tunnel testing. No runtime code, tests, API routes, UI, or artefacts are implemented in this phase. Supporting documentation updated for consistency. No implementation claims are made.
+
+### Added
+
+- `ROADMAP.md` Phase 47 (Runtime Mode Isolation and Local App Auth Recovery) as a planned phase, with full section and table entry.
+- Documentation guardrails and security constraints for mode isolation and local app auth recovery.
+- Supporting doc references updated where appropriate.
+
+### Non-goals
+
+- No OpenAI dependency, no cloud requirement, no semantic retrieval, no embeddings, no autonomous writing, no MCP-over-network, no HTTP API replacement, no mobile app implementation, no agent framework rewrite, no change to private cloud assumptions.
+
+### Verification
+
+- Documentation-only; no runtime code, tests, or artefacts added.
 
 ## v1.0.1 - CI and runtime artefact hygiene patch
 

@@ -1,3 +1,6 @@
+## Note on Mobile Access and Gateways
+
+The private HTTP API/tunnel remains the correct mobile access surface for Context Vault Engine. MCP stdio remains local-only and must not be exposed over the network. The planned OpenAI-compatible context gateway (see ROADMAP.md, Phase 46) will be an optional, disabled-by-default adapter for OpenAI-compatible clients. It will not replace the HTTP API or change the core deployment model.
 # Context Vault Engine - Private Cloud Mode Deployment Guide
 
 > **Security warning:** Never expose an unauthenticated Context Vault Engine API to the public internet. Always use one of the access models described below when running on a remote server.

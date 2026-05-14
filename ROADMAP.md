@@ -118,24 +118,124 @@ The Phase Status Overview table in the next section is the single source of trut
 | 31B   | App Header and Toolbar Normalisation    | Complete |
 | 31C   | RC Visual QA and Defect Triage          | Complete |
 | 32    | Human Release QA and Evidence Capture   | Planned  |
-| 33    | Official Website and Public Docs        | Planned  |
-| 34    | Windows Desktop Distribution            | Planned  |
-| 35    | Deterministic In-App Guidance Assistant | Planned  |
-| 36    | First-Run Onboarding Workflow           | Planned  |
 | 37    | Local Diagnostics and Support Report    | Complete |
 | 38    | Backup, Restore, and Migration Safety   | Complete |
 | 39    | MCP Client Setup and Connection Testing | Complete |
 | 39A   | MCP Stdio Verification Batch Pass       | Complete |
-| 40    | Public Security Posture & Release Trust | Planned  |
-| 41    | Example Vaults and Demonstration Packs  | Planned  |
 | 42    | Context Health Recommendation Layer     | Planned  |
 | 43    | MCP Response Ergonomics & Budget Diag   | Planned  |
 | 44    | Pending Change Lifecycle (parent)       | Complete |
 | 44A   | Pending Change Lifecycle Investigation  | Complete |
 | 44B   | Pending Change Lifecycle Implementation | Complete |
 | 45    | Legacy Acronym Neutralisation (CVE)     | Planned  |
+| 46    | OpenAI-Compatible Context Gateway       | Planned  |
+| 47    | Runtime Mode Isolation and Local App Auth Recovery | Planned  |
 | 27    | Registry and Reuse Layer                | Deferred |
 | 28    | Optional Semantic Retrieval             | Deferred |
+| 33    | Official Website and Public Docs        | Deferred |
+| 34    | Windows Desktop Distribution            | Deferred |
+| 35    | Deterministic In-App Guidance Assistant | Deferred |
+| 36    | First-Run Onboarding Workflow           | Deferred |
+| 40    | Public Security Posture & Release Trust | Deferred |
+| 41    | Example Vaults and Demonstration Packs  | Deferred |
+
+
+### Phase 47 - Runtime Mode Isolation and Local App Auth Recovery
+
+**Status:** Planned.
+
+**Purpose**
+
+Harden developer and user workflow around local app mode, private tunnel mode, and inherited environment variables. Prevent accidental mode leakage between local and private cloud/tunnel sessions, making transitions explicit, diagnosable, and difficult to misuse, without weakening authentication or exposing unauthenticated APIs.
+
+**Background / Observed Issue**
+
+Mobile private-tunnel testing (e.g. with Tailscale Serve and Private Cloud Mode) revealed that after closing the tunnel and returning to normal PC-local use, `py run.py app` can inherit `CVE_*` environment variables from the previous session:
+
+- `CVE_PRIVATE_CLOUD_ENABLED=true`
+- `CVE_REQUIRE_AUTH=true`
+- `CVE_REMOTE_READ_ONLY=true`
+- `CVE_DEPLOYMENT_MODE=tunnel`
+- `CVE_AUTH_TOKEN=<set>`
+
+The server starts and `/health` passes, but the launcher opens `/app` without the required auth header, resulting in a 401 AUTH_REQUIRED error. The user must manually clear environment variables or restart the server. The behaviour is secure but the UX is poor and easy to misdiagnose.
+
+**Problem Statement**
+
+Local app launches can silently inherit private-cloud/tunnel environment variables, causing `/app` to require authentication unexpectedly. This makes local recovery clumsy and error-prone, as users must manually clear environment variables. The current behaviour is technically secure but not user-friendly.
+
+**Proposed Implementation Direction**
+
+A future implementation phase should consider one or more of the following (final design to be determined during implementation):
+
+- **Runtime mode preflight:**
+        - `py run.py app` should inspect effective private-cloud status before opening the browser.
+        - If auth is enabled and `/app` would return AUTH_REQUIRED, the launcher should stop before opening the browser and print a clear recovery message (identifying Private Cloud Mode is active, without printing the token).
+- **Explicit local mode launcher:**
+        - Consider adding an explicit local-app mode or flag (e.g. `py run.py app --local`, `py run.py app --ignore-private-cloud-env`, or another safer name chosen during implementation).
+        - This should deliberately disable private-cloud env influence for that launched local process only, without mutating the user’s global environment or weakening remote deployments.
+- **Explicit tunnel/private mode launcher:**
+        - Consider adding a clearer command/path for tunnel testing (e.g. `py run.py app --private-cloud`, `py run.py app --tunnel`, or documented environment presets) to avoid mixing normal local UI mode and remote tunnel mode.
+- **Safer diagnostics:**
+        - Add a CLI/app preflight message showing: private cloud enabled/disabled, require_auth true/false, remote_read_only true/false, deployment_mode, token_configured true/false (never print the token).
+        - Prefer actionable remediation: “Private Cloud Mode is active. Browser UI may require auth and fail at /app.”, “Unset CVE_PRIVATE_CLOUD_ENABLED or relaunch with local mode.”, “Use /private/status to inspect mode.”
+        - Include PowerShell cleanup examples in documentation if appropriate.
+- **UI auth recovery path (if later chosen):**
+        - Consider whether `/app` should remain auth-protected in private cloud mode or whether a browser-friendly auth flow is needed. If planned, it must not leak tokens, must not store secrets insecurely, and must not weaken the remote auth boundary. This is a possible design option, not an implementation claim.
+
+**Deliverables**
+
+- Roadmap and documentation updates
+- Hardened local app launcher and diagnostics (implementation phase)
+- Explicit local/tunnel mode launcher options (implementation phase)
+- Clear recovery and diagnostics messaging
+- Documentation of manual environment recovery steps
+
+**Acceptance Criteria**
+
+- Local app launch should no longer silently open a guaranteed 401 /app page when Private Cloud Mode is active
+- Private Cloud Mode must remain secure by default
+- No token values are printed, logged, committed, or embedded in URLs
+- The user can clearly distinguish normal local app mode, private tunnel/API mode, and MCP stdio mode
+- The launcher or documentation provides a clear recovery path from inherited CVE_* environment state
+- Existing private-cloud auth behaviour remains compatible with documented API headers (`Authorization: Bearer <token>`, `X-CVE-Token: <token>`)
+- MCP stdio remains local-only and unaffected
+- Existing route behaviour is not reclassified as implemented unless code is actually changed in a later implementation phase
+
+**Non-goals**
+
+- No OpenAI-compatible gateway implementation
+- No mobile app implementation
+- No Tailscale integration code
+- No public Funnel setup
+- No semantic retrieval
+- No embeddings
+- No LLM extraction
+- No changes to existing deterministic core behaviour
+- No direct vault-write bypass
+- No removal or rename of existing CVE_* environment variables
+
+**Security Constraints**
+
+- Do not silently disable auth for remote/tunnel deployments
+- Do not infer safety merely from hostname or URL
+- Do not pass auth tokens through query strings
+- Do not expose the token in browser console output, logs, diagnostics, or launcher text
+- Do not allow the local app launcher to mutate persistent machine/user environment variables
+- Do not make /app public in private-cloud mode without a deliberate browser-auth design
+- Do not add any MCP-over-network behaviour
+- Do not add autonomous write behaviour
+
+**Suggested Verification Scope**
+
+- Documentation-only: verify roadmap, architecture, and deployment docs are consistent
+- No runtime code, tests, or artefacts are implemented in this phase
+
+**Suggested Commit Message**
+
+```
+docs(roadmap): add runtime mode isolation phase
+```
 
 ## Completed Capability Summary
 
@@ -381,6 +481,122 @@ A full UI/UX quality and design system pass (Phase 29), a release quality pass c
 - Pending-change list and revalidate endpoints behave as documented under the deterministic test suite.
 
 ## Planned Productisation Phases
+
+### Phase 46 - OpenAI-Compatible Context Gateway
+
+**Status:** Planned.
+
+**Purpose**
+
+Provide an optional, OpenAI-compatible HTTP gateway for interoperability with mobile and local LLM clients that expect an OpenAI-shaped API. This gateway adapts OpenAI-compatible client requests into Context Vault Engine context retrieval and LLM backend calls, prioritising local-first and self-hosted operation. It is not an OpenAI cloud integration and does not require or depend on OpenAI services.
+
+**Background / Rationale**
+
+Many mobile and local LLM clients (such as OffGrid and similar apps) expect an OpenAI-compatible API for chat completions and model listing. Providing an optional gateway enables these clients to consume validated context from Context Vault Engine, while keeping the core engine deterministic, local-first, and schema-enforced. The gateway is strictly optional, disabled by default, and separated from the deterministic core.
+
+**Proposed Architecture**
+
+```
+OffGrid / OpenAI-compatible client
+        -> OpenAI-compatible Context Gateway
+        -> Context Vault Engine HTTP API (context/state/evidence/query/bundles)
+        -> Actual LLM backend (local PC, phone, LAN, VPS, or cloud)
+```
+
+The gateway exposes a minimal OpenAI-compatible surface:
+- `GET /v1/models`
+- `POST /v1/chat/completions`
+- `GET /health` (or equivalent gateway health endpoint)
+
+Internally, the gateway uses only allowlisted Context Vault Engine routes such as:
+- `GET /context/state`
+- `GET /context/profiles`
+- `POST /context/bundle`
+- `POST /query`
+- `POST /evidence`
+- `GET /trust`
+- `GET /stale`
+- `GET /project/state` (where applicable)
+
+Three backend layouts are supported:
+A. PC gateway + PC LLM + PC Context Vault Engine
+B. Phone/mobile gateway + phone-local LLM + PC Context Vault Engine over private tunnel
+C. PC gateway + phone-exposed LLM backend + PC Context Vault Engine
+
+**Recommended Implementation Path**
+
+*Stage 1:*
+- Build a PC-side gateway MVP first.
+- Prove OpenAI protocol compatibility with a simple model-list and chat-completion adapter.
+- Use a PC-hosted LLM backend or mock backend initially.
+- Confirm a mobile client (e.g. OffGrid) can connect to the gateway.
+
+*Stage 2:*
+- Add strict Context Vault Engine context policy.
+- Retrieve context through bounded, allowlisted routes only.
+- Inject retrieved context into prompts with explicit boundary text.
+- Enforce hard context budgets and a phone/local profile where relevant.
+- Treat retrieved content as context, not instructions.
+- Include source paths where available.
+
+*Stage 3:*
+- Explore phone-local LLM backend support.
+- Only proceed if the phone model app exposes a callable HTTP/OpenAI-compatible backend.
+- If the phone app is only a chat UI with no callable server/API, document that it cannot be used as the LLM backend for this gateway.
+
+**Deliverables**
+- Optional OpenAI-compatible gateway service (disabled by default)
+- Minimal `/v1/models`, `/v1/chat/completions`, `/health` endpoints
+- Context retrieval via allowlisted Context Vault Engine HTTP API routes
+- LLM backend adapter (local-first, self-hosted prioritised)
+- Documentation of supported layouts and security constraints
+
+**Acceptance Criteria**
+- Gateway is optional and disabled by default
+- Gateway is not part of the deterministic core
+- Gateway does not expose unrestricted engine routes
+- Gateway does not auto-accept pending changes or mutate vault notes
+- Gateway does not bypass schema validation, security scan, or pending-change review
+- Gateway requires its own API key or local auth when exposed beyond localhost
+- Gateway supports local-only operation
+- Gateway logs/surfaces what context was retrieved (without leaking secrets)
+- Gateway does not forward raw tokens or secrets into LLM prompts
+- Gateway keeps context budgets small by default for mobile clients
+- Gateway keeps prompt-injection boundaries explicit
+
+**Non-goals**
+- No direct OpenAI dependency
+- No cloud requirement
+- No semantic/vector retrieval
+- No embeddings
+- No autonomous note writing
+- No MCP-over-network
+- No replacement for the existing HTTP API
+- No mobile app implementation in this phase
+- No broad agent framework rewrite
+- No change to existing private cloud deployment assumptions
+
+**Security Constraints**
+- Gateway must require its own API key or equivalent local auth when exposed beyond localhost
+- Gateway must not expose unrestricted write routes
+- Gateway must not auto-accept pending changes
+- Gateway must not directly mutate vault notes
+- Gateway must not bypass schema validation, security scan, pending-change review, or private-cloud auth model
+- Gateway must keep context budgets small by default for mobile clients
+- Gateway must keep prompt-injection boundaries explicit
+- Gateway must log or surface what context was retrieved, without leaking secrets
+- Gateway must avoid forwarding raw tokens or secrets into LLM prompts
+- Gateway must support local-only operation
+
+**Suggested Verification Scope**
+- Documentation-only: verify roadmap, architecture, and API docs are consistent
+- No runtime code, tests, or artefacts are implemented in this phase
+
+**Suggested Commit Message**
+
+```
+docs(roadmap): add OpenAI-compatible context gateway phase
+```
 
 The remaining planned phases focus on release readiness, public presentation, packaging, onboarding, supportability, trust, and ergonomics rather than new engine capability. **Phase 40 (Public Security Posture and Release Trust) is the next planned implementation phase**, in parallel with the manual Phase 32 (Human Release QA and Evidence Capture). The next planned phase is Phase 40. None of the planned phases below start, prepare, or imply Phase 27 (Registry and Reuse Layer) or Phase 28 (Optional Semantic Retrieval).
 

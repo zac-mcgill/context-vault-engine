@@ -1,3 +1,12 @@
+# Planned Gateway Routes
+
+The following routes are planned for the optional OpenAI-compatible context gateway (see ROADMAP.md, Phase 46). These are not part of the current API and are not implemented:
+
+- `GET /v1/models` (planned gateway route)
+- `POST /v1/chat/completions` (planned gateway route)
+- `GET /health` (gateway health endpoint, planned)
+
+The gateway will internally use only allowlisted Context Vault Engine routes for context retrieval and will not expose unrestricted engine access. See the roadmap for security constraints and non-goals.
 # Context Vault Engine - API Reference
 
 The Context Vault Engine API is a read-mostly HTTP API served by `mcp/server/mcp_server.py`. It exposes validation status, improvement tasks, quality audits, context bundles, export operations, security scans, and graph relationships.

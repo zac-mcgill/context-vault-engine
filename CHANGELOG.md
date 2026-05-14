@@ -1,5 +1,50 @@
 # Changelog
 
+## Unreleased - release-candidate documentation drift cleanup
+
+Documentation-only pass. No runtime, API, schema, MCP, UI behaviour, or dependency changes were made.
+
+### Changed
+
+- Documentation now reflects the current 1028-test release-candidate state.
+- README "Current Status" no longer claims the local app, CLI, HTTP API, or MCP stdio surface are "production-quality for local use"; they are now described as release-candidate quality for local use, pending manual browser visual QA, keyboard QA, and screen-reader QA.
+- ROADMAP "Import Sources" list now shows Obsidian-compatible Markdown import as implemented in Phase 26E, with full Obsidian-native behaviour (automatic wikilink rewriting, attachment copying/import, binary attachment processing, full Obsidian graph semantics) remaining deferred.
+- README Phase 26 capability bullets and QUICKSTART Phase 26B UI bullet now correctly distinguish between implemented Markdown folder import, implemented Obsidian-compatible Markdown import, and deferred richer Obsidian-native behaviour.
+
+### Fixed
+
+- Removed wording that implied Phase 31C had completed rendered browser visual QA, live keyboard traversal, or screen-reader QA. Phase 31C is now consistently documented as automated source-level/static verification only; the agent that executed Phase 31C did not open a browser, did not perform live keyboard traversal, and did not run a screen reader.
+- Removed stale "Obsidian-specific imports remain deferred" and "Obsidian vault (deferred)" current-state wording that contradicted Phase 26E. Historical Phase 26A-D phase records that describe what those phases did not include at the time were preserved as historical context.
+
+### Verification
+
+Verified with the current verification sequence (source-level only):
+
+```bash
+py mcp/test_verify.py
+py run.py validate
+py run.py security
+py run.py feedback
+py run.py export --overwrite
+cd ui; npm run build
+```
+
+Expected result:
+
+- 1028 verification tests pass.
+- Vault validation, security scan, feedback, and export commands all exit successfully.
+- UI build completes successfully.
+- Browser visual QA, live keyboard QA, and screen-reader QA remain manual and are tracked in `RELEASE_CHECKLIST.md`.
+
+### Known limitations
+
+- Phase 27 (Registry and Reuse Layer) remains deferred.
+- Phase 28 (Optional Semantic Retrieval) remains deferred.
+- Phase 32 (Human Release QA and Evidence Capture) has not started; it is the next planned phase, and Phases 32 to 44 are planned.
+- Obsidian-compatible Markdown import is implemented; full Obsidian graph semantics, automatic wikilink rewriting, attachment copying/import, binary attachment processing, and richer Obsidian-native behaviour remain deferred.
+- Browser visual QA, live keyboard QA, and screen-reader QA remain manual and must be performed by a human against a real browser and, where applicable, a real assistive technology before any release tag claims those passes.
+- Autonomous note writing is not enabled; pending memory changes remain human-reviewed before acceptance.
+
 ## v1.0.1 - CI and runtime artefact hygiene patch
 
 ### Fixed

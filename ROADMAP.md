@@ -100,7 +100,7 @@ Phase 31B (App Header and Toolbar Normalisation Pass) is a focused UI polish and
 
 Phase 31C (Release Candidate Visual QA and Defect Triage) is a QA and defect-triage pass, not feature work. Phase 31C records the result of attempting a release-candidate visual QA pass over the 15 migrated /app routes. The automated agent that executed Phase 31C did not open a browser, did not exercise live keyboard traversal, and did not run an assistive technology, so the manual browser visual QA, keyboard QA, and screen-reader QA rows in `RELEASE_CHECKLIST.md` remain manual and unchecked. Phase 31C performed automated source-level verification only (`py mcp/test_verify.py`, `py run.py validate`, `py run.py security`, `py run.py feedback`, `py run.py export --overwrite`, `cd ui && npm run build`) and adds deterministic guardrails that prevent later documentation from overclaiming that rendered visual QA was performed automatically. Phase 31C makes no backend route, API contract, schema, or MCP changes, introduces no new runtime dependency, imports no external font, redesigns no page bodies, removes no routes, and adds no new write actions. Phase 31C does not start Phase 27 (Registry and Reuse Layer) and does not start Phase 28 (Optional Semantic Retrieval); both remain Deferred.
 
-The next planned phase is **Phase 32 (Human Release QA and Evidence Capture)**, which begins the post-release productisation roadmap (Phases 32-44). This roadmap block focuses on release readiness, public presentation, packaging, onboarding, supportability, and trust rather than new engine capability. It does not start Phase 27 or Phase 28; both remain Deferred. It does not introduce semantic retrieval, embeddings, LLM extraction, autonomous note writing, SaaS positioning, or multi-tenant cloud positioning.
+Phase 32 (Human Release QA and Evidence Capture) remains planned and remains manual. It is intentionally deferred until the user is ready to complete the manual browser visual QA, keyboard QA, and screen-reader QA checklist tracked in `RELEASE_CHECKLIST.md`, so it is no longer treated as the immediate next implementation step. The immediate next implementation phase is **Phase 44A (Pending Change Lifecycle Investigation and Safety Contract)**, which addresses pending-change lifecycle behaviour and agent draft hardening based on issues surfaced during live MCP testing. The wider post-release productisation roadmap (Phases 32 to 44) still focuses on release readiness, public presentation, packaging, onboarding, supportability, and trust rather than new engine capability. It does not start Phase 27 or Phase 28; both remain Deferred. It does not introduce semantic retrieval, embeddings, LLM extraction, autonomous note writing, SaaS positioning, or multi-tenant cloud positioning.
 
 ## Phase Status Overview
 
@@ -162,6 +162,8 @@ The next planned phase is **Phase 32 (Human Release QA and Evidence Capture)**, 
 | 42	  | Context Health Recommendation Layer   	| Planned  |
 | 43	  | MCP Response Ergonomics and Budget Diagnostics |	Planned  |
 | 44    | Pending Change Lifecycle and Agent Draft Hardening | Planned  |
+| 44A   | Pending Change Lifecycle Investigation and Safety Contract | Planned  |
+| 44B   | Pending Change Lifecycle Implementation and UI Visibility Hardening | Planned  |
 | 27    | Registry and Reuse Layer                | Deferred |
 | 28    | Optional Semantic Retrieval             | Deferred |
 
@@ -656,7 +658,7 @@ Make it easier to ingest existing knowledge without bypassing schema controls.
 #### Import Sources
 
 - Markdown folder (Phase 26A backend, Phase 26B review UI, Phase 26C post-import review integration, Phase 26D edge-case hardening, Phase 26E Obsidian-compatible mode, Phase 26F lifecycle finalisation - implemented)
-- Obsidian vault (deferred)
+- Obsidian-compatible Markdown import (Phase 26E - implemented; full Obsidian-native behaviour such as automatic wikilink rewriting, attachment copying/import, binary attachment processing, and full Obsidian graph semantics remains deferred)
 - GitHub repo docs (deferred)
 - Copilot/agent reports (deferred)
 - chat transcript (deferred)
@@ -1363,6 +1365,27 @@ docs(release): record Phase 31C visual QA and defect triage outcome
 
 The next roadmap block (Phases 32-44) is about release readiness, public presentation, packaging, onboarding, supportability, and trust. It is not new engine capability. The project's local-first, deterministic-first, security-focused direction is preserved throughout. Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain Deferred and are not started, prepared, or implied by any phase in this block. No phase in this block introduces semantic retrieval, embeddings, LLM extraction, autonomous note writing, SaaS positioning, or multi-tenant cloud positioning.
 
+### Recommended Execution Order
+
+The recommended sequence after Phase 31C is:
+
+1. Phase 44A - Pending Change Lifecycle Investigation and Safety Contract
+2. Phase 44B - Pending Change Lifecycle Implementation and UI Visibility Hardening
+3. Phase 39 - MCP Client Setup and Connection Testing
+4. Phase 37 - Local Diagnostics and Support Report
+5. Phase 38 - Backup, Restore, and Migration Safety
+6. Phase 40 - Public Security Posture and Release Trust
+7. Phase 33 - Official Website and Public Product Documentation
+8. Phase 36 - First-Run Onboarding Workflow
+9. Phase 35 - Deterministic In-App Guidance Assistant
+10. Phase 34 - Windows Desktop Distribution
+11. Phase 41 - Example Vaults and Demonstration Packs
+12. Phase 42 - Context Health Recommendation Layer
+13. Phase 43 - MCP Response Ergonomics and Budget Diagnostics
+14. Phase 32 - Human Release QA and Evidence Capture
+
+The sequence is intentionally risk-first. Phase 44 comes before public docs, packaging, onboarding, and release QA because live MCP testing exposed review lifecycle rough edges that are safer to address before the project is presented publicly or packaged for distribution. Phase 32 is last because it requires human browser testing, keyboard traversal, screen-reader QA, and evidence capture, and should be performed once the surrounding lifecycle, packaging, onboarding, and trust work is stable.
+
 ### Phase 32 - Human Release QA and Evidence Capture
 
 **Status:** Planned.
@@ -1726,61 +1749,144 @@ docs(examples): plan example vaults and demonstration packs
 
 ---
 
-### Phase 44 - Pending Change Lifecycle and Agent Draft Hardening
+### Phase 42 - Context Health Recommendation Layer
 
 **Status:** Planned.
 
 **Purpose**
 
-Harden the pending-change lifecycle after live MCP testing showed that invalid, accepted, rejected, and stale proposals need clearer validation, visibility, and audit behaviour. The phase should improve review safety and agent draft quality without allowing autonomous vault mutation. The core safety model worked during testing: drafts were queued, invalid drafts were blocked, and accepted notes were written only after explicit human acceptance. This phase is lifecycle, visibility, audit, and agent-draft ergonomics hardening, not a rewrite of the pending-change system.
-
-**Background**
-
-Live MCP and Pending UI testing surfaced the following observations, which this phase is scoped to address:
-
-- A pending-change validator bug was found and fixed separately. `create_note_draft` previously stored invalid proposals with the internal error `Validation error: 'str' object has no attribute 'relative_to'`, caused by path strings being passed into validation code that expected `pathlib.Path` objects. Proposals created before the fix retain stale `validation_errors` because the stored validation state is not re-run on review.
-- Invalid proposals were not visible under the default Pending filter. The UI now exposes an Invalid filter, but the broader lifecycle should document and harden how invalid proposals are reviewed, rejected, or revalidated.
-- `review_pending_change` returns persisted validation state and does not re-run validation, so old invalid proposals continue to show stale internal validator errors unless rejected and recreated. There is no explicit revalidate action.
-- Early agent-created drafts failed validation because prompts used schema-invalid fields and headings, including an unknown `title` frontmatter field, `status: draft` or `status` mismatched against derived status, missing canonical headings such as `## Why It Matters`, `## Common Pitfalls`, and `## Further Exploration`, and a non-canonical `## Pitfalls` heading. This suggests MCP and agent-facing draft creation needs schema-aware guidance or templates.
-- A corrected Graph Theory note draft was accepted successfully and the vault write worked, but the accepted proposal was observed not to appear clearly under the Accepted filter in the Pending UI during the same session. This may be a UI refresh, archive listing, status filter, API listing, or accepted-record visibility issue and needs investigation rather than being treated as definitively diagnosed.
-- Accepted, rejected, invalid, and pending proposals should be discoverable in a predictable way. The UI should make it clear whether a proposal is active, archived, accepted, rejected, invalid, stale, or superseded. Accepted records should remain reviewable as audit history if the backend stores them.
+Add deterministic, non-LLM recommendations that explain what the user should fix next based on validation, tasks, trust, stale notes, imports, feedback, security, and context readiness.
 
 **Deliver**
 
-- Investigate why accepted proposals may not appear clearly under the Accepted filter after a successful accept, and document the actual behaviour observed.
-- Verify the backend storage and listing behaviour for pending, invalid, accepted, rejected, archived, and all proposals.
-- Ensure the Pending UI can reliably surface accepted and rejected history if the backend stores it.
-- Define a clear lifecycle model for pending changes covering: active pending, invalid and blocked, accepted and archived, rejected and archived, stale because target content changed, and superseded by a later proposal.
-- Add or plan a revalidation path for invalid proposals created before validator fixes, so current schema validation can be re-run without accepting the proposal automatically.
-- Preserve stale validation errors as audit history where useful, while allowing current validation results to be distinguished from historical internal validator errors.
-- Improve agent-facing draft guidance so create-note drafts use schema-compatible frontmatter and canonical headings by default.
-- Consider exposing schema and template hints through MCP tool descriptions or documentation so clients do not guess fields like `title` or `status: draft` incorrectly.
-- Ensure invalid proposals cannot be accepted until validation passes.
-- Ensure accepted and rejected proposals remain immutable audit records.
-- Add tests covering accepted-record visibility, invalid-record visibility, stale validation recheck behaviour, and schema-guided draft creation.
-- Document safe review behaviour for MCP clients: create proposals only, review before accept, never accept automatically, and reject stale or invalid test artefacts with audit notes.
+- Recommendation categories.
+- Severity and priority rules.
+- Links to relevant app pages.
+- No LLM or embeddings.
+- No automatic note writing.
 
 **Acceptance**
 
-- Accepted pending changes are discoverable through the UI or clearly documented if they are stored only in archive form.
-- Invalid proposals are visible and clearly blocked from acceptance.
-- Revalidation, if implemented, never auto-accepts a proposal.
-- Stale internal validator errors can be distinguished from current schema validation results.
-- Agent-created drafts can be guided toward the active vault schema without requiring the agent to infer headings manually.
-- The pending-review safety model remains intact.
-- No autonomous note mutation.
-- No direct vault write outside the existing human-reviewed accept path.
-- No automatic trust promotion.
-- No LLM invocation required.
-- No embeddings.
-- No semantic retrieval.
-- No new write path beyond existing human-reviewed accept and reject semantics.
-- Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain Deferred and are not started, prepared, or implied by this phase.
+- Recommendations are deterministic and explainable.
+- Recommendations do not mutate notes.
+- Recommendations do not replace the existing task engine.
 
 **Suggested Commit**
 
 ```
-docs(roadmap): add pending change lifecycle hardening phase
+feat(context): plan deterministic health recommendations
+```
+
+---
+
+### Phase 43 - MCP Response Ergonomics and Budget Diagnostics
+
+**Status:** Planned.
+
+**Purpose**
+
+Improve MCP responses for real agent clients by making responses easier to inspect, budget, and recover from without changing core behaviour.
+
+**Deliver**
+
+- Clearer budget diagnostics.
+- More compact response summaries where useful.
+- Better truncation warnings.
+- Safer troubleshooting guidance.
+- Client-friendly examples.
+
+**Acceptance**
+
+- Existing MCP contracts remain backwards-compatible unless explicitly documented.
+- No new write capability.
+- No semantic retrieval.
+- No LLM dependency.
+
+**Suggested Commit**
+
+```
+feat(mcp): plan response ergonomics and budget diagnostics
+```
+
+---
+
+### Phase 44 - Pending Change Lifecycle and Agent Draft Hardening
+
+**Status:** Planned.
+
+Phase 44 is split into an investigation/contract sub-phase (44A) and an implementation/hardening sub-phase (44B). The intent is to harden the pending-change lifecycle after live MCP testing showed that invalid, accepted, rejected, and stale proposals need clearer validation, visibility, and audit behaviour, and to improve agent draft quality, without allowing autonomous vault mutation. The core safety model worked during testing: drafts were queued, invalid drafts were blocked, and accepted notes were written only after explicit human acceptance. This phase is lifecycle, visibility, audit, and agent-draft ergonomics hardening, not a rewrite of the pending-change system.
+
+#### Phase 44A - Pending Change Lifecycle Investigation and Safety Contract
+
+**Status:** Planned.
+
+**Purpose**
+
+Investigate and formally lock down the pending-change lifecycle after live MCP testing showed stale validation state, invalid proposal visibility issues, accepted/rejected archive visibility ambiguity, and schema-invalid agent drafts. Phase 44A is investigation, design, and contract work only. It does not change vault content and does not change the accept path.
+
+**Deliver**
+
+- Investigate active, invalid, stale, accepted, rejected, and archived proposal behaviour end to end.
+- Confirm whether review revalidates or only reads persisted validation state.
+- Confirm whether accept revalidates before write.
+- Confirm how accepted and rejected proposals are stored and surfaced (active list, archive list, dedicated filters, or audit-only).
+- Confirm how invalid proposals are listed, reviewed, rejected, and possibly revalidated.
+- Define the lifecycle contract (active pending, invalid and blocked, accepted and archived, rejected and archived, stale because target content changed, superseded) before implementation.
+- Define MCP tool, prompt, and schema guidance needed to prevent invalid agent drafts (for example unknown `title` frontmatter, invalid `status: draft`, non-canonical headings).
+- Add a short implementation brief for Phase 44B describing the agreed behaviour, contract, and any UI copy changes required.
+
+**Acceptance**
+
+- No vault note is mutated by investigation.
+- No autonomous accept.
+- No new write path.
+- No automatic trust promotion.
+- Invalid proposals remain blocked from acceptance.
+- Historical audit state is preserved.
+- Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain Deferred and are not started, prepared, or implied by this sub-phase.
+
+**Suggested Commit**
+
+```
+docs(roadmap): prioritise pending change lifecycle hardening
+```
+
+#### Phase 44B - Pending Change Lifecycle Implementation and UI Visibility Hardening
+
+**Status:** Planned.
+
+**Purpose**
+
+Implement the safe lifecycle improvements identified in Phase 44A. Phase 44B turns the agreed contract into deterministic behaviour, clearer UI visibility, and improved agent draft guidance, while preserving the existing human-reviewed accept model.
+
+**Deliver**
+
+- Revalidation path if Phase 44A confirms it is needed, so invalid proposals created before validator fixes can be re-checked without auto-accepting.
+- Clear active, invalid, stale, accepted, rejected, and archive visibility in the Pending UI and underlying listings.
+- UI copy and filters that make invalid and archived records understandable to a human reviewer.
+- MCP tool descriptions and prompts that guide agents to use schema-valid drafts (canonical headings, valid frontmatter, no unknown `title`, no invalid `status: draft`).
+- Deterministic tests for lifecycle behaviour, including accepted-record visibility, invalid-record visibility, stale validation distinguishability, and schema-guided draft creation.
+- Documentation updates after implementation so the lifecycle contract is reflected in user-facing material.
+
+**Acceptance**
+
+- Revalidation does not write notes.
+- Accept still requires explicit human confirmation.
+- Invalid proposals cannot be accepted.
+- Stale hash protection remains enforced.
+- Accepted and rejected records are discoverable through the UI or explicitly documented as archive-only.
+- Agent guidance does not recommend unknown `title` frontmatter, invalid `status: draft`, or non-canonical headings.
+- No semantic retrieval.
+- No embeddings.
+- No LLM invocation.
+- No autonomous mutation.
+- No new write paths beyond existing human-reviewed accept and reject semantics.
+- Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) remain Deferred and are not started, prepared, or implied by this sub-phase.
+
+**Suggested Commit**
+
+```
+fix(memory): harden pending change lifecycle and agent draft guidance
 ```
 
 ---

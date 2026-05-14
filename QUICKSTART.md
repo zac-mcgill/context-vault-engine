@@ -1483,7 +1483,7 @@ Safety rules enforced by the UI on top of the backend:
 - The write button is also disabled while a preview or write request is in flight.
 - The source folder field is a plain text input with helper text explaining the path is resolved on the backend host (no fake server filesystem browser).
 - The destination field defaults to `Imported` and inherits the backend safety checks (no traversal, no absolute paths, no writes inside `Vault Files/`).
-- The UI mounts only the Markdown folder import workflow. PDF, GitHub repo, browser article, Obsidian-specific, chat transcript, semantic, and LLM-extraction imports are explicitly listed as not implemented yet and are not exposed as buttons or actions.
+- The UI mounts the Markdown folder import workflow and the Obsidian-compatible Markdown import workflow (Phase 26E source-type selector). PDF, GitHub repo, browser article, chat transcript, semantic mapping, and LLM-extraction imports are explicitly listed as not implemented yet and are not exposed as buttons or actions. Full Obsidian-native behaviour (automatic wikilink rewriting, attachment copying/import, binary attachment processing) remains deferred.
 
 ### Post-Import Review Integration (Phase 26C)
 

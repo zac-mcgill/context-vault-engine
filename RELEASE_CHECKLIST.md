@@ -111,7 +111,7 @@ State explicitly: this checklist has not been performed automatically by Phase 3
 
 ## Pre-release Verification
 
-- [ ] `python mcp/test_verify.py` passes, all 1135 tests green (no skips, no failures) - up from 1103 after Phase 37
+- [ ] `python mcp/test_verify.py` passes, all 1143 tests green (no skips, no failures) - up from 1135 after Phase 39 UI hardening (historical totals: 1081, 1103, 1135)
 - [ ] `python run.py validate` passes, all notes valid
 - [ ] `python run.py security` passes, status is `pass` or `warning` only (no `fail`)
 - [ ] `python run.py feedback` passes, exits 0, valid JSON

@@ -11986,6 +11986,14 @@ def main():
     test_p39_phase_27_28_remain_deferred()
     test_p39_no_semantic_or_new_write_path()
     test_p39_test_count_updated()
+    test_p39_17_ui_page_exists()
+    test_p39_18_ui_component_exists()
+    test_p39_19_ui_contains_start_command()
+    test_p39_20_ui_contains_smoke_command()
+    test_p39_21_ui_mentions_repository_root_and_stdio()
+    test_p39_22_ui_contains_read_only_safety_notice()
+    test_p39_23_ui_contains_compatibility_caveat()
+    test_p39_24_ui_navigation_contains_mcp_setup()
 
     # ---- Phase 37: Local Diagnostics and Support Report ----
     print("\n" + "=" * 60)
@@ -19774,9 +19782,9 @@ def _repo_root():
 
 
 def test_doc_drift_readme_test_count():
-    """DOC-DRIFT-1: README quotes the current 1135-test total, no stale counts."""
+    """DOC-DRIFT-1: README quotes the current 1143-test total, no stale counts."""
     readme = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    assert "1135" in readme, "README.md must mention the current test count 1135"
+    assert "1143" in readme, "README.md must mention the current test count 1143"
     stale_phrases = [
         "553 deterministic tests",
         "548 deterministic tests",
@@ -19829,26 +19837,28 @@ def test_doc_drift_readme_test_count():
         "1081 tests.",
         "1103 deterministic tests",
         "1103 tests.",
+        "1135 deterministic tests",
+        "1135 tests.",
     ]
     for phrase in stale_phrases:
         assert phrase not in readme, f"README.md still mentions stale phrase {phrase!r}"
-    print(f"  README mentions 1135 tests, no stale counts present ✓")
+    print(f"  README mentions 1143 tests, no stale counts present ✓")
 
 
 def test_doc_drift_testing_test_count():
-    """DOC-DRIFT-2: TESTING.md current total is 1103 and historical markers retained."""
+    """DOC-DRIFT-2: TESTING.md current total is 1143 and historical markers retained."""
     text = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
-    assert "1135 test functions" in text, "TESTING.md must state 1135 test functions"
-    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763", "787", "800", "818", "842", "866", "890", "913", "937", "985", "999", "1021", "1028", "1044", "1065", "1081", "1103"):
+    assert "1143 test functions" in text, "TESTING.md must state 1143 test functions"
+    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763", "787", "800", "818", "842", "866", "890", "913", "937", "985", "999", "1021", "1028", "1044", "1065", "1081", "1103", "1135"):
         assert marker in text, f"TESTING.md must retain historical test-count marker {marker}"
-    print(f"  TESTING.md states 1135 functions and keeps historical markers ✓")
+    print(f"  TESTING.md states 1143 functions and keeps historical markers ✓")
 
 
 def test_doc_drift_release_checklist_test_count():
-    """DOC-DRIFT-3: RELEASE_CHECKLIST references 1103 tests and required commands."""
+    """DOC-DRIFT-3: RELEASE_CHECKLIST references 1143 tests and required commands."""
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "1135" in text, "RELEASE_CHECKLIST.md must reference the 1135-test target"
-    assert "1103" in text, "RELEASE_CHECKLIST.md must keep 1103 as historical marker"
+    assert "1143" in text, "RELEASE_CHECKLIST.md must reference the 1143-test target"
+    assert "1135" in text, "RELEASE_CHECKLIST.md must keep 1135 as historical marker"
     # historical marker also retained
     for req in ("test_verify.py", "run.py validate", "run.py security",
                 "run.py export", "GitHub Release"):
@@ -26650,13 +26660,126 @@ def test_p39_test_count_updated():
     print("\n=== Test P39-16: documentation test count updated ===")
     testing = _p39_read("TESTING.md")
     readme = _p39_read("README.md")
-    assert "1135 test functions" in testing, (
-        "TESTING.md must advertise the post-Phase 38 test count of 1135"
+    assert "1143 test functions" in testing, (
+        "TESTING.md must advertise the post-Phase 39 UI test count of 1143"
     )
-    assert "1135 tests" in readme, (
-        "README.md must advertise the post-Phase 38 test count of 1135"
+    assert "1143 tests" in readme, (
+        "README.md must advertise the post-Phase 39 UI test count of 1143"
     )
-    print("  TESTING.md and README.md advertise 1135 tests \u2713")
+    print("  TESTING.md and README.md advertise 1143 tests \u2713")
+
+
+def test_p39_17_ui_page_exists():
+    """P39-17: Astro page src/pages/mcp.astro exists and mounts the McpSetup component."""
+    print("\n=== Test P39-17: UI MCP setup page exists ===")
+    page = _p39_repo_root() / "ui" / "src" / "pages" / "mcp.astro"
+    assert page.is_file(), f"Missing UI page: {page}"
+    text = page.read_text(encoding="utf-8")
+    assert "McpSetup" in text, "mcp.astro must mount the McpSetup component"
+    assert "AppLayout" in text, "mcp.astro must use AppLayout"
+    print("  ui/src/pages/mcp.astro exists and mounts McpSetup \u2713")
+
+
+def test_p39_18_ui_component_exists():
+    """P39-18: McpSetup.svelte component exists and uses cve-* primitives."""
+    print("\n=== Test P39-18: UI MCP setup component exists ===")
+    comp = _p39_repo_root() / "ui" / "src" / "components" / "McpSetup.svelte"
+    assert comp.is_file(), f"Missing component: {comp}"
+    text = comp.read_text(encoding="utf-8")
+    for needle in ("cve-page", "cve-section", "cve-banner"):
+        assert needle in text, f"McpSetup.svelte must use {needle!r} primitive"
+    print("  McpSetup.svelte exists and uses cve-* primitives \u2713")
+
+
+def test_p39_19_ui_contains_start_command():
+    """P39-19: UI page surfaces `py run.py mcp` start command."""
+    print("\n=== Test P39-19: UI page contains start command ===")
+    comp_text = (_p39_repo_root() / "ui" / "src" / "components" / "McpSetup.svelte").read_text(encoding="utf-8")
+    assert "py run.py mcp" in comp_text, "McpSetup.svelte must mention `py run.py mcp`"
+    print("  McpSetup.svelte contains `py run.py mcp` \u2713")
+
+
+def test_p39_20_ui_contains_smoke_command():
+    """P39-20: UI page surfaces `py run.py mcp-smoke` smoke command."""
+    print("\n=== Test P39-20: UI page contains smoke command ===")
+    comp_text = (_p39_repo_root() / "ui" / "src" / "components" / "McpSetup.svelte").read_text(encoding="utf-8")
+    assert "py run.py mcp-smoke" in comp_text, (
+        "McpSetup.svelte must mention `py run.py mcp-smoke`"
+    )
+    print("  McpSetup.svelte contains `py run.py mcp-smoke` \u2713")
+
+
+def test_p39_21_ui_mentions_repository_root_and_stdio():
+    """P39-21: UI page mentions repository root working directory and stdio model."""
+    print("\n=== Test P39-21: UI mentions repository root and stdio ===")
+    comp_text = (_p39_repo_root() / "ui" / "src" / "components" / "McpSetup.svelte").read_text(encoding="utf-8")
+    assert "repository root" in comp_text.lower(), (
+        "McpSetup.svelte must mention repository root as the working directory"
+    )
+    assert "stdio" in comp_text.lower(), (
+        "McpSetup.svelte must mention the stdio model"
+    )
+    assert "json-rpc 2.0" in comp_text.lower(), (
+        "McpSetup.svelte must mention JSON-RPC 2.0"
+    )
+    print("  UI page mentions repository root, stdio, and JSON-RPC 2.0 \u2713")
+
+
+def test_p39_22_ui_contains_read_only_safety_notice():
+    """P39-22: UI page surfaces a read-only safety notice without overclaiming."""
+    print("\n=== Test P39-22: UI contains read-only safety notice ===")
+    comp_text = (_p39_repo_root() / "ui" / "src" / "components" / "McpSetup.svelte").read_text(encoding="utf-8")
+    lowered = comp_text.lower()
+    assert "read-only" in lowered, "McpSetup.svelte must mention read-only safety"
+    # Must not over-claim that all MCP tools are read-only, since pending-change
+    # proposal tools exist.
+    forbidden = (
+        "all mcp tools are read-only",
+        "all tools are read-only",
+    )
+    for phrase in forbidden:
+        assert phrase not in lowered, (
+            f"McpSetup.svelte must not claim {phrase!r}"
+        )
+    # No secrets in snippets.
+    for secret_token in ("CVE_AUTH_TOKEN", "Bearer ey", "sk-"):
+        assert secret_token not in comp_text, (
+            f"McpSetup.svelte must not include secret-like token {secret_token!r}"
+        )
+    print("  UI page has conservative read-only safety notice \u2713")
+
+
+def test_p39_23_ui_contains_compatibility_caveat():
+    """P39-23: UI page surfaces an explicit client-compatibility caveat."""
+    print("\n=== Test P39-23: UI contains client compatibility caveat ===")
+    comp_text = (_p39_repo_root() / "ui" / "src" / "components" / "McpSetup.svelte").read_text(encoding="utf-8")
+    # Normalise whitespace so multi-line template prose still matches.
+    normalised = " ".join(comp_text.lower().split())
+    assert "client configuration formats" in normalised, (
+        "McpSetup.svelte must include a client-configuration caveat"
+    )
+    assert "does not prove compatibility" in normalised or "not every external" in normalised, (
+        "McpSetup.svelte must state the smoke test does not prove compatibility with every client"
+    )
+    print("  UI page contains explicit compatibility caveat \u2713")
+
+
+def test_p39_24_ui_navigation_contains_mcp_setup():
+    """P39-24: AppLayout sidebar exposes the MCP Setup page in the Developer group."""
+    print("\n=== Test P39-24: UI navigation includes MCP Setup ===")
+    layout = (_p39_repo_root() / "ui" / "src" / "layouts" / "AppLayout.astro").read_text(encoding="utf-8")
+    assert "/app/mcp" in layout, "AppLayout must include /app/mcp route"
+    assert "MCP Setup" in layout, "AppLayout must label the entry 'MCP Setup'"
+    # The entry must appear inside the Developer nav group.
+    dev_start = layout.find("'Developer'")
+    if dev_start < 0:
+        dev_start = layout.find('"Developer"')
+    assert dev_start > 0, "AppLayout must declare the Developer nav group"
+    dev_end = layout.find("]", dev_start)
+    assert dev_end > dev_start, "Could not locate end of Developer nav group"
+    dev_section = layout[dev_start:dev_end]
+    assert "/app/mcp" in dev_section, "MCP Setup link must live in the Developer group"
+    print("  AppLayout exposes MCP Setup in the Developer group \u2713")
 
 
 # ============================================================

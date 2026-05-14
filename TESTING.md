@@ -1,13 +1,13 @@
 # Context Vault Engine - Testing
 
-All tests live in `mcp/test_verify.py`. The suite currently has 1135 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800, 818, 842, 866, 890, 913, 937, 985, 999, 1021, 1028, 1044, 1065, 1081, 1103) appear later in this document as part of the phase changelog and are not the current total.
+All tests live in `mcp/test_verify.py`. The suite currently has 1143 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800, 818, 842, 866, 890, 913, 937, 985, 999, 1021, 1028, 1044, 1065, 1081, 1103, 1135) appear later in this document as part of the phase changelog and are not the current total.
 
 ## Current Verification Summary
 
 A full local verification consists of:
 
 ```bash
-py mcp/test_verify.py           # 1135 tests, all must pass
+py mcp/test_verify.py           # 1143 tests, all must pass
 py run.py validate              # vault schema-compliance
 py run.py security              # status: pass (or warning, never fail)
 py run.py feedback              # exits 0, valid JSON
@@ -2745,7 +2745,15 @@ Phase 39 adds 16 deterministic tests in `mcp/test_verify.py` (P39-1 through P39-
 - `test_p39_mcp_discovery_remains_deterministic` - `tools/list`, `resources/list`, and `prompts/list` return the same shape on repeated invocations.
 - `test_p39_phase_27_28_remain_deferred` - `ROADMAP.md` keeps Phase 27 and Phase 28 explicitly Deferred.
 - `test_p39_no_semantic_or_new_write_path` - no semantic, embedding, or LLM dependency is loaded by `mcp.core` or `mcp.smoke`, and `mcp.smoke` does not import anything that would let it write vault notes.
-- `test_p39_test_count_updated` - `TESTING.md` and `README.md` advertise the post-Phase 38 test count of 1135.
+- `test_p39_test_count_updated` - `TESTING.md` and `README.md` advertise the post-Phase 39 UI test count of 1143.
+- `test_p39_17_ui_page_exists` - `ui/src/pages/mcp.astro` exists and mounts the `McpSetup` Svelte component.
+- `test_p39_18_ui_component_exists` - `ui/src/components/McpSetup.svelte` exists and uses the `cve-*` primitives so the page inherits Phase 30 theme and overflow guards.
+- `test_p39_19_ui_contains_start_command` - UI surfaces the `py run.py mcp` start command.
+- `test_p39_20_ui_contains_smoke_command` - UI surfaces the `py run.py mcp-smoke` connection-test command.
+- `test_p39_21_ui_mentions_repository_root_and_stdio` - UI explains the working-directory requirement, the stdio model, and JSON-RPC 2.0.
+- `test_p39_22_ui_contains_read_only_safety_notice` - UI ships a conservative read-only safety notice without claiming all MCP tools are read-only and without including any secret token.
+- `test_p39_23_ui_contains_compatibility_caveat` - UI states explicitly that the smoke test does not prove compatibility with every external MCP client and that client configuration formats may vary.
+- `test_p39_24_ui_navigation_contains_mcp_setup` - the AppLayout sidebar exposes the `/app/mcp` MCP Setup entry inside the Developer group.
 
 Phase 39 is a setup-and-verification phase. It does not change the MCP safety model, does not start Phase 27 (Registry and Reuse Layer) or Phase 28 (Optional Semantic Retrieval), does not add embeddings, does not add LLM calls, does not add a new direct vault-write path, and does not add autonomous mutation.
 

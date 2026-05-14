@@ -26,7 +26,7 @@ Phase 39A documents the completion of a manual/copilot-assisted 12-batch verific
 - Did not perform Phase 32 manual browser visual QA, keyboard QA, or screen-reader QA.
 - Does not replace Phase 32 Human Release QA.
 
-Phase 40 (Public Security Posture and Release Trust) is the next planned implementation phase.
+Phase 42 (Context Health Recommendation Layer) is the next planned implementation phase. Phase 40 (Public Security Posture and Release Trust) and Phase 41 (Example Vaults and Demonstration Packs) are Deferred.
 
 # Release Checklist
 

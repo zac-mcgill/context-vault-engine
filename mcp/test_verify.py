@@ -26891,13 +26891,19 @@ def test_p39rd_03_roadmap_phase_37_and_38_complete_in_table():
 
 
 def test_p39rd_04_roadmap_identifies_phase_40_as_next_planned():
-    """P39-RD-4: ROADMAP names Phase 40 as the next planned phase post-Phase-39."""
-    print("\n=== Test P39-RD-4: ROADMAP names Phase 40 as next planned ===")
+    """P39-RD-4: ROADMAP names Phase 42 as the next planned phase post-Phase-39, and Phase 40/41 as Deferred."""
+    print("\n=== Test P39-RD-4: ROADMAP names Phase 42 as next planned, Phase 40/41 Deferred ===")
     text = _p39rd_roadmap()
-    assert "next planned phase is Phase 40" in text, (
-        "ROADMAP.md must explicitly state that the next planned phase is Phase 40"
+    assert "next planned implementation phase" in text and "Phase 42" in text, (
+        "ROADMAP.md must explicitly state that the next planned implementation phase is Phase 42"
     )
-    print("  ROADMAP identifies Phase 40 as next planned \u2713")
+    assert "Phase 40" in text and "Deferred" in text, (
+        "ROADMAP.md must state that Phase 40 is Deferred"
+    )
+    assert "Phase 41" in text and "Deferred" in text, (
+        "ROADMAP.md must state that Phase 41 is Deferred"
+    )
+    print("  ROADMAP identifies Phase 42 as next planned, Phase 40/41 Deferred \u2713")
 
 
 def test_p39rd_05_roadmap_phase_27_and_28_remain_deferred():
@@ -27015,23 +27021,19 @@ def test_p39rd_13_roadmap_no_supersedes_it_for_status_purposes_phrase():
 
 
 def test_p39rd_14_roadmap_states_phase_40_is_next_planned_implementation_phase():
-    """P39-RD-14: ROADMAP.md states Phase 40 is the next planned implementation phase."""
-    print("\n=== Test P39-RD-14: ROADMAP names Phase 40 as next planned implementation phase ===")
+    """P39-RD-14: ROADMAP.md states Phase 42 is the next planned implementation phase, and Phase 40/41 are Deferred."""
+    print("\n=== Test P39-RD-14: ROADMAP names Phase 42 as next planned implementation phase, Phase 40/41 Deferred ===")
     text = _p39rd_roadmap()
-    assert "next planned implementation phase" in text, (
-        "ROADMAP.md must use the phrase 'next planned implementation phase'"
+    assert "next planned implementation phase" in text and "Phase 42" in text, (
+        "ROADMAP.md must use the phrase 'next planned implementation phase' and mention Phase 42"
     )
-    assert "Phase 40" in text, "ROADMAP.md must mention Phase 40"
-    # And it must associate Phase 40 with that phrase.
-    import re as _re
-    pattern = _re.compile(
-        r"Phase 40[^\n]{0,200}next planned implementation phase|next planned implementation phase[^\n]{0,200}Phase 40",
-        _re.IGNORECASE,
+    assert "Phase 40" in text and "Deferred" in text, (
+        "ROADMAP.md must state that Phase 40 is Deferred"
     )
-    assert pattern.search(text), (
-        "ROADMAP.md must explicitly name Phase 40 as the next planned implementation phase"
+    assert "Phase 41" in text and "Deferred" in text, (
+        "ROADMAP.md must state that Phase 41 is Deferred"
     )
-    print("  ROADMAP names Phase 40 as next planned implementation phase \u2713")
+    print("  ROADMAP names Phase 42 as next planned implementation phase, Phase 40/41 Deferred \u2713")
 
 
 def test_p39rd_15_roadmap_does_not_state_phase_32_is_the_next_planned_phase():

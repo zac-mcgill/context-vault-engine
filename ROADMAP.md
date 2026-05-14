@@ -61,8 +61,10 @@ The deterministic backend, the local web application, the MCP stdio surface, the
 - Phase 32 (Human Release QA and Evidence Capture) remains planned and manual.
 - Phases 37, 38, 39, and 39A are complete.
 - Phase 39A (MCP Stdio Verification Batch Pass) is complete: a manual/copilot-assisted 12-batch verification pass validated the MCP stdio surface, catalogue, error handling, pending-change safety, documentation, UI build, boundary separation, artefact hygiene, and final release gate. No runtime code changes, no source modifications, and no commit were required by the verification itself.
-- Phase 40 (Public Security Posture and Release Trust) is the next planned implementation phase.
-- Phases 41, 42, 43, and 45 remain planned.
+- Phase 40 (Public Security Posture & Release Trust) is Deferred.
+- Phase 41 (Example Vaults and Demonstration Packs) is Deferred.
+- Phase 42 (Context Health Recommendation Layer) is the next planned implementation phase.
+- Phases 43, 45, 46, and 47 remain Planned.
 - Phase 44 is complete as a grouped lifecycle track because Phase 44A and Phase 44B are both complete.
 - Phase 27 (Registry and Reuse Layer) remains deferred.
 - Phase 28 (Optional Semantic Retrieval) remains Deferred.
@@ -496,15 +498,15 @@ Many mobile and local LLM clients (such as OffGrid and similar apps) expect an O
 
 **Proposed Architecture**
 
-```
-OffGrid / OpenAI-compatible client
-        -> OpenAI-compatible Context Gateway
-        -> Context Vault Engine HTTP API (context/state/evidence/query/bundles)
-        -> Actual LLM backend (local PC, phone, LAN, VPS, or cloud)
-```
 
-The gateway exposes a minimal OpenAI-compatible surface:
-- `GET /v1/models`
+- Phase 32 (Human Release QA and Evidence Capture) remains planned and manual.
+- Phase 42 (Context Health Recommendation Layer) is planned and is the next planned implementation phase.
+- Phase 43 (MCP Response Ergonomics & Budget Diagnostics) is planned.
+- Phase 45 (Legacy Acronym Neutralisation) is planned.
+- Phase 46 (OpenAI-Compatible Context Gateway) is planned.
+- Phase 47 (Runtime Mode Isolation and Local App Auth Recovery) is planned.
+
+Phases 40 (Public Security Posture & Release Trust) and 41 (Example Vaults and Demonstration Packs) are Deferred, as are Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval).
 - `POST /v1/chat/completions`
 - `GET /health` (or equivalent gateway health endpoint)
 
@@ -598,7 +600,7 @@ C. PC gateway + phone-exposed LLM backend + PC Context Vault Engine
 docs(roadmap): add OpenAI-compatible context gateway phase
 ```
 
-The remaining planned phases focus on release readiness, public presentation, packaging, onboarding, supportability, trust, and ergonomics rather than new engine capability. **Phase 40 (Public Security Posture and Release Trust) is the next planned implementation phase**, in parallel with the manual Phase 32 (Human Release QA and Evidence Capture). The next planned phase is Phase 40. None of the planned phases below start, prepare, or imply Phase 27 (Registry and Reuse Layer) or Phase 28 (Optional Semantic Retrieval).
+The remaining planned phases focus on release readiness, public presentation, packaging, onboarding, supportability, trust, and ergonomics rather than new engine capability. **Phase 42 (Context Health Recommendation Layer) is the next planned implementation phase**, in parallel with the manual Phase 32 (Human Release QA and Evidence Capture). Phase 40 (Public Security Posture and Release Trust) and Phase 41 (Example Vaults and Demonstration Packs) are Deferred. None of the planned phases below start, prepare, or imply Phase 27 (Registry and Reuse Layer) or Phase 28 (Optional Semantic Retrieval).
 
 ### Phase 32 - Human Release QA and Evidence Capture
 
@@ -751,7 +753,7 @@ feat(ui): add first-run onboarding workflow
 
 ### Phase 40 - Public Security Posture and Release Trust
 
-**Status:** Planned. **This is the next planned implementation phase.**
+**Status:** Deferred.
 
 **Purpose**
 
@@ -784,7 +786,7 @@ docs(security): publish public security posture and release trust plan
 
 ### Phase 41 - Example Vaults and Demonstration Packs
 
-**Status:** Planned.
+**Status:** Deferred.
 
 **Purpose**
 
@@ -1029,7 +1031,7 @@ End-to-end Markdown import lifecycle. Routes `/import/markdown-folder` and `/imp
 
 ## Deferred Phases
 
-Phase 27 and Phase 28 have not started, are not prepared by any completed or currently planned phase, and remain deferred until the stated preconditions are met.
+Phases 27 (Registry and Reuse Layer), 28 (Optional Semantic Retrieval), 40 (Public Security Posture & Release Trust), and 41 (Example Vaults and Demonstration Packs) have not started, are not prepared by any completed or currently planned phase, and remain deferred until the stated preconditions are met.
 
 ### Phase 27 - Registry and Reuse Layer
 

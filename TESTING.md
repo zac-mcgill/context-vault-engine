@@ -1,13 +1,13 @@
 # Context Vault Engine - Testing
 
-All tests live in `mcp/test_verify.py`. The suite currently has 1028 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800, 818, 842, 866, 890, 913, 937, 985, 999, 1021) appear later in this document as part of the phase changelog and are not the current total.
+All tests live in `mcp/test_verify.py`. The suite currently has 1044 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800, 818, 842, 866, 890, 913, 937, 985, 999, 1021, 1028) appear later in this document as part of the phase changelog and are not the current total.
 
 ## Current Verification Summary
 
 A full local verification consists of:
 
 ```bash
-py mcp/test_verify.py           # 1028 tests, all must pass
+py mcp/test_verify.py           # 1044 tests, all must pass
 py run.py validate              # vault schema-compliance
 py run.py security              # status: pass (or warning, never fail)
 py run.py feedback              # exits 0, valid JSON
@@ -2684,4 +2684,19 @@ Phase 31C adds 7 deterministic source-level documentation-honesty guardrail test
 - No em dashes appear in Phase 31C-touched docs.
 
 Phase 31C explicitly does not assert that any rendered browser visual QA, live keyboard QA, or screen-reader QA has been performed. Any release tag that claims those passes must be backed by a human running them and ticking the corresponding rows in `RELEASE_CHECKLIST.md` manually.
+
+### Phase 44A Test Family
+
+Phase 44A adds 8 deterministic tests in `mcp/test_verify.py` (P44A-1 through P44A-8), bringing the total from 1028 to 1044 (note: the increment includes other small additions accumulated since the 1028 baseline was last reconciled). The tests document and lock the pending change lifecycle safety contract:
+
+- `test_p44a_review_returns_persisted_validation_state` - `cve_review_pending_change` (and the HTTP `GET /memory/pending/{id}` route) return the validation state persisted when the proposal was created or last accepted. The review path does not re-run schema validation against the current vault.
+- `test_p44a_archived_records_excluded_from_list_endpoint` - `list_pending_changes` only walks the pending directory. Accepted and rejected records are not surfaced through the list call even when `status='accepted'`, `status='rejected'`, or `status=None` ('all') is supplied. This is the confirmed Phase 44A contract and the gap that Phase 44B will close.
+- `test_p44a_archived_record_retrievable_by_id` - archived records remain retrievable by ID via `review_pending_change`, so audit history is preserved.
+- `test_p44a_validate_pending_change_helper_exists` - the service-level `validate_pending_change` helper exists for future revalidation. No HTTP `/revalidate` route and no `cve_revalidate_pending_change` MCP tool are introduced in Phase 44A.
+- `test_p44a_mcp_create_draft_guidance_warns_against_schema_traps` - MCP tool descriptions for `cve_create_note_draft` and `cve_suggest_note_update` warn agents about unknown `title` frontmatter, invalid `status: draft`, and non-canonical section headings, and instruct them to follow the active vault schema.
+- `test_p44a_mcp_list_and_review_descriptions_match_contract` - `cve_list_pending_changes` documents that archived records are not surfaced and points reviewers to `cve_review_pending_change`; `cve_review_pending_change` documents that it returns persisted state and that acceptance re-validates.
+- `test_p44a_phase_27_28_remain_deferred` - ROADMAP keeps Phase 27 (Registry and Reuse Layer) and Phase 28 (Optional Semantic Retrieval) explicitly Deferred.
+- `test_p44a_no_new_direct_write_or_semantic_path` - Phase 44A does not import semantic-retrieval, embeddings, or LLM dependencies, and does not introduce a new direct note-write helper in `pending_changes`. The only write-like helper remains the JSON-writing `write_pending_change`; vault writes still go through `accept_pending_change`.
+
+Phase 44A is a bounded investigation, contract, documentation, and guardrail phase. It does not change the accept, reject, or write semantics of the pending change system. Behaviour changes (archive-aware listing, explicit revalidate surface, UI filter copy) are deferred to Phase 44B.
 

@@ -100,7 +100,7 @@ Phase 31B (App Header and Toolbar Normalisation Pass) is a focused UI polish and
 
 Phase 31C (Release Candidate Visual QA and Defect Triage) is a QA and defect-triage pass, not feature work. Phase 31C records the result of attempting a release-candidate visual QA pass over the 15 migrated /app routes. The automated agent that executed Phase 31C did not open a browser, did not exercise live keyboard traversal, and did not run an assistive technology, so the manual browser visual QA, keyboard QA, and screen-reader QA rows in `RELEASE_CHECKLIST.md` remain manual and unchecked. Phase 31C performed automated source-level verification only (`py mcp/test_verify.py`, `py run.py validate`, `py run.py security`, `py run.py feedback`, `py run.py export --overwrite`, `cd ui && npm run build`) and adds deterministic guardrails that prevent later documentation from overclaiming that rendered visual QA was performed automatically. Phase 31C makes no backend route, API contract, schema, or MCP changes, introduces no new runtime dependency, imports no external font, redesigns no page bodies, removes no routes, and adds no new write actions. Phase 31C does not start Phase 27 (Registry and Reuse Layer) and does not start Phase 28 (Optional Semantic Retrieval); both remain Deferred.
 
-Phase 32 (Human Release QA and Evidence Capture) remains planned and remains manual. It is intentionally deferred until the user is ready to complete the manual browser visual QA, keyboard QA, and screen-reader QA checklist tracked in `RELEASE_CHECKLIST.md`, so it is no longer treated as the immediate next implementation step. The immediate next implementation phase is **Phase 44A (Pending Change Lifecycle Investigation and Safety Contract)**, which addresses pending-change lifecycle behaviour and agent draft hardening based on issues surfaced during live MCP testing. The wider post-release productisation roadmap (Phases 32 to 44) still focuses on release readiness, public presentation, packaging, onboarding, supportability, and trust rather than new engine capability. It does not start Phase 27 or Phase 28; both remain Deferred. It does not introduce semantic retrieval, embeddings, LLM extraction, autonomous note writing, SaaS positioning, or multi-tenant cloud positioning.
+Phase 32 (Human Release QA and Evidence Capture) remains planned and remains manual. It is intentionally deferred until the user is ready to complete the manual browser visual QA, keyboard QA, and screen-reader QA checklist tracked in `RELEASE_CHECKLIST.md`, so it is no longer treated as the immediate next implementation step. **Phase 44A (Pending Change Lifecycle Investigation and Safety Contract) is complete**: it documented the pending-change lifecycle contract, added schema-aware MCP draft guidance, clarified that `review` returns persisted validation state while `accept` re-validates, and confirmed that archived (accepted, rejected) records are retrievable per-ID but are not surfaced by the list endpoint. The immediate next implementation phase is **Phase 44B (Pending Change Lifecycle Implementation and UI Visibility Hardening)**, which will expose archived records through the list contract and add an explicit revalidate action without changing accept semantics. The wider post-release productisation roadmap (Phases 32 to 44) still focuses on release readiness, public presentation, packaging, onboarding, supportability, and trust rather than new engine capability. It does not start Phase 27 or Phase 28; both remain Deferred. It does not introduce semantic retrieval, embeddings, LLM extraction, autonomous note writing, SaaS positioning, or multi-tenant cloud positioning.
 
 ## Phase Status Overview
 
@@ -162,7 +162,7 @@ Phase 32 (Human Release QA and Evidence Capture) remains planned and remains man
 | 42	  | Context Health Recommendation Layer   	| Planned  |
 | 43	  | MCP Response Ergonomics and Budget Diagnostics |	Planned  |
 | 44    | Pending Change Lifecycle and Agent Draft Hardening | Planned  |
-| 44A   | Pending Change Lifecycle Investigation and Safety Contract | Planned  |
+| 44A   | Pending Change Lifecycle Investigation and Safety Contract | Complete |
 | 44B   | Pending Change Lifecycle Implementation and UI Visibility Hardening | Planned  |
 | 27    | Registry and Reuse Layer                | Deferred |
 | 28    | Optional Semantic Retrieval             | Deferred |
@@ -1818,22 +1818,53 @@ Phase 44 is split into an investigation/contract sub-phase (44A) and an implemen
 
 #### Phase 44A - Pending Change Lifecycle Investigation and Safety Contract
 
-**Status:** Planned.
+**Status:** Complete.
 
 **Purpose**
 
 Investigate and formally lock down the pending-change lifecycle after live MCP testing showed stale validation state, invalid proposal visibility issues, accepted/rejected archive visibility ambiguity, and schema-invalid agent drafts. Phase 44A is investigation, design, and contract work only. It does not change vault content and does not change the accept path.
 
-**Deliver**
+**Confirmed lifecycle contract (Phase 44A findings)**
 
-- Investigate active, invalid, stale, accepted, rejected, and archived proposal behaviour end to end.
-- Confirm whether review revalidates or only reads persisted validation state.
-- Confirm whether accept revalidates before write.
-- Confirm how accepted and rejected proposals are stored and surfaced (active list, archive list, dedicated filters, or audit-only).
-- Confirm how invalid proposals are listed, reviewed, rejected, and possibly revalidated.
-- Define the lifecycle contract (active pending, invalid and blocked, accepted and archived, rejected and archived, stale because target content changed, superseded) before implementation.
-- Define MCP tool, prompt, and schema guidance needed to prevent invalid agent drafts (for example unknown `title` frontmatter, invalid `status: draft`, non-canonical headings).
-- Add a short implementation brief for Phase 44B describing the agreed behaviour, contract, and any UI copy changes required.
+Storage:
+
+- Active records live at `<vault>/Vault Files/State/pending-changes/<change_id>.json` with `status` `pending` or `invalid`.
+- Accepted and rejected records are atomic-moved to `<vault>/Vault Files/State/pending-changes/archive/<change_id>.json` and retained for audit. Archive records are never deleted by the service.
+
+Listing:
+
+- `list_pending_changes` (service, HTTP `GET /memory/pending`, MCP `cve_list_pending_changes`) walks only the top-level pending directory. It therefore returns only `pending` and `invalid` records. The `status` filter accepts `accepted`, `rejected`, and `all`, but archived records are not surfaced through this call. This is the cause of the live-MCP observation that an accepted record was not visible under the Accepted filter.
+- Archived records remain individually retrievable via `review_pending_change` / `GET /memory/pending/{id}` / `cve_review_pending_change`, which check both the pending and archive directories. Audit history is therefore preserved.
+
+Validation:
+
+- Proposal creation runs full schema validation against a temporary file. The previously observed `'str' object has no attribute 'relative_to'` error has been guarded since Phase 23 (validator receives `pathlib.Path` and exceptions are caught with a structured error string). Regression test `test_p23_validate_content_no_path_str_regression` covers this.
+- `review_pending_change` returns the persisted `validation_status` and `validation_errors`. It does not re-run schema validation. Historical validation state is therefore preserved verbatim.
+- `accept_pending_change` re-validates the proposed content against the active schema before any write. If validation fails at accept time, the record is rewritten with `status: invalid`, `validation_status: fail`, and current `validation_errors`, and the accept returns `VALIDATION_FAILED`. Persisted state can therefore become out of date if the schema changes after creation, but acceptance cannot bypass current validation.
+- `accept_pending_change` re-reads the target note and compares its SHA-256 against the proposal's `original_content_hash`. Mismatch returns `STALE_PENDING_CHANGE` and no write occurs.
+- A service-level `validate_pending_change` helper exists for in-memory re-validation but is intentionally not exposed via HTTP or MCP in Phase 44A.
+
+Acceptance:
+
+- Only records with `status: pending` and `validation_status: pass` can be accepted.
+- Records with `status: invalid` cannot be accepted at the service or HTTP level.
+- Acceptance writes through the existing safe note-edit path (`update_note`) for updates and through an atomic temp-file replace for creates. No new direct write path exists.
+- Accepted records are immediately archived; the pending file is removed.
+
+Rejection:
+
+- Only `pending` or `invalid` records can be rejected. Rejection archives the record with `status: rejected`.
+
+UI visibility:
+
+- `ui/src/components/PendingChanges.svelte` exposes status filters `pending` (default), `accepted`, `rejected`, `invalid`, and `all`. `invalid` records are discoverable.
+- Because the backend list does not return archived records, the `accepted` and `rejected` filters and the `all` filter currently surface no archived records in the UI, even when archive records exist on disk. This is a backend contract issue, not a UI defect. Per-ID retrieval still works.
+
+MCP guidance:
+
+- Tool descriptions for `cve_create_note_draft`, `cve_suggest_note_update`, and `cve_update_note_section_draft` now include explicit schema guidance that warns against unknown `title` frontmatter, against `status: draft` when the schema's `VALID_STATUSES` does not include it, and against non-canonical headings, and that tells agents to follow the active vault schema and templates.
+- The `cve_list_pending_changes` description now states that archived records are not surfaced by the list call and points agents to `cve_review_pending_change` for per-ID inspection.
+- The `cve_review_pending_change` description and the `cve.review_pending_change` prompt now state that the returned `validation_status` reflects persisted state, that the call does not re-run validation, and that acceptance re-validates before any vault write.
 
 **Acceptance**
 
@@ -1848,7 +1879,7 @@ Investigate and formally lock down the pending-change lifecycle after live MCP t
 **Suggested Commit**
 
 ```
-docs(roadmap): prioritise pending change lifecycle hardening
+docs(memory): define pending change lifecycle safety contract
 ```
 
 #### Phase 44B - Pending Change Lifecycle Implementation and UI Visibility Hardening
@@ -1859,14 +1890,24 @@ docs(roadmap): prioritise pending change lifecycle hardening
 
 Implement the safe lifecycle improvements identified in Phase 44A. Phase 44B turns the agreed contract into deterministic behaviour, clearer UI visibility, and improved agent draft guidance, while preserving the existing human-reviewed accept model.
 
-**Deliver**
+**Deliver (refined from Phase 44A findings)**
 
-- Revalidation path if Phase 44A confirms it is needed, so invalid proposals created before validator fixes can be re-checked without auto-accepting.
-- Clear active, invalid, stale, accepted, rejected, and archive visibility in the Pending UI and underlying listings.
-- UI copy and filters that make invalid and archived records understandable to a human reviewer.
-- MCP tool descriptions and prompts that guide agents to use schema-valid drafts (canonical headings, valid frontmatter, no unknown `title`, no invalid `status: draft`).
-- Deterministic tests for lifecycle behaviour, including accepted-record visibility, invalid-record visibility, stale validation distinguishability, and schema-guided draft creation.
+- Surface archived (accepted, rejected) records through the list contract. Concretely: extend `list_pending_changes` to walk the `archive/` directory when the `status` filter is `accepted`, `rejected`, or `all`, so that `GET /memory/pending` and `cve_list_pending_changes` honour their documented filters. The change is read-only and must not alter accept or reject semantics.
+- Expose an explicit revalidate action that calls the existing `validate_pending_change` helper without writing. Candidate surfaces: HTTP `POST /memory/pending/{change_id}/revalidate`, MCP tool `cve_revalidate_pending_change`. Revalidation must persist `validation_status` and `validation_errors` against the current schema and must never accept or write to the vault.
+- Document or surface the distinction between historical and current validation in the UI. Options to evaluate: a "revalidate" button on invalid records; an explicit "validated at" timestamp alongside `validation_status`.
+- Tighten the Pending UI so accepted, rejected, and invalid records are visually distinct and discoverable. The default filter remains `pending`. Invalid records should be obviously linkable from a summary count.
+- Keep MCP tool descriptions and the `cve.review_pending_change` prompt aligned with the revalidation surface, the archive list semantics, and the schema-draft guidance already added in Phase 44A.
+- Deterministic tests for: archive records returned by list when filter is `accepted`/`rejected`/`all`; revalidate action does not accept or write; revalidate updates persisted validation state; UI exposes a distinct invalid record entry; agent guidance remains schema-aware.
 - Documentation updates after implementation so the lifecycle contract is reflected in user-facing material.
+
+**Phase 44B candidate test names (gaps deferred from Phase 44A)**
+
+- `test_p44b_list_returns_archived_records_when_status_accepted` - currently fails because `list_pending_changes` only walks the pending directory.
+- `test_p44b_list_returns_archived_records_when_status_rejected` - same root cause.
+- `test_p44b_list_status_all_includes_archive` - same root cause.
+- `test_p44b_revalidate_action_updates_persisted_state_without_writing` - requires the new revalidate surface.
+- `test_p44b_revalidate_does_not_accept_or_mutate_vault` - requires the new revalidate surface.
+- `test_p44b_ui_invalid_summary_links_to_invalid_filter` - requires UI work and is out of scope for Phase 44A.
 
 **Acceptance**
 

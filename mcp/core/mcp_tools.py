@@ -166,13 +166,24 @@ TOOLS = [
     {
         "name": "cve_create_note_draft",
         "description": (
-            "[PROPOSAL — writes only to pending queue] "
+            "[PROPOSAL - writes only to pending queue] "
             "Propose creation of a new vault note. "
             "Stores the proposal as a pending change object for human review. "
             "Nothing is written to vault note files until an explicit "
             "cve_accept_pending_change call is made by a reviewer. "
-            "The proposal is validated against the vault schema before storage. "
-            "Invalid proposals are stored but cannot be accepted until corrected."
+            "The proposal is validated against the active vault schema before "
+            "storage. Invalid proposals are stored but cannot be accepted until "
+            "corrected. "
+            "SCHEMA GUIDANCE: use only frontmatter fields and values supported "
+            "by the active vault schema. Do not invent fields. Common mistakes "
+            "that cause validation_status='fail': (1) adding an unknown 'title' "
+            "frontmatter field when the schema does not declare it; (2) setting "
+            "'status: draft' when the schema's VALID_STATUSES does not include "
+            "'draft'; (3) using non-canonical section headings such as "
+            "'## Pitfalls' when the schema defines a different canonical heading; "
+            "(4) omitting canonical headings required by the note type. Match "
+            "the headings and required fields used by existing notes of the same "
+            "type in the target vault before proposing a draft."
         ),
         "inputSchema": {
             "type": "object",
@@ -329,8 +340,13 @@ TOOLS = [
         "name": "cve_list_pending_changes",
         "description": (
             "List pending change proposals for a vault. "
-            "Returns metadata for pending, accepted, rejected, or invalid changes. "
-            "Use to review the queue before calling accept or reject tools."
+            "Currently returns only active records in the pending directory "
+            "(status 'pending' or 'invalid'). Accepted and rejected records are "
+            "archived under '<vault>/Vault Files/State/pending-changes/archive/' "
+            "and are not surfaced by this list call. To inspect an archived "
+            "record, retrieve it by ID via cve_review_pending_change. "
+            "Use this tool to review the active queue before calling accept or "
+            "reject."
         ),
         "inputSchema": {
             "type": "object",
@@ -417,7 +433,13 @@ TOOLS = [
         "name": "cve_review_pending_change",
         "description": (
             "Retrieve the full details of a single pending change proposal "
-            "including diff, validation status, validation errors, and all metadata. "
+            "including diff, validation status, validation errors, and all "
+            "metadata. Works for both active (pending or invalid) records and "
+            "archived (accepted or rejected) records. "
+            "The returned validation_status and validation_errors reflect the "
+            "state persisted when the proposal was created or last accepted; "
+            "this call does not re-run validation against the current vault "
+            "schema. Acceptance re-validates before any vault write. "
             "Use this before deciding to accept or reject."
         ),
         "inputSchema": {
@@ -478,12 +500,19 @@ TOOLS = [
     {
         "name": "cve_suggest_note_update",
         "description": (
-            "[PROPOSAL — writes only to pending queue] "
+            "[PROPOSAL - writes only to pending queue] "
             "Propose an update to an existing vault note. "
             "Stores the proposal as a pending change object for human review. "
             "Nothing is written to vault note files until accepted. "
-            "Provided fields are merged with original; body replaces the original body "
-            "if provided. The proposal is validated before storage."
+            "Provided fields are merged with original; body replaces the original "
+            "body if provided. The proposal is validated against the active vault "
+            "schema before storage. "
+            "SCHEMA GUIDANCE: only supply frontmatter fields and values supported "
+            "by the active vault schema. Do not introduce unknown fields (for "
+            "example 'title' when the schema does not declare it) and do not "
+            "introduce values outside the schema's VALID_STATUSES (for example "
+            "'status: draft' when only 'complete' and 'partial' are allowed). "
+            "Preserve canonical headings used by the existing note."
         ),
         "inputSchema": {
             "type": "object",
@@ -521,12 +550,16 @@ TOOLS = [
     {
         "name": "cve_update_note_section_draft",
         "description": (
-            "[PROPOSAL — writes only to pending queue] "
+            "[PROPOSAL - writes only to pending queue] "
             "Propose a targeted update to one section of an existing vault note. "
             "Only the named section is replaced; all other content is preserved. "
             "Stores the proposal as a pending change for human review. "
             "Nothing is written to vault note files until accepted. "
-            "proposed_content is the new section body without the '## Header' line."
+            "proposed_content is the new section body without the '## Header' "
+            "line. "
+            "SCHEMA GUIDANCE: 'section' must be an existing canonical heading in "
+            "the target note. Do not invent new section names. Do not change "
+            "frontmatter fields or status values via this tool."
         ),
         "inputSchema": {
             "type": "object",

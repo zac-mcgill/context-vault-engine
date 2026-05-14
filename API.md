@@ -1772,12 +1772,22 @@ Write endpoints are blocked when `CVE_REMOTE_READ_ONLY=true`.
 
 List pending change proposals.
 
+**Lifecycle and visibility (confirmed in Phase 44A):**
+
+- Active records are stored under `<vault>/Vault Files/State/pending-changes/` with status `pending` or `invalid`.
+- Accepted and rejected records are moved to `<vault>/Vault Files/State/pending-changes/archive/` and retained immutably for audit.
+- This endpoint currently lists only active records. The `status` filter accepts `pending`, `accepted`, `rejected`, `invalid`, or `all`, but archived (`accepted`, `rejected`) records are not returned by the list call and therefore do not appear under `accepted`, `rejected`, or `all` here.
+- Archived records remain retrievable by ID via `GET /memory/pending/{change_id}` so audit history is preserved.
+- The `validation_status` and `validation_errors` returned in list and single-record responses reflect the state persisted at creation (or last accept attempt). `GET /memory/pending/{change_id}` does not re-run validation. The accept endpoint re-validates before any vault write.
+
+Surfacing archived records through this list endpoint and adding an explicit revalidate action are tracked under Phase 44B.
+
 **Query parameters:**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `vault` | string | yes | Registered vault name |
-| `status` | string | no | Filter: `pending` (default), `accepted`, `rejected`, `all` |
+| `status` | string | no | Filter: `pending` (default), `accepted`, `rejected`, `invalid`, `all`. Archived (`accepted`, `rejected`) records are not surfaced through this endpoint; use `GET /memory/pending/{change_id}` to inspect them. |
 | `limit` | integer | no | Max results (default 50) |
 
 **Success response (HTTP 200):**
@@ -1892,7 +1902,7 @@ Propose replacing one Markdown section (`## Heading`) in an existing vault note.
 
 ### GET /memory/pending/{change_id}
 
-Get the full detail of a single pending change (active or archived).
+Get the full detail of a single pending change. Works for both active records and archived (accepted or rejected) records. The `validation_status` and `validation_errors` returned reflect the state persisted when the proposal was created or last accepted; this endpoint does not re-run validation against the current vault schema. Acceptance re-validates before any vault write.
 
 **Query parameters:**
 

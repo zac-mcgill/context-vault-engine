@@ -1231,6 +1231,20 @@ Seven new tools: `cve_create_note_draft`, `cve_suggest_note_update`, `cve_update
 
 A new `cve_review_pending_change` prompt guides a reviewer through examining a diff and deciding to accept or reject.
 
+### Safe MCP pending-change review (Phase 44A contract)
+
+Confirmed behaviour as of Phase 44A:
+
+- Drafts are validated against the active vault schema at create time. Use only frontmatter fields and values that the schema declares. Common mistakes that produce `validation_status: fail`:
+  - adding an unknown `title` frontmatter field when the schema does not declare it;
+  - setting `status: draft` when the schema's `VALID_STATUSES` only allows `complete` and `partial`;
+  - using non-canonical headings such as `## Pitfalls` when the schema defines a different canonical heading;
+  - omitting canonical headings required for the note type.
+- `cve_review_pending_change` returns the persisted `validation_status` and `validation_errors`. It does not re-run schema validation. To see whether a stale invalid record is still invalid, reject it and create a corrected draft.
+- `cve_accept_pending_change` re-validates the proposal and re-checks the original-content hash before any vault write. Invalid drafts cannot be accepted. If the target note has changed since the proposal was made, accept returns `STALE_PENDING_CHANGE` and no write occurs.
+- `cve_list_pending_changes` currently surfaces only active records (`pending`, `invalid`). Accepted and rejected records are archived under `Vault Files/State/pending-changes/archive/` and are retrievable by ID via `cve_review_pending_change`, but are not returned by the list call.
+- Agents must wait for explicit human confirmation before calling `cve_accept_pending_change`. Do not auto-accept based on `validation_status` alone.
+
 ### Storage
 
 ```

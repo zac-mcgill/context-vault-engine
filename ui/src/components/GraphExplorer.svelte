@@ -430,6 +430,7 @@
         >
           {graphState === 'loading' ? 'Loading' : 'Reload'}
         </button>
+        <a class="cve-toolbar-link" href={rawDeveloperHref} aria-label="Open Developer route for raw graph payload">Open in Developer</a>
       </div>
     </div>
   </header>
@@ -629,22 +630,6 @@
             </details>
           {/if}
 
-          <details class="cve-details cve-details--inspector">
-            <summary>Diagnostic detail</summary>
-            <div class="cve-details__body">
-              <p class="cve-helper">
-                Raw /graph, /graph/neighbors, /graph/related, /graph/missing, and /missing
-                payloads are not rendered inline on the Graph workbench. The Developer
-                route exposes the full JSON payloads.
-              </p>
-              <p>
-                <a class="cve-details__developer-link" href={rawDeveloperHref} aria-label="Open Developer route for raw graph payload">
-                  Open in Developer
-                </a>
-              </p>
-            </div>
-          </details>
-
         </div>
 
       {:else}
@@ -802,21 +787,6 @@
               </div>
             {/if}
           </section>
-
-          <details class="cve-details cve-details--inspector">
-            <summary>Diagnostic detail</summary>
-            <div class="cve-details__body">
-              <p class="cve-helper">
-                Raw /graph, /graph/neighbors, /graph/related, and /graph/missing payloads
-                are not rendered inline. The Developer route exposes the full JSON payloads.
-              </p>
-              <p>
-                <a class="cve-details__developer-link" href={rawDeveloperHref} aria-label="Open Developer route for raw graph payload">
-                  Open in Developer
-                </a>
-              </p>
-            </div>
-          </details>
 
         </div>
 

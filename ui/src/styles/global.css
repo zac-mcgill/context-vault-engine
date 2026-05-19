@@ -1099,6 +1099,26 @@
     color: var(--cve-text-strong);
     border-color: var(--cve-info);
   }
+  /* Phase 66 - semantic toolbar link: replaces cve-details__developer-link
+     in toolbar contexts (cve-toolbar__actions). Identical visual contract;
+     name reflects the placement rather than the old details/disclosure origin. */
+  .cve-toolbar-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--cve-space-1);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--cve-info);
+    text-decoration: none;
+    padding: 0.125rem var(--cve-space-2);
+    border-radius: var(--cve-radius-sm);
+    border: 1px solid var(--cve-border-soft);
+    background-color: var(--cve-surface-muted);
+  }
+  .cve-toolbar-link:hover {
+    color: var(--cve-text-strong);
+    border-color: var(--cve-info);
+  }
 
   /* ------------------------------------------------------------------
      Phase 30B - cve-slide-over primitive
@@ -1270,6 +1290,44 @@
       grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
     }
   }
+  /* Phase 66 - Dashboard work-area layout.
+     cve-dashboard-page: makes the Dashboard fill the shell content area
+     vertically on large displays, eliminating the empty black void below
+     the grid on 1440p/ultrawide screens.
+     cve-dashboard-lower: replaces cve-dashboard-grid for the lower half;
+     grows to fill remaining vertical space. align-items:start keeps each
+     column at its natural height so Vault health stays compact; only
+     cve-dashboard-work-card overrides this with align-self:stretch.
+     cve-dashboard-work-card / __body: "Next best actions" fills the
+     card height and scrolls internally when tasks overflow. */
+  .cve-dashboard-page {
+    min-height: 100%;
+  }
+  .cve-dashboard-lower {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--cve-space-4);
+    align-items: start;
+    flex: 1 1 0;
+    min-height: 20rem;
+  }
+  @media (min-width: 1024px) {
+    .cve-dashboard-lower {
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    }
+  }
+  .cve-dashboard-work-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    align-self: stretch;
+  }
+  .cve-dashboard-work-card__body {
+    flex: 1 1 0;
+    overflow-y: auto;
+    min-height: 0;
+    padding-top: var(--cve-space-2);
+  }
   .cve-kv-row {
     display: flex;
     justify-content: space-between;
@@ -1330,7 +1388,8 @@
   .cve-table button:focus-visible,
   .cve-banner a:focus-visible,
   .cve-banner button:focus-visible,
-  .cve-details__developer-link:focus-visible {
+  .cve-details__developer-link:focus-visible,
+  .cve-toolbar-link:focus-visible {
     outline: 2px solid var(--cve-focus);
     outline-offset: 2px;
     border-radius: var(--cve-radius);

@@ -628,6 +628,7 @@
         >
           {notesState === 'loading' ? 'Refreshing' : 'Refresh'}
         </button>
+        <a class="cve-toolbar-link" href={rawDeveloperHref} aria-label="Open Developer route for raw notes payload">Open in Developer</a>
       </div>
     </div>
   </header>
@@ -1176,23 +1177,6 @@
               </a>
             </p>
           </section>
-
-          <!-- Developer deep-link -->
-          <details class="cve-details cve-details--inspector">
-            <summary>Diagnostic detail</summary>
-            <div class="cve-details__body">
-              <p class="cve-helper">
-                Raw note payloads, the /notes listing, and the last /query response are not
-                rendered inline on the Notes workbench. The Developer route exposes the full
-                JSON payloads, request history, and copy-ready output.
-              </p>
-              <p>
-                <a class="cve-details__developer-link" href={rawDeveloperHref} aria-label="Open Developer route for raw notes payload">
-                  Open in Developer
-                </a>
-              </p>
-            </div>
-          </details>
 
         </div>
       {/if}

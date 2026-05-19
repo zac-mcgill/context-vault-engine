@@ -4,8 +4,7 @@
     Real implementation backed by the existing /validation API helper
     (fetchValidation). Uses Phase 30B primitives only: cve-toolbar,
     cve-banner, cve-status-strip, cve-status-tile, cve-table, and the
-    cve-details--inspector + cve-details__developer-link deep-link
-    contract to the Developer route at /app/raw. No new dependency, no
+    cve-toolbar-link deep-link contract to the Developer route at /app/raw. No new dependency, no
     icon library, no raw Tailwind dark palette literals.
 
     The /validation API surface is intentionally compact: it returns
@@ -218,6 +217,7 @@
         >
           {validationState === 'loading' ? 'Validating' : 'Re-run'}
         </button>
+        <a class="cve-toolbar-link" href={rawHref} aria-label="Open Developer route for raw validation payload">Open in Developer</a>
       </div>
     </div>
   </header>
@@ -326,24 +326,5 @@
     </div>
   </section>
 
-  <details class="cve-details cve-details--inspector">
-    <summary>Diagnostic detail</summary>
-    <div class="cve-details__body">
-      <p class="cve-meta">
-        Raw /validation JSON is intentionally not rendered inline on this
-        page. The Developer route hosts the full payload, request history,
-        and copy-ready output.
-      </p>
-      <p style="margin-top: 0.5rem;">
-        <a
-          class="cve-details__developer-link"
-          href={rawHref}
-          aria-label="Open Developer route for raw validation payload"
-        >
-          Open in Developer
-        </a>
-      </p>
-    </div>
-  </details>
 
 </div>

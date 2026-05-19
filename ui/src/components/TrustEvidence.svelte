@@ -340,7 +340,7 @@
         >
           {trustState === 'loading' ? 'Refreshing' : 'Refresh'}
         </button>
-        <a class="cve-details__developer-link" href={rawDeepLink}>Open in Developer</a>
+        <a class="cve-toolbar-link" href={rawDeepLink}>Open in Developer</a>
       </div>
     </div>
   </header>

@@ -8,15 +8,15 @@
     inspection without rendering large JSON blocks inline.
 
     All visuals route through Phase 30B primitives (cve-toolbar,
-    cve-status-strip, cve-status-tile, cve-banner, cve-card,
-    cve-details--inspector, cve-details__developer-link) and tokenised
-    Phase 30C helpers (cve-link, cve-status-tile__cta, cve-kv-row,
-    cve-next-action, cve-dashboard-grid). The readiness banner can
-    render any of cve-banner--success, cve-banner--warning,
-    cve-banner--danger, or cve-banner--info depending on derived
-    severity. Raw Tailwind dark palette
-    literals are deliberately avoided so the Phase 30F light-mode
-    toggle can flip themes without touching this component.
+    cve-status-strip, cve-status-tile, cve-banner, cve-card) and
+    tokenised Phase 30C helpers (cve-link, cve-status-tile__cta,
+    cve-kv-row, cve-next-action, cve-dashboard-lower). Phase 66 adds
+    cve-dashboard-page / cve-dashboard-lower / cve-dashboard-work-card
+    for the lower work-area layout that fills available vertical space.
+    The toolbar Developer link uses cve-toolbar-link (Phase 66).
+    Raw Tailwind dark palette literals are deliberately avoided so the
+    Phase 30F light-mode toggle can flip themes without touching this
+    component.
   */
 
   import { onMount } from 'svelte';
@@ -421,7 +421,7 @@
   });
 </script>
 
-<div class="cve-page cve-stack">
+<div class="cve-page cve-stack cve-dashboard-page">
 
   <!-- ============================================================
        Toolbar: title, vault selector, refresh
@@ -467,6 +467,11 @@
         >
           {isLoading ? 'Loading' : 'Refresh'}
         </button>
+        <a
+          class="cve-toolbar-link"
+          href={selectedVault ? `/app/raw?vault=${encodeURIComponent(selectedVault)}` : '/app/raw'}
+          aria-label="Open Developer route for raw payload inspection"
+        >Open in Developer</a>
       </div>
     </div>
   </header>
@@ -563,10 +568,10 @@
   <!-- ============================================================
        Main grid: next actions + vault health
        ============================================================ -->
-  <section class="cve-dashboard-grid">
+  <section class="cve-dashboard-lower">
 
     <!-- Next actions card -->
-    <article class="cve-card" aria-labelledby="next-actions-title">
+    <article class="cve-card cve-dashboard-work-card" aria-labelledby="next-actions-title">
       <div class="cve-card__header">
         <h2 id="next-actions-title" class="cve-card-title">Next best actions</h2>
         {#if tasksState === 'ok' && tasksData}
@@ -576,38 +581,40 @@
         {/if}
       </div>
 
-      {#if !selectedVault}
-        <p class="cve-meta">Select a vault to surface the highest-priority improvement tasks.</p>
-      {:else if tasksState === 'loading'}
-        <p class="cve-meta">Computing prioritised task queue...</p>
-      {:else if tasksState === 'error'}
-        <p class="cve-meta">{tasksError}</p>
-      {:else if tasksState === 'ok' && tasksData}
-        {#if nextActions.length === 0}
-          <p class="cve-meta">No improvement tasks. The vault is in good shape.</p>
-        {:else}
-          <ol class="cve-next-actions" aria-label="Top tasks">
-            {#each nextActions as action}
-              <li class="cve-next-action">
-                <span class="cve-next-action__priority" aria-label="Priority {action.priority.toFixed(1)}">
-                  P{action.priority.toFixed(1)}
-                </span>
-                <div class="cve-next-action__body">
-                  <div class="cve-next-action__title">{action.note}</div>
-                  <div class="cve-next-action__hint">{action.instruction}</div>
-                </div>
-              </li>
-            {/each}
-          </ol>
-          {#if tasksData.feedback_status === 'error'}
-            <p class="cve-meta">Feedback scoring unavailable; ranks are unweighted.</p>
+      <div class="cve-dashboard-work-card__body">
+        {#if !selectedVault}
+          <p class="cve-meta">Select a vault to surface the highest-priority improvement tasks.</p>
+        {:else if tasksState === 'loading'}
+          <p class="cve-meta">Computing prioritised task queue...</p>
+        {:else if tasksState === 'error'}
+          <p class="cve-meta">{tasksError}</p>
+        {:else if tasksState === 'ok' && tasksData}
+          {#if nextActions.length === 0}
+            <p class="cve-meta">No improvement tasks. The vault is in good shape.</p>
+          {:else}
+            <ol class="cve-next-actions" aria-label="Top tasks">
+              {#each nextActions as action}
+                <li class="cve-next-action">
+                  <span class="cve-next-action__priority" aria-label="Priority {action.priority.toFixed(1)}">
+                    P{action.priority.toFixed(1)}
+                  </span>
+                  <div class="cve-next-action__body">
+                    <div class="cve-next-action__title">{action.note}</div>
+                    <div class="cve-next-action__hint">{action.instruction}</div>
+                  </div>
+                </li>
+              {/each}
+            </ol>
+            {#if tasksData.feedback_status === 'error'}
+              <p class="cve-meta">Feedback scoring unavailable; ranks are unweighted.</p>
+            {/if}
           {/if}
+          <p class="cve-meta" style="margin-top: 0.75rem;">
+            Full queue:
+            <a class="cve-link" href="/app/tasks">Open Tasks</a>
+          </p>
         {/if}
-        <p class="cve-meta" style="margin-top: 0.75rem;">
-          Full queue:
-          <a class="cve-link" href="/app/tasks">Open Tasks</a>
-        </p>
-      {/if}
+      </div>
     </article>
 
     <!-- Vault health card -->
@@ -669,29 +676,5 @@
     </article>
   </section>
 
-  <!-- ============================================================
-       Developer deep-link inspector
-       Raw JSON is intentionally not rendered inline. The Developer
-       route (/app/raw) hosts the full endpoint explorer in Phase 30D.
-       ============================================================ -->
-  <details class="cve-details cve-details--inspector">
-    <summary>Diagnostic detail</summary>
-    <div class="cve-details__body">
-      <p class="cve-meta">
-        Raw JSON inspection has moved off the Dashboard. Use the
-        Developer route to view full API payloads, request history, and
-        copy-ready output. {NO_TIMESTAMP_LABEL}.
-      </p>
-      <p style="margin-top: 0.5rem;">
-        <a
-          class="cve-details__developer-link"
-          href={selectedVault ? `/app/raw?vault=${encodeURIComponent(selectedVault)}` : '/app/raw'}
-          aria-label="Open Developer route for raw payload inspection"
-        >
-          Open in Developer
-        </a>
-      </p>
-    </div>
-  </details>
 
 </div>

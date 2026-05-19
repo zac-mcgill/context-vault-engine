@@ -381,7 +381,7 @@
         {/if}
       </div>
       <div class="cve-toolbar__actions">
-        <a class="cve-details__developer-link" href={rawDeepLink}
+        <a class="cve-toolbar-link" href={rawDeepLink}
           >Open in Developer</a
         >
       </div>

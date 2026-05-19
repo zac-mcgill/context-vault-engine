@@ -12093,6 +12093,21 @@ def main():
     test_uipolish_3_no_per_note_selection_claim()
     test_uipolish_4_audit_has_closure_section()
 
+    # Diagnostic-details clean-up guardrails (Phase 65 / UI defect)
+    test_p65_no_diagnostic_detail_text()
+    test_p65_no_raw_json_moved_text()
+    test_p65_app_raw_route_source_exists()
+    test_p65_dashboard_has_core_content()
+    test_p65_open_in_developer_in_toolbars()
+
+    # Phase 66 — Dashboard layout + toolbar ordering + class rename guardrails
+    test_p66_dashboard_lower_work_area()
+    test_p66_toolbar_open_developer_is_last()
+    test_p66_toolbar_link_class_used()
+
+    # Phase 67 — Vault health compact alignment
+    test_p67_vault_health_compact()
+
     print()
     print("=" * 60)
     print("ALL VERIFICATION TESTS PASSED")
@@ -21528,6 +21543,7 @@ def test_p30b_7_required_primitive_classes_exist():
         ".cve-banner--success",
         ".cve-details--inspector",
         ".cve-details__developer-link",
+        ".cve-toolbar-link",
         ".cve-slide-over",
         ".cve-slide-over__panel",
         ".cve-slide-over__backdrop",
@@ -21688,14 +21704,15 @@ def test_p30c_4_dashboard_uses_cve_banner():
     text = _p30c_dashboard_text()
     assert "cve-banner" in text, \
         "Dashboard.svelte must use the cve-banner primitive for the headline"
-    # The readiness banner must be able to express all four severities so
-    # the Dashboard can communicate blocker / warning / success without
-    # colour alone.
-    for variant in ("cve-banner--success", "cve-banner--warning",
-                    "cve-banner--danger", "cve-banner--info"):
-        assert variant in text, \
-            f"Dashboard.svelte must support banner variant {variant!r}"
-    print("  Dashboard uses cve-banner with success/warning/danger/info ✓")
+    # The readiness banner uses a dynamic class pattern cve-banner--{severity}.
+    # Confirm the dynamic binding is present and all four severity literals exist
+    # in the TypeScript code so the banner can express all states.
+    assert "cve-banner--{readiness.severity}" in text, \
+        "Dashboard.svelte must bind severity dynamically via cve-banner--{readiness.severity}"
+    for sev in ("success", "warning", "danger", "info"):
+        assert f"severity: '{sev}'" in text or f'severity: "{sev}"' in text, \
+            f"Dashboard.svelte must define readiness severity {sev!r}"
+    print("  Dashboard uses cve-banner with success/warning/danger/info \u2713")
 
 
 def test_p30c_5_dashboard_cta_validation_route():
@@ -21755,17 +21772,21 @@ def test_p30c_9_dashboard_no_inline_raw_json_block():
 
 
 def test_p30c_10_dashboard_developer_deep_link():
-    """P30C-10: Dashboard exposes a Developer deep link via the Phase
-    30B developer-link contract."""
+    """P30C-10: Dashboard exposes a Developer deep link in the toolbar
+    (cve-toolbar__actions) via the Phase 30B developer-link contract.
+    The floating diagnostic details block was removed in Phase 65."""
     print("\n=== Test P30C-10: Dashboard developer deep link ===")
     text = _p30c_dashboard_text()
-    assert "cve-details--inspector" in text, \
-        "Dashboard.svelte must use cve-details--inspector for diagnostic detail"
-    assert "cve-details__developer-link" in text, \
-        "Dashboard.svelte must use the cve-details__developer-link contract"
+    # The floating `Diagnostic detail` disclosure block must be gone.
+    assert "Diagnostic detail" not in text, \
+        "Dashboard.svelte must not contain the floating 'Diagnostic detail' block"
+    assert "Raw JSON inspection has moved" not in text, \
+        "Dashboard.svelte must not contain stale 'Raw JSON inspection has moved' text"
+    assert "cve-toolbar-link" in text, \
+        "Dashboard.svelte must use the cve-toolbar-link contract"
     assert "/app/raw" in text, \
         "Dashboard.svelte developer link must target /app/raw"
-    print("  Dashboard exposes Developer deep link contract ✓")
+    print("  Dashboard exposes Developer deep link in toolbar \u2713")
 
 
 def test_p30c_11_dashboard_no_tailwind_dark_literals():
@@ -22183,17 +22204,19 @@ def test_p30d1_17_raw_no_unbounded_full_page_pre():
 
 def test_p30d1_18_developer_deep_link_contract_tolerated():
     """P30D1-18: Validation and Tasks deep-link into /app/raw via the
-    Developer link contract, and Raw tolerates the deep-link query
-    parameters (vault, endpoint, source, focus)."""
+    Developer link contract (now in toolbar), and Raw tolerates the deep-link
+    query parameters (vault, endpoint, source, focus)."""
     print("\n=== Test P30D1-18: Developer deep-link contract ===")
     val = _read_text(_P30D1_VALIDATION_COMPONENT)
     tsk = _read_text(_P30D1_TASKS_COMPONENT)
     raw = _read_text(_P30D1_RAW_COMPONENT)
     for name, body in (("ValidationReview", val), ("TaskReview", tsk)):
-        assert "cve-details--inspector" in body, \
-            f"{name} must expose the Developer inspector block"
-        assert "cve-details__developer-link" in body, \
-            f"{name} must use the cve-details__developer-link contract"
+        # The floating `Diagnostic detail` disclosure block was removed in Phase 65;
+        # the link now lives in cve-toolbar__actions.
+        assert "Diagnostic detail" not in body, \
+            f"{name} must not contain the floating 'Diagnostic detail' block (removed in Phase 65)"
+        assert "cve-toolbar-link" in body, \
+            f"{name} must use the cve-toolbar-link contract"
         assert "/app/raw" in body, \
             f"{name} developer link must target /app/raw"
     # Raw tolerates the deep-link query contract.
@@ -22397,18 +22420,20 @@ def test_p30d2_7_notes_no_primary_inline_raw_json():
 
 
 def test_p30d2_8_notes_developer_deep_link():
-    """P30D2-8: NoteBrowser exposes a Developer deep-link to /app/raw."""
+    """P30D2-8: NoteBrowser exposes a Developer deep-link to /app/raw
+    in the toolbar (Phase 65: floating block removed)."""
     print("\n=== Test P30D2-8: NoteBrowser Developer deep-link ===")
     text = _read_text(_P30D2_NOTES_COMPONENT)
-    assert "cve-details--inspector" in text, \
-        "NoteBrowser must wrap the Developer deep-link in cve-details--inspector"
-    assert "cve-details__developer-link" in text, \
-        "NoteBrowser must use cve-details__developer-link"
+    # The floating `Diagnostic detail` disclosure block was removed in Phase 65.
+    assert "Diagnostic detail" not in text, \
+        "NoteBrowser must not contain the floating 'Diagnostic detail' block (removed in Phase 65)"
+    assert "cve-toolbar-link" in text, \
+        "NoteBrowser must use cve-toolbar-link"
     assert "/app/raw" in text, \
         "NoteBrowser must link to /app/raw"
     assert "source=notes" in text, \
         "NoteBrowser must tag the deep-link with source=notes"
-    print("  NoteBrowser provides Developer deep-link ✓")
+    print("  NoteBrowser provides Developer deep-link in toolbar ✓")
 
 
 def test_p30d2_9_graph_uses_cve_toolbar():
@@ -22483,18 +22508,20 @@ def test_p30d2_14_graph_uses_existing_api_helpers():
 
 
 def test_p30d2_15_graph_developer_deep_link():
-    """P30D2-15: GraphExplorer exposes a Developer deep-link to /app/raw."""
+    """P30D2-15: GraphExplorer exposes a Developer deep-link to /app/raw
+    in the toolbar (Phase 65: floating block removed)."""
     print("\n=== Test P30D2-15: GraphExplorer Developer deep-link ===")
     text = _read_text(_P30D2_GRAPH_COMPONENT)
-    assert "cve-details--inspector" in text, \
-        "GraphExplorer must wrap the Developer deep-link in cve-details--inspector"
-    assert "cve-details__developer-link" in text, \
-        "GraphExplorer must use cve-details__developer-link"
+    # The floating `Diagnostic detail` disclosure block was removed in Phase 65.
+    assert "Diagnostic detail" not in text, \
+        "GraphExplorer must not contain the floating 'Diagnostic detail' block (removed in Phase 65)"
+    assert "cve-toolbar-link" in text, \
+        "GraphExplorer must use cve-toolbar-link"
     assert "/app/raw" in text, \
         "GraphExplorer must link to /app/raw"
     assert "source=graph" in text, \
         "GraphExplorer must tag the deep-link with source=graph"
-    print("  GraphExplorer provides Developer deep-link ✓")
+    print("  GraphExplorer provides Developer deep-link in toolbar ✓")
 
 
 def test_p30d2_16_no_tailwind_dark_literals_in_migrated_files():
@@ -22926,9 +22953,9 @@ def test_p30d3_18_developer_deep_links():
         assert "/app/raw" in text, f"{name}: must link to /app/raw"
         assert endpoint_q in text, f"{name}: deep-link must include {endpoint_q}"
         assert source_q in text, f"{name}: deep-link must include {source_q}"
-        assert "cve-details__developer-link" in text, \
-            f"{name}: must use cve-details__developer-link"
-    print("  All four components expose Developer deep-links to /app/raw ✓")
+        assert "cve-toolbar-link" in text, \
+            f"{name}: must use cve-toolbar-link"
+    print("  All four components expose Developer deep-links to /app/raw \u2713")
 
 
 def test_p30d3_19_no_tailwind_dark_literals():
@@ -23317,8 +23344,8 @@ def test_p30e1_17_developer_deep_links():
             f"{name}: must call buildRawDeepLink() helper"
         assert f"'{endpoint}'" in text, \
             f"{name}: must pass endpoint literal '{endpoint}' to buildRawDeepLink"
-        assert "cve-details__developer-link" in text, \
-            f"{name}: must use cve-details__developer-link"
+        assert "cve-toolbar-link" in text, \
+            f"{name}: must use cve-toolbar-link"
     # The helper must build that exact contract.
     helper = _read_text(_P30E1_HELPER)
     assert "buildRawDeepLink" in helper, "phase30e1 helper must export buildRawDeepLink"
@@ -28405,6 +28432,269 @@ def test_uipolish_4_audit_has_closure_section():
         "Section 30 must reference the cve-btn primitive correction"
     )
     print("  UI_UX_AUDIT.md Section 30 (closure note) present \u2713")
+
+
+# ============================================================
+# Diagnostic-details clean-up guardrails (Phase 65 / UI defect)
+# ============================================================
+
+def _p65_ui_src() -> "Path":
+    from pathlib import Path
+    return Path(__file__).resolve().parent.parent / "ui" / "src"
+
+
+def test_p65_no_diagnostic_detail_text():
+    """P65-1: No 'Diagnostic detail' / 'Diagnostic details' literal remains under ui/src."""
+    print("\n=== Test P65-1: no Diagnostic detail text in ui/src ===")
+    from pathlib import Path
+    src = _p65_ui_src()
+    forbidden = ["Diagnostic detail", "Diagnostic details"]
+    hits = []
+    for svelte in src.rglob("*.svelte"):
+        text = svelte.read_text(encoding="utf-8")
+        for phrase in forbidden:
+            if phrase in text:
+                hits.append(f"{svelte.relative_to(src)}: {phrase!r}")
+    for astro in src.rglob("*.astro"):
+        text = astro.read_text(encoding="utf-8")
+        for phrase in forbidden:
+            if phrase in text:
+                hits.append(f"{astro.relative_to(src)}: {phrase!r}")
+    assert not hits, (
+        "Floating 'Diagnostic detail' disclosure block must not remain in ui/src:\n"
+        + "\n".join(hits)
+    )
+    print("  No 'Diagnostic detail' text in ui/src \u2713")
+
+
+def test_p65_no_raw_json_moved_text():
+    """P65-2: The obsolete 'Raw JSON inspection has moved off the Dashboard' text is gone."""
+    print("\n=== Test P65-2: no 'Raw JSON inspection has moved' in ui/src ===")
+    from pathlib import Path
+    src = _p65_ui_src()
+    phrase = "Raw JSON inspection has moved"
+    hits = []
+    for f in list(src.rglob("*.svelte")) + list(src.rglob("*.astro")):
+        if phrase in f.read_text(encoding="utf-8"):
+            hits.append(str(f.relative_to(src)))
+    assert not hits, (
+        f"Obsolete phrase {phrase!r} must not remain in ui/src:\n" + "\n".join(hits)
+    )
+    print("  No 'Raw JSON inspection has moved' text in ui/src \u2713")
+
+
+def test_p65_app_raw_route_source_exists():
+    """P65-3: ui/src/pages/raw.astro exists (the /app/raw Developer route is preserved)."""
+    print("\n=== Test P65-3: /app/raw source route exists ===")
+    from pathlib import Path
+    page = _p65_ui_src() / "pages" / "raw.astro"
+    assert page.is_file(), f"Missing Developer route source: {page}"
+    text = page.read_text(encoding="utf-8")
+    assert "RawDeveloperExplorer" in text, "raw.astro must mount the RawDeveloperExplorer component"
+    print("  ui/src/pages/raw.astro exists and mounts RawDeveloperExplorer \u2713")
+
+
+def test_p65_dashboard_has_core_content():
+    """P65-4: Dashboard.svelte still contains the Dashboard title and core content markers."""
+    print("\n=== Test P65-4: Dashboard still has core content ===")
+    from pathlib import Path
+    dash = _p65_ui_src() / "components" / "Dashboard.svelte"
+    assert dash.is_file(), f"Dashboard.svelte not found: {dash}"
+    text = dash.read_text(encoding="utf-8")
+    assert "Dashboard" in text, "Dashboard.svelte must contain the 'Dashboard' title"
+    assert "cve-toolbar" in text, "Dashboard.svelte must still use cve-toolbar"
+    assert "cve-status-strip" in text, "Dashboard.svelte must still render the status strip"
+    assert "cve-dashboard-lower" in text, "Dashboard.svelte must render the lower work area (cve-dashboard-lower)"
+    print("  Dashboard.svelte core content intact \u2713")
+
+
+def test_p65_open_in_developer_in_toolbars():
+    """P65-5: Pages that previously had a floating diagnostic block now expose
+    'Open in Developer' inside the cve-toolbar__actions element."""
+    print("\n=== Test P65-5: Open in Developer in toolbars ===")
+    from pathlib import Path
+    src = _p65_ui_src()
+    # Each component that previously had a floating block must have the link
+    # somewhere before the first </header> tag (i.e., in the toolbar area).
+    components = [
+        "components/Dashboard.svelte",
+        "components/GraphExplorer.svelte",
+        "components/NoteBrowser.svelte",
+        "components/TaskReview.svelte",
+        "components/ValidationReview.svelte",
+    ]
+    for rel in components:
+        path = src / rel
+        assert path.is_file(), f"Component not found: {path}"
+        text = path.read_text(encoding="utf-8")
+        # Ensure 'Open in Developer' appears in the file
+        assert "Open in Developer" in text, (
+            f"{rel}: must contain 'Open in Developer' link (moved to toolbar)"
+        )
+        # Ensure the 'Diagnostic detail' summary label is gone (the floating block)
+        assert "Diagnostic detail" not in text, (
+            f"{rel}: must not contain the floating 'Diagnostic detail' disclosure block"
+        )
+    print("  All affected components have Open in Developer in toolbar (no inspector block) \u2713")
+
+
+# ============================================================
+# Phase 66 — Dashboard layout + toolbar ordering + CSS rename
+# ============================================================
+
+
+def _p66_ui_src():
+    from pathlib import Path
+    return Path(__file__).resolve().parent.parent / "ui" / "src"
+
+
+def test_p66_dashboard_lower_work_area():
+    """P66-1: Dashboard.svelte uses the new lower-work-area CSS classes."""
+    print("\n=== Test P66-1: Dashboard lower work area classes ===")
+    from pathlib import Path
+    dash = _p66_ui_src() / "components" / "Dashboard.svelte"
+    assert dash.is_file(), f"Dashboard.svelte not found: {dash}"
+    text = dash.read_text(encoding="utf-8")
+    assert "cve-dashboard-page" in text, \
+        "Dashboard.svelte must use cve-dashboard-page on root div"
+    assert "cve-dashboard-lower" in text, \
+        "Dashboard.svelte must replace cve-dashboard-grid with cve-dashboard-lower"
+    assert "cve-dashboard-work-card" in text, \
+        "Dashboard.svelte must use cve-dashboard-work-card on action panel"
+    assert "cve-dashboard-work-card__body" in text, \
+        "Dashboard.svelte must wrap action body in cve-dashboard-work-card__body"
+    # The old grid class must be gone from the component markup
+    # (it may still exist in CSS for backward compat but not in the component).
+    assert "cve-dashboard-grid" not in text, \
+        "Dashboard.svelte must not use the stale cve-dashboard-grid class"
+    print("  Dashboard lower work area classes present \u2713")
+
+
+def test_p66_toolbar_open_developer_is_last():
+    """P66-2: 'Open in Developer' is the LAST element in cve-toolbar__actions for each component."""
+    print("\n=== Test P66-2: Open in Developer is last in toolbar actions ===")
+    from pathlib import Path
+    src = _p66_ui_src()
+    # For each component, confirm that within the __actions block,
+    # 'Open in Developer' comes after the primary action button.
+    checks = [
+        # (component path, keyword that must appear BEFORE the developer link)
+        ("components/Dashboard.svelte",       "Refresh"),
+        ("components/GraphExplorer.svelte",   "Reload"),
+        ("components/NoteBrowser.svelte",     "Refresh"),
+        ("components/TaskReview.svelte",      "Refresh"),
+        ("components/ValidationReview.svelte", "Re-run"),
+    ]
+    for rel, prior_keyword in checks:
+        path = src / rel
+        assert path.is_file(), f"Component not found: {path}"
+        text = path.read_text(encoding="utf-8")
+        assert "Open in Developer" in text, f"{rel}: must contain 'Open in Developer'"
+        idx_dev = text.rfind("Open in Developer")
+        idx_prior = text.rfind(prior_keyword)
+        assert idx_prior < idx_dev, (
+            f"{rel}: '{prior_keyword}' (pos {idx_prior}) must appear "
+            f"BEFORE 'Open in Developer' (pos {idx_dev})"
+        )
+    print("  'Open in Developer' is last in toolbar actions for all five components \u2713")
+
+
+def test_p66_toolbar_link_class_used():
+    """P66-3: All toolbar Open-in-Developer links use cve-toolbar-link;
+    only ContextController uses cve-details__developer-link (in its inspector body)."""
+    print("\n=== Test P66-3: cve-toolbar-link used in all toolbar contexts ===")
+    from pathlib import Path
+    src = _p66_ui_src()
+    # Every component that exposes a toolbar-level developer link must use
+    # cve-toolbar-link, NOT cve-details__developer-link.
+    # Components where cve-toolbar-link is the ONLY developer-link class used
+    # (no inspector body in these components).
+    toolbar_only_components = [
+        "components/Dashboard.svelte",
+        "components/GraphExplorer.svelte",
+        "components/NoteBrowser.svelte",
+        "components/TaskReview.svelte",
+        "components/ValidationReview.svelte",
+        "components/SecurityScan.svelte",
+        "components/ExportPackage.svelte",
+        "components/BundleBuilder.svelte",
+        "components/ImportReview.svelte",
+        "components/FeedbackWorkflow.svelte",
+        "components/PendingChanges.svelte",
+    ]
+    for rel in toolbar_only_components:
+        path = src / rel
+        assert path.is_file(), f"Component not found: {path}"
+        text = path.read_text(encoding="utf-8")
+        assert "cve-toolbar-link" in text, \
+            f"{rel}: must use cve-toolbar-link for the toolbar developer link"
+        assert "cve-details__developer-link" not in text, (
+            f"{rel}: must NOT use cve-details__developer-link in the toolbar "
+            f"(that class is reserved for inspector body blocks)"
+        )
+    # TrustEvidence has BOTH: cve-toolbar-link in the toolbar AND
+    # cve-details__developer-link in its inspector/details body block.
+    te = src / "components" / "TrustEvidence.svelte"
+    assert te.is_file(), f"TrustEvidence.svelte not found: {te}"
+    te_text = te.read_text(encoding="utf-8")
+    assert "cve-toolbar-link" in te_text, \
+        "TrustEvidence must use cve-toolbar-link in its toolbar section"
+    assert "cve-details__developer-link" in te_text, \
+        "TrustEvidence must still use cve-details__developer-link in its inspector body block"
+    # ContextController uses the inspector class (not a toolbar link).
+    cc = src / "components" / "ContextController.svelte"
+    assert cc.is_file(), f"ContextController.svelte not found: {cc}"
+    cc_text = cc.read_text(encoding="utf-8")
+    assert "cve-details__developer-link" in cc_text, \
+        "ContextController must still use cve-details__developer-link in its inspector block"
+    print("  cve-toolbar-link used in all toolbar components; inspector blocks preserved \u2713")
+
+
+# ============================================================
+# Phase 67 — Vault health compact alignment guardrails
+# ============================================================
+
+def _p67_global_css():
+    from pathlib import Path
+    return Path(__file__).parent.parent / "ui" / "src" / "styles" / "global.css"
+
+
+def test_p67_vault_health_compact():
+    """P67-1: Dashboard lower grid uses align-items:start so Vault health stays compact;
+    cve-dashboard-work-card overrides with align-self:stretch so Next best actions
+    still fills available height."""
+    print("\n=== Test P67-1: Vault health compact alignment ===" )
+    css_path = _p67_global_css()
+    assert css_path.is_file(), f"global.css not found: {css_path}"
+    css = css_path.read_text(encoding="utf-8")
+
+    # The lower grid must NOT use align-items:stretch (that caused the stretching bug).
+    import re
+    lower_block_match = re.search(
+        r'\.cve-dashboard-lower\s*\{([^}]+)\}', css, re.DOTALL
+    )
+    assert lower_block_match, ".cve-dashboard-lower rule not found in global.css"
+    lower_block = lower_block_match.group(1)
+    assert "align-items: start" in lower_block, (
+        ".cve-dashboard-lower must use align-items:start so Vault health is compact"
+    )
+    assert "align-items: stretch" not in lower_block, (
+        ".cve-dashboard-lower must NOT use align-items:stretch "
+        "(that causes Vault health to stretch to match Next best actions height)"
+    )
+
+    # cve-dashboard-work-card must override with align-self:stretch so
+    # only the Next best actions card fills the full column height.
+    work_card_match = re.search(
+        r'\.cve-dashboard-work-card\s*\{([^}]+)\}', css, re.DOTALL
+    )
+    assert work_card_match, ".cve-dashboard-work-card rule not found in global.css"
+    work_card_block = work_card_match.group(1)
+    assert "align-self: stretch" in work_card_block, (
+        ".cve-dashboard-work-card must use align-self:stretch "
+        "so Next best actions still fills available height"
+    )
+    print("  Vault health compact alignment rules correct \u2713")
 
 
 if __name__ == "__main__":

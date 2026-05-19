@@ -279,7 +279,7 @@
         <span>Scope: {useAdvancedScope ? 'advanced' : 'full vault'}</span>
       </div>
       <div class="cve-toolbar__actions">
-        <a class="cve-details__developer-link" href={rawDeepLink}>Open in Developer</a>
+        <a class="cve-toolbar-link" href={rawDeepLink}>Open in Developer</a>
       </div>
     </div>
   </header>

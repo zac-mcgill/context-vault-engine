@@ -896,6 +896,25 @@
     .cve-workbench--bounded .cve-p30e1-rail__body {
       max-height: none;
     }
+    /* Batch B3: also release the legacy 40rem cap on the p30e1
+       inspector body so the bounded inspector scroll region fills the
+       available height instead of producing a nested clip beside its
+       container. The cve-workbench__inspector already has overflow:
+       hidden and the inspector body retains its own overflow-y:auto,
+       so removing the cap simply lets the existing internal scroll
+       region claim the bounded inspector height. */
+    .cve-workbench--bounded .cve-p30e1-inspector__body {
+      max-height: none;
+    }
+    /* Batch B3: release the 32rem cap on p30d2 tables when nested
+       inside a bounded workbench. These tables already sit inside the
+       cve-scroll-region inspector body which provides the outer
+       scroll bound, so the nested 32rem cap produces a double-clip
+       (table scrolls inside a region that also scrolls). Outside a
+       bounded workbench the cap is preserved. */
+    .cve-workbench--bounded .cve-p30d2-table {
+      max-height: none;
+    }
   }
 
   /* ------------------------------------------------------------------

@@ -586,7 +586,7 @@
 <!-- =========================================================================
   Phase 30D2 - Notes Workbench
   ========================================================================= -->
-<div class="cve-page cve-stack">
+<div class="cve-page cve-stack cve-page--fill">
 
   <header class="cve-toolbar" aria-label="Notes header">
     <div class="cve-toolbar__main">

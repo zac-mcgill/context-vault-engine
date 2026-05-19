@@ -358,7 +358,7 @@
   }
 </script>
 
-<div class="cve-page cve-p30e1-page">
+<div class="cve-page cve-p30e1-page cve-page--fill">
 
   <!-- Toolbar -->
   <header class="cve-toolbar">

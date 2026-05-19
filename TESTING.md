@@ -28,14 +28,14 @@ Phase 39A documents the completion of a manual/copilot-assisted 12-batch verific
 
 # Context Vault Engine - Testing
 
-All tests live in `mcp/test_verify.py`. The suite currently has 1166 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800, 818, 842, 866, 890, 913, 937, 985, 999, 1021, 1028, 1044, 1065, 1081, 1103, 1135, 1143, 1152) appear later in this document as part of the phase changelog and are not the current total.
+All tests live in `mcp/test_verify.py`. The suite currently has 1170 test functions, all of which are executed by the manual runner in `main()` at the bottom of that file. A passing run prints `ALL VERIFICATION TESTS PASSED`. Historical test counts from earlier phases (272, 382, 429, 467, 507, 548, 553, 564, 587, 607, 625, 650, 675, 695, 706, 721, 740, 763, 787, 800, 818, 842, 866, 890, 913, 937, 985, 999, 1021, 1028, 1044, 1065, 1081, 1103, 1135, 1143, 1152, 1166) appear later in this document as part of the phase changelog and are not the current total.
 
 ## Current Verification Summary
 
 A full local verification consists of:
 
 ```bash
-py mcp/test_verify.py           # 1166 tests, all must pass
+py mcp/test_verify.py           # 1170 tests, all must pass
 py run.py validate              # vault schema-compliance
 py run.py security              # status: pass (or warning, never fail)
 py run.py feedback              # exits 0, valid JSON
@@ -2880,4 +2880,31 @@ Phase 38 adds 32 deterministic tests in `mcp/test_verify.py` (`test_p38_01_*` th
 - `test_p38_32_write_paths_include_backup_routes` - `_WRITE_PATH_PREFIXES` includes `POST /backup/create` and `POST /restore/apply`.
 
 Phase 38 is a local-safety phase. It does not start Phase 27 (Registry and Reuse Layer) or Phase 28 (Optional Semantic Retrieval); both remain Deferred. It does not introduce any new runtime dependency, cloud upload, telemetry, or remote backup target.
+
+---
+
+### Iterative UI Polish Pass (Batches A-E) - Source Guardrails
+
+The closure pass for the iterative UI polish iteration added four lightweight
+source guardrails (`test_uipolish_1` through `test_uipolish_4`). No runtime
+behaviour, API contracts, MCP surface, vault schema, or dependencies changed.
+The test count moved from 1166 to 1170.
+
+| Test | Description |
+|------|-------------|
+| `test_uipolish_1_no_obsolete_cve_button_class` | No obsolete `cve-button` class token in Svelte component templates; canonical primitives are `cve-btn`, `cve-btn-primary`, `cve-btn-danger` |
+| `test_uipolish_2_css_primitives_present` | `.cve-empty-pane`, `.cve-workbench--bounded`, and `.cve-page--fill` are defined in `ui/src/styles/global.css` |
+| `test_uipolish_3_no_per_note_selection_claim` | No documentation claims per-note bundle selection (not yet implemented) |
+| `test_uipolish_4_audit_has_closure_section` | `UI_UX_AUDIT.md` contains the Section 30 iterative polish closure note |
+
+Verification commands run after the closure pass:
+
+```bash
+py mcp/test_verify.py           # 1170 tests, all must pass
+py run.py validate              # vault schema-compliance
+py run.py security              # status: pass (or warning, never fail)
+py run.py feedback              # exits 0, valid JSON
+py run.py export --overwrite    # status: ok; package written to dist/
+cd ui; npm run build            # zero errors
+```
 

@@ -12087,6 +12087,12 @@ def main():
     test_p38_31_no_backup_artefacts_committed()
     test_p38_32_write_paths_include_backup_routes()
 
+    # Iterative UI polish pass (Batches A-E) — source guardrails
+    test_uipolish_1_no_obsolete_cve_button_class()
+    test_uipolish_2_css_primitives_present()
+    test_uipolish_3_no_per_note_selection_claim()
+    test_uipolish_4_audit_has_closure_section()
+
     print()
     print("=" * 60)
     print("ALL VERIFICATION TESTS PASSED")
@@ -19810,9 +19816,9 @@ def _repo_root():
 
 
 def test_doc_drift_readme_test_count():
-    """DOC-DRIFT-1: README quotes the current 1166-test total, no stale counts."""
+    """DOC-DRIFT-1: README quotes the current 1170-test total, no stale counts."""
     readme = (_repo_root() / "README.md").read_text(encoding="utf-8")
-    assert "1166" in readme, "README.md must mention the current test count 1166"
+    assert "1170" in readme, "README.md must mention the current test count 1170"
     stale_phrases = [
         "553 deterministic tests",
         "548 deterministic tests",
@@ -19874,22 +19880,23 @@ def test_doc_drift_readme_test_count():
     ]
     for phrase in stale_phrases:
         assert phrase not in readme, f"README.md still mentions stale phrase {phrase!r}"
-    print(f"  README mentions 1166 tests, no stale counts present ✓")
+    print(f"  README mentions 1170 tests, no stale counts present ✓")
 
 
 def test_doc_drift_testing_test_count():
-    """DOC-DRIFT-2: TESTING.md current total is 1166 and historical markers retained."""
+    """DOC-DRIFT-2: TESTING.MD current total is 1170 and historical markers retained."""
     text = (_repo_root() / "TESTING.md").read_text(encoding="utf-8")
-    assert "1166 test functions" in text, "TESTING.md must state 1166 test functions"
-    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763", "787", "800", "818", "842", "866", "890", "913", "937", "985", "999", "1021", "1028", "1044", "1065", "1081", "1103", "1135", "1143", "1152"):
+    assert "1170 test functions" in text, "TESTING.md must state 1170 test functions"
+    for marker in ("429", "467", "507", "548", "564", "587", "607", "625", "650", "675", "695", "706", "721", "740", "763", "787", "800", "818", "842", "866", "890", "913", "937", "985", "999", "1021", "1028", "1044", "1065", "1081", "1103", "1135", "1143", "1152", "1166"):
         assert marker in text, f"TESTING.md must retain historical test-count marker {marker}"
-    print(f"  TESTING.md states 1166 functions and keeps historical markers ✓")
+    print(f"  TESTING.md states 1170 functions and keeps historical markers ✓")
 
 
 def test_doc_drift_release_checklist_test_count():
-    """DOC-DRIFT-3: RELEASE_CHECKLIST references 1166 tests and required commands."""
+    """DOC-DRIFT-3: RELEASE_CHECKLIST references 1170 tests and required commands."""
     text = (_repo_root() / "RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "1166" in text, "RELEASE_CHECKLIST.md must reference the 1166-test target"
+    assert "1170" in text, "RELEASE_CHECKLIST.md must reference the 1170-test target"
+    assert "1166" in text, "RELEASE_CHECKLIST.md must keep 1166 as historical marker"
     assert "1135" in text, "RELEASE_CHECKLIST.md must keep 1135 as historical marker"
     assert "1143" in text, "RELEASE_CHECKLIST.md must keep 1143 as historical marker"
     assert "1152" in text, "RELEASE_CHECKLIST.md must keep 1152 as historical marker"
@@ -19897,7 +19904,7 @@ def test_doc_drift_release_checklist_test_count():
     for req in ("test_verify.py", "run.py validate", "run.py security",
                 "run.py export", "GitHub Release"):
         assert req in text, f"RELEASE_CHECKLIST.md must contain {req!r}"
-    print(f"  RELEASE_CHECKLIST mentions 1166 tests and required commands ✓")
+    print(f"  RELEASE_CHECKLIST mentions 1170 tests and required commands ✓")
 
 
 def test_doc_drift_roadmap_active_phase():
@@ -26691,13 +26698,13 @@ def test_p39_test_count_updated():
     print("\n=== Test P39-16: documentation test count updated ===")
     testing = _p39_read("TESTING.md")
     readme = _p39_read("README.md")
-    assert "1166 test functions" in testing, (
-        "TESTING.md must advertise the post-Phase 39 UI test count of 1166"
+    assert "1170 test functions" in testing, (
+        "TESTING.md must advertise the post-Phase 39 UI test count of 1170"
     )
-    assert "1166 tests" in readme, (
-        "README.md must advertise the post-Phase 39 UI test count of 1166"
+    assert "1170 tests" in readme, (
+        "README.md must advertise the post-Phase 39 UI test count of 1170"
     )
-    print("  TESTING.md and README.md advertise 1166 tests \u2713")
+    print("  TESTING.md and README.md advertise 1170 tests \u2713")
 
 
 def test_p39_17_ui_page_exists():
@@ -28303,6 +28310,101 @@ def test_p38_32_write_paths_include_backup_routes():
     assert ("POST", "/backup/create") in prefixes
     assert ("POST", "/restore/apply") in prefixes
     print("  Backup write paths registered \u2713")
+
+
+# ============================================================
+# Iterative UI Polish Pass (Batches A-E) - Source Guardrails
+# ============================================================
+
+def test_uipolish_1_no_obsolete_cve_button_class():
+    """UIPolish-1: No obsolete 'cve-button' class token in Svelte component templates.
+
+    The canonical primitives are cve-btn, cve-btn-primary, and cve-btn-danger.
+    cve-button / cve-button--primary / cve-button--danger were corrected in Batch A.
+    """
+    print("\n=== Test UIPolish-1: no obsolete cve-button class in Svelte templates ===")
+    import re
+    repo = Path(__file__).resolve().parent.parent
+    ui_src = repo / "ui" / "src"
+    violations = []
+    pattern = re.compile(r"\bcve-button\b")
+    for svelte in sorted(ui_src.rglob("*.svelte")):
+        text = svelte.read_text(encoding="utf-8")
+        in_style = False
+        for lineno, line in enumerate(text.splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith("<style"):
+                in_style = True
+            if stripped.startswith("</style"):
+                in_style = False
+            if in_style:
+                continue
+            if pattern.search(line):
+                violations.append(f"{svelte.name}:{lineno}: {stripped!r}")
+    assert not violations, (
+        "Obsolete 'cve-button' class found in Svelte component templates "
+        "(use cve-btn / cve-btn-primary / cve-btn-danger instead):\n"
+        + "\n".join(violations)
+    )
+    print("  No obsolete cve-button class in Svelte templates \u2713")
+
+
+def test_uipolish_2_css_primitives_present():
+    """UIPolish-2: cve-empty-pane, cve-workbench--bounded, and cve-page--fill are defined in global.css.
+
+    These primitives were introduced during the Batch B iterative UI polish pass.
+    """
+    print("\n=== Test UIPolish-2: UI polish CSS primitives present in global.css ===")
+    repo = Path(__file__).resolve().parent.parent
+    css = (repo / "ui" / "src" / "styles" / "global.css").read_text(encoding="utf-8")
+    for primitive in (".cve-empty-pane", ".cve-workbench--bounded", ".cve-page--fill"):
+        assert primitive in css, (
+            f"CSS primitive {primitive!r} must be defined in global.css"
+        )
+    print("  cve-empty-pane, cve-workbench--bounded, cve-page--fill all present \u2713")
+
+
+def test_uipolish_3_no_per_note_selection_claim():
+    """UIPolish-3: No documentation claims per-note bundle selection (not yet implemented)."""
+    print("\n=== Test UIPolish-3: no per-note bundle selection claim in docs ===")
+    import re
+    repo = Path(__file__).resolve().parent.parent
+    doc_files = ["README.md", "QUICKSTART.md", "API.md", "UI_UX_AUDIT.md", "ROADMAP.md"]
+    pattern = re.compile(
+        r"per.note\s+selection|select\s+individual\s+notes\s+for\s+bundle",
+        re.IGNORECASE,
+    )
+    violations = []
+    for fname in doc_files:
+        fpath = repo / fname
+        if not fpath.is_file():
+            continue
+        text = fpath.read_text(encoding="utf-8")
+        for lineno, line in enumerate(text.splitlines(), 1):
+            if pattern.search(line):
+                violations.append(f"{fname}:{lineno}: {line.strip()!r}")
+    assert not violations, (
+        "Per-note bundle selection is claimed in documentation but not implemented:\n"
+        + "\n".join(violations)
+    )
+    print("  No per-note bundle selection claim in docs \u2713")
+
+
+def test_uipolish_4_audit_has_closure_section():
+    """UIPolish-4: UI_UX_AUDIT.md contains the iterative UI polish closure note (Section 30)."""
+    print("\n=== Test UIPolish-4: UI_UX_AUDIT.md has Section 30 closure note ===")
+    repo = Path(__file__).resolve().parent.parent
+    audit = (repo / "UI_UX_AUDIT.md").read_text(encoding="utf-8")
+    assert "## 30. Iterative UI Polish Pass" in audit, (
+        "UI_UX_AUDIT.md must contain a '## 30. Iterative UI Polish Pass' section"
+    )
+    assert "cve-empty-pane" in audit, (
+        "Section 30 must reference the cve-empty-pane primitive"
+    )
+    assert "cve-btn" in audit, (
+        "Section 30 must reference the cve-btn primitive correction"
+    )
+    print("  UI_UX_AUDIT.md Section 30 (closure note) present \u2713")
 
 
 if __name__ == "__main__":

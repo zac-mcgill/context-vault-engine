@@ -141,7 +141,7 @@ State explicitly: this checklist has not been performed automatically by Phase 3
 
 ## Pre-release Verification
 
-- [ ] `python mcp/test_verify.py` passes, all 1166 tests green (no skips, no failures) - up from 1152 after Phase 39 ROADMAP deep normalisation drift guards (historical totals: 1081, 1103, 1135, 1143, 1152)
+- [ ] `python mcp/test_verify.py` passes, all 1170 tests green (no skips, no failures) - up from 1166 after iterative UI polish pass closure guardrails (historical totals: 1081, 1103, 1135, 1143, 1152, 1166)
 - [ ] `python run.py validate` passes, all notes valid
 - [ ] `python run.py security` passes, status is `pass` or `warning` only (no `fail`)
 - [ ] `python run.py feedback` passes, exits 0, valid JSON
@@ -200,6 +200,12 @@ Phase 31C is the release-candidate visual QA and defect-triage pass. It is not f
 The automated agent that executed Phase 31C performed only automated source-level verification (`py mcp/test_verify.py`, `py run.py validate`, `py run.py security`, `py run.py feedback`, `py run.py export --overwrite`, `cd ui && npm run build`) plus a static source review of `ui/src/layouts/AppLayout.astro`, `ui/src/styles/global.css`, every `ui/src/pages/*.astro`, and every `ui/src/components/*.svelte`. The agent did not open a browser, did not perform live keyboard traversal, and did not run a screen reader. The static review found no new defects beyond what Phase 30F and Phase 31B already address, and no source fixes were applied.
 
 The manual visual QA matrix (Section B), keyboard QA checklist (Section C), and screen-reader QA checklist (Section D) above remain manual. They must be performed by a human running a real browser and, where applicable, a real assistive technology before any release tag claims those passes. Phase 31C does not tick those rows.
+
+---
+
+## Iterative UI Polish Pass (Batches A-E) - Note
+
+An unplanned iterative UI polish pass (Batches A through E) was completed after Phase 31C. It corrected button primitive usage, removed duplicate developer links, introduced empty-state and bounded-workspace primitives, polished the Feedback card layout, Notes edit-view rhythm, and Import/Security/Bundles/Exports raw/result states. This pass performed only automated source-level verification. It did not perform manual browser visual QA, keyboard QA, or screen-reader QA. The manual QA rows above remain unchecked and must be completed before any release tag claims those passes.
 
 ---
 

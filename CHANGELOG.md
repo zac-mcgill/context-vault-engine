@@ -1,3 +1,33 @@
+## Unreleased - Iterative UI Polish Pass (Batches A-E) and Closure Guardrails
+
+A manual/copilot-assisted UI polish iteration completed outside the planned roadmap sequence after Phase 31C. No runtime code, API contracts, MCP surface, vault schema, or new dependencies were changed. Four lightweight source guardrail tests added in the closure pass bring the test count from 1166 to 1170.
+
+### Changed
+
+- `ui/src/components/Backups.svelte`: corrected `cve-button` / `cve-button--primary` / `cve-button--danger` to canonical `cve-btn` / `cve-btn-primary` / `cve-btn-danger` primitives.
+- `ui/src/components/BundleBuilder.svelte`, `ExportPackage.svelte`, `SecurityScan.svelte`, `ImportReview.svelte`, `FeedbackWorkflow.svelte`, `PendingChanges.svelte`: removed duplicate disclosure-level developer links; toolbar-level links retained.
+- `ui/src/components/ContextController.svelte`: consolidated two disclosure developer links to one.
+- `ui/src/components/FeedbackWorkflow.svelte`: triage view converted from a 7-column table to a card list using `cve-p30e1-fb-list` / `cve-p30e1-fb-card` primitives.
+- `ui/src/components/NoteBrowser.svelte`: frontmatter edit grid and section outline wrapped in collapsible `<details>` panels; spacing adjusted.
+- `ui/src/components/ImportReview.svelte`: Step 3 idle placeholder uses `cve-empty-pane--flush`; inner warning/error lists use `cve-p30d3-item-list`; raw `<pre>` converted to `cve-raw`.
+- `ui/src/components/SecurityScan.svelte`, `ExportPackage.svelte`: raw `<pre>` converted to `cve-raw`.
+- `ui/src/components/BundleBuilder.svelte`: loading-state fix preserves previous bundle result during regeneration; raw `<pre>` converted to `cve-raw`.
+- `ui/src/styles/global.css`: added `cve-empty-pane`, `cve-workbench--bounded`, `cve-page--fill` primitives; `cve-p30e1-fb-list` / `cve-p30e1-fb-card` card-list helpers; `cve-p30d2-section-details` collapsible; spacing adjustments.
+- `mcp/test_verify.py`: 4 lightweight source guardrail tests added (`test_uipolish_1` through `test_uipolish_4`); test count 1166 to 1170.
+- `UI_UX_AUDIT.md`: Section 30 closure note added.
+- `TESTING.md`: Iterative UI polish pass section added.
+- `ROADMAP.md`: Current Status bullet added for the UI polish pass; test count updated to 1170.
+- `README.md`: Test count updated to 1170.
+
+### Not done
+
+- No browser visual QA performed.
+- No keyboard QA performed.
+- No screen-reader QA performed.
+- Phase 42 not started. Phase 27 and Phase 28 remain Deferred.
+
+---
+
 ## Unreleased - Phase 47 Runtime Mode Isolation Clarification
 
 Documentation-only update clarifying the findings from local Tailscale tunnel testing and refining the Phase 47 roadmap wording:

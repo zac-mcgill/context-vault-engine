@@ -798,3 +798,39 @@ Phase 31C is a QA and defect-triage pass executed after Phase 31B normalised the
 
 - `mcp/test_verify.py` gains Phase 31C documentation-honesty guardrails (P31C-1 through P31C-7) that lock in: Phase 31C is documented as a release-candidate visual QA/defect triage pass; the documentation does not falsely claim that browser, keyboard, or screen-reader QA was performed automatically; Phase 27 and Phase 28 remain Deferred; Phase 30, Phase 31A, and Phase 31B remain Complete; no em dashes were introduced in Phase 31C-touched docs.
 
+---
+
+## 30. Iterative UI Polish Pass - Closure Note (2026-05-19)
+
+A manual/copilot-assisted iterative UI polish pass was completed outside the planned roadmap sequence after Phase 31C. It comprised eight batches (A, A-correction, B1, B2, B3, C, D1, D2, E).
+
+**What was improved:**
+
+- Developer-link duplication: removed duplicate disclosure-level developer links from BundleBuilder, ExportPackage, SecurityScan, ImportReview, FeedbackWorkflow, and PendingChanges; consolidated ContextController to a single developer link.
+- Button primitive cleanup: corrected `cve-button` / `cve-button--primary` / `cve-button--danger` usages in Backups.svelte to the canonical `cve-btn` / `cve-btn-primary` / `cve-btn-danger` primitives.
+- Empty-state pane primitive (`cve-empty-pane`): shared idle-state placeholder used by ImportReview Step 3.
+- Bounded workspace layout (`cve-workbench--bounded`, `cve-page--fill`): adopted across workspace-mode pages.
+- Feedback card-list layout: FeedbackWorkflow triage view converted from a 7-column table to a card list (`cve-p30e1-fb-list` / `cve-p30e1-fb-card`).
+- Notes edit-view rhythm: NoteBrowser inspector frontmatter and section outline wrapped in collapsible `<details>` panels; spacing adjusted in global.css.
+- Import/Security/Bundles/Exports raw/result polish: raw `<pre>` blocks converted to `cve-raw`; ImportReview Step 3 idle placeholder using `cve-empty-pane--flush`; BundleBuilder loading-state fix preserving previous result during regeneration; SecurityScan and ExportPackage raw pre converted to `cve-raw`.
+
+**No changes were made to:**
+
+- Backend runtime code, MCP server, API contracts, vault schema.
+- Route paths or route removal.
+- Test count (was 1166 throughout the batches; 4 guardrail tests added in the closure pass bring the total to 1170).
+- `CVE_AUTH_TOKEN`, `cve-*` symbol contracts, `--cve-*` tokens.
+- Sidebar label "Review and Governance".
+
+**Deferred items (not addressed by this pass):**
+
+- Browser visual QA (manual, tracked in RELEASE_CHECKLIST.md).
+- Keyboard QA (manual, tracked in RELEASE_CHECKLIST.md).
+- Screen-reader QA (manual, tracked in RELEASE_CHECKLIST.md).
+- Static graph rendering.
+- Bundle note-by-note content filtering (not yet implemented; bundles include all active notes).
+- Route consolidation.
+- Dashboard/Validation/Tasks/Raw/Diagnostics/MCP Setup deeper polish.
+- Phase 27 (Registry and Reuse Layer) - Deferred.
+- Phase 28 (Optional Semantic Retrieval) - Deferred.
+

@@ -61,6 +61,7 @@ The deterministic backend, the local web application, the MCP stdio surface, the
 - Phase 32 (Human Release QA and Evidence Capture) remains planned and manual.
 - Phases 37, 38, 39, and 39A are complete.
 - Phase 39A (MCP Stdio Verification Batch Pass) is complete: a manual/copilot-assisted 12-batch verification pass validated the MCP stdio surface, catalogue, error handling, pending-change safety, documentation, UI build, boundary separation, artefact hygiene, and final release gate. No runtime code changes, no source modifications, and no commit were required by the verification itself.
+- An unplanned iterative UI polish pass (Batches A through E) was completed after Phase 31C. It corrected button primitive usage (`cve-button` to `cve-btn`), removed duplicate developer links, introduced `cve-empty-pane`, `cve-workbench--bounded`, and `cve-page--fill` CSS primitives, polished the Feedback card layout, Notes edit-view rhythm, and Import/Security/Bundles/Exports raw/result states. No backend changes, no new routes, no new dependencies. Manual browser visual QA, keyboard QA, and screen-reader QA remain deferred.
 - Phase 40 (Public Security Posture & Release Trust) is Deferred.
 - Phase 41 (Example Vaults and Demonstration Packs) is Deferred.
 - Phase 42 (Context Health Recommendation Layer) is the next planned implementation phase.
@@ -68,7 +69,7 @@ The deterministic backend, the local web application, the MCP stdio surface, the
 - Phase 44 is complete as a grouped lifecycle track because Phase 44A and Phase 44B are both complete.
 - Phase 27 (Registry and Reuse Layer) remains deferred.
 - Phase 28 (Optional Semantic Retrieval) remains Deferred.
-- The current verification total is 1166 tests in `mcp/test_verify.py`.
+- The current verification total is 1170 tests in `mcp/test_verify.py`.
 
 The Phase Status Overview table in the next section is the single source of truth for the status of every phase.
 

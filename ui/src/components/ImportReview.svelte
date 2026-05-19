@@ -629,6 +629,22 @@
         </div>
       </div>
 
+      {#if preview === null && writeResult === null && opState !== 'error'}
+        <div class="cve-p30d3-section">
+          <header class="cve-p30d3-section__head">
+            <h2 class="cve-p30d3-section__title">Confirm and write</h2>
+            <p class="cve-p30d3-section__hint">Step 3 of 3</p>
+          </header>
+          <div class="cve-empty-pane cve-empty-pane--flush">
+            <p class="cve-empty-pane__title">Awaiting preview</p>
+            <p class="cve-empty-pane__body">
+              Run a dry-run preview in Step 1. Write is only available after a
+              successful preview with no blocking errors and explicit confirmation.
+            </p>
+          </div>
+        </div>
+      {/if}
+
       {#if preview !== null && writeResult === null}
         <div
           class="cve-p30d3-section"
@@ -780,7 +796,7 @@
                     {#if item.warnings.length > 0}
                       <div>
                         <p class="cve-p30d3-section__hint">Warnings</p>
-                        <ul>
+                        <ul class="cve-p30d3-item-list">
                           {#each item.warnings as w}
                             <li>{w}</li>
                           {/each}
@@ -790,7 +806,7 @@
                     {#if item.errors.length > 0}
                       <div>
                         <p class="cve-p30d3-section__hint">Errors</p>
-                        <ul data-testid="item-errors">
+                        <ul class="cve-p30d3-item-list" data-testid="item-errors">
                           {#each item.errors as e}
                             <li>
                               <code class="cve-p30d3-mono">{e.code}</code>
@@ -804,7 +820,7 @@
                     {#if item.security?.findings?.length}
                       <div>
                         <p class="cve-p30d3-section__hint">Security findings</p>
-                        <ul>
+                        <ul class="cve-p30d3-item-list">
                           {#each item.security.findings as f}
                             <li>
                               <code class="cve-p30d3-mono">{f.rule ?? 'rule'}</code>
@@ -817,7 +833,7 @@
                     {#if item.validation?.errors?.length}
                       <div>
                         <p class="cve-p30d3-section__hint">Validation errors</p>
-                        <ul>
+                        <ul class="cve-p30d3-item-list">
                           {#each item.validation.errors as ve}
                             <li>{ve}</li>
                           {/each}
@@ -848,7 +864,7 @@
         <details class="cve-details cve-details--inspector">
           <summary>Raw response</summary>
           <div class="cve-details__body">
-            <pre class="cve-p30d3-mono" style="white-space:pre-wrap;">{JSON.stringify(
+            <pre class="cve-raw">{JSON.stringify(
                 display,
                 null,
                 2,

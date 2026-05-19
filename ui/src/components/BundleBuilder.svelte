@@ -170,7 +170,6 @@
       return;
     }
     submitState = 'loading';
-    bundleResult = null;
     submitError = '';
     submitErrorCode = '';
     expandedNoteIds = new Set();
@@ -515,7 +514,7 @@
 
         <!-- Right: state-aware output -->
         <div class="cve-p30d3-workflow">
-          {#if submitState === 'idle' || submitState === 'loading'}
+          {#if submitState === 'idle' || (submitState === 'loading' && !bundleResult)}
             <div class="cve-p30d3-section">
               <header class="cve-p30d3-section__head">
                 <h2 class="cve-p30d3-section__title">Readiness</h2>
@@ -552,7 +551,12 @@
                 <div class="cve-banner__body">{submitError}</div>
               </div>
             </div>
-          {:else if submitState === 'ok' && bundleResult}
+          {:else if (submitState === 'ok' || submitState === 'loading') && bundleResult}
+            {#if submitState === 'loading'}
+              <div class="cve-banner cve-banner--info">
+                <div class="cve-banner__body">Regenerating bundle preview...</div>
+              </div>
+            {/if}
             <div class="cve-p30d3-section">
               <header class="cve-p30d3-section__head">
                 <h2 class="cve-p30d3-section__title">Bundle summary</h2>
@@ -672,7 +676,7 @@
             <details class="cve-details cve-details--inspector">
               <summary>Raw bundle JSON</summary>
               <div class="cve-details__body">
-                <pre class="cve-p30d3-mono" style="white-space:pre-wrap;">{JSON.stringify(
+                <pre class="cve-raw">{JSON.stringify(
                     bundleResult,
                     null,
                     2,

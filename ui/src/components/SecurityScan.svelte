@@ -658,7 +658,7 @@
             <details class="cve-details cve-details--inspector">
               <summary>Raw scan response</summary>
               <div class="cve-details__body">
-                <pre class="cve-p30d3-mono" style="white-space:pre-wrap;">{JSON.stringify(
+                <pre class="cve-raw">{JSON.stringify(
                     scanResult,
                     null,
                     2,

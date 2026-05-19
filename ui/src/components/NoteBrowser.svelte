@@ -874,11 +874,12 @@
     <section class="cve-workbench__inspector cve-p30d2-inspector" aria-label="Selected note inspector">
 
       {#if !selectedPath}
-        <div class="cve-p30d2-empty-pane">
-          <p class="cve-empty">Select a note from the list to inspect it.</p>
-          <p class="cve-helper">
-            Frontmatter, body, section outline, validation state, task context, and trust metadata
-            appear here. Raw payloads are available via the Developer route.
+        <div class="cve-p30d2-empty-pane cve-empty-pane cve-empty-pane--flush">
+          <h2 class="cve-empty-pane__title">No note selected</h2>
+          <p class="cve-empty-pane__body">
+            Select a note from the list to inspect frontmatter, body, section outline,
+            validation state, task context, and trust metadata. Raw payloads are
+            available via the Developer route.
           </p>
         </div>
 

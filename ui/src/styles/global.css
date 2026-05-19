@@ -529,6 +529,57 @@
     background-color: rgba(74, 222, 128, 0.05);
   }
 
+  /* ------------------------------------------------------------------
+     Batch B - cve-empty-pane: large empty state for inspector panes
+     ------------------------------------------------------------------
+     Builds on .cve-empty (inline single-line message) and provides a
+     larger, vertically centred empty state for inspector and detail
+     panes that would otherwise read as blank. Composes a title, body
+     paragraph, and optional action row using existing semantic tokens.
+     Use inside .cve-workbench__inspector and similar containers so
+     the pane reads as intentional rather than empty.
+     ------------------------------------------------------------------ */
+  .cve-empty-pane {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--cve-space-3);
+    padding: var(--cve-space-6) var(--cve-space-5);
+    min-height: 12rem;
+    text-align: center;
+    color: var(--cve-text-muted);
+    border: 1px dashed var(--cve-border-soft);
+    border-radius: var(--cve-radius);
+    background-color: var(--cve-surface);
+  }
+  .cve-empty-pane--flush {
+    border: none;
+    background-color: transparent;
+    min-height: 16rem;
+  }
+  .cve-empty-pane__title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--cve-text);
+    letter-spacing: 0.01em;
+  }
+  .cve-empty-pane__body {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--cve-text-muted);
+    max-width: 52ch;
+    line-height: 1.5;
+  }
+  .cve-empty-pane__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cve-space-2);
+    justify-content: center;
+    margin-top: var(--cve-space-2);
+  }
+
   /* Raw JSON / details block. Reused for the Developer raw view and
      any inline JSON or evidence inspector. */
   .cve-raw {
@@ -786,6 +837,56 @@
     min-height: 0;
     flex: 1 1 auto;
     max-width: 100%;
+  }
+
+  /* ------------------------------------------------------------------
+     Batch B - cve-page--fill: opt-in vertical rhythm
+     ------------------------------------------------------------------
+     Workspace pages composing .cve-workbench can opt in to fill the
+     remaining height of the shell content area, so internal scroll
+     regions handle long rails and detail panes instead of the whole
+     page scrolling. Opt-in only: existing pages are unaffected unless
+     they add this modifier. Narrow viewports keep the natural column
+     flow so the page remains scrollable on mobile.
+     ------------------------------------------------------------------ */
+  .cve-page--fill {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  @media (min-width: 1024px) {
+    .cve-page--fill {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .cve-page--fill > .cve-workbench {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+  }
+
+  /* ------------------------------------------------------------------
+     Batch B - cve-workbench--bounded: opt-in workbench height bound
+     ------------------------------------------------------------------
+     When applied to .cve-workbench, the rail and inspector are bounded
+     to the viewport height at desktop widths so their internal
+     cve-scroll-region children scroll instead of pushing the whole
+     page. Uses 100dvh rather than hard-coded pixel heights so the
+     bound tracks the actual viewport (including dynamic browser UI).
+     The 8rem allowance leaves room for the app shell header, page
+     toolbar, and breathing space without coupling to exact tokens.
+     Narrow viewports remain unbounded for natural mobile scrolling.
+     ------------------------------------------------------------------ */
+  @media (min-width: 1024px) {
+    .cve-workbench--bounded {
+      max-height: calc(100dvh - 8rem);
+      min-height: 0;
+    }
+    .cve-workbench--bounded > .cve-workbench__rail,
+    .cve-workbench--bounded > .cve-workbench__inspector {
+      max-height: 100%;
+      min-height: 0;
+    }
   }
 
   /* ------------------------------------------------------------------

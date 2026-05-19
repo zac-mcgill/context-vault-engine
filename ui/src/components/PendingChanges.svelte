@@ -497,8 +497,11 @@
       <section class="cve-workbench__inspector cve-p30e1-inspector" aria-label="Selected change inspector">
 
         {#if !selectedChange && detailState !== 'loading'}
-          <div class="cve-p30e1-inspector__empty">
-            <p>Select a change from the queue to review provenance, diff, and accept or reject it.</p>
+          <div class="cve-empty-pane">
+            <h2 class="cve-empty-pane__title">No change selected</h2>
+            <p class="cve-empty-pane__body">
+              Select a change from the queue to review provenance, diff, and accept or reject it.
+            </p>
           </div>
         {:else if detailState === 'loading'}
           <div class="cve-loading">Loading change detail...</div>

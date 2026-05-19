@@ -887,6 +887,15 @@
       max-height: 100%;
       min-height: 0;
     }
+    /* Batch B2: when a workbench opts in to the bounded modifier, the
+       rail/inspector themselves govern available height. Release the
+       legacy 32rem cap on the p30e1 rail body so the inner scroll
+       region can grow to fill the bounded rail instead of leaving a
+       short scroll panel beside whitespace. Narrow viewports keep the
+       original cap because the bounded modifier is desktop-only. */
+    .cve-workbench--bounded .cve-p30e1-rail__body {
+      max-height: none;
+    }
   }
 
   /* ------------------------------------------------------------------

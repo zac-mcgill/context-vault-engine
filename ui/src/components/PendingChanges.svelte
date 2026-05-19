@@ -404,7 +404,7 @@
     </div>
 
     <!-- Workbench: rail + inspector -->
-    <div class="cve-workbench">
+    <div class="cve-workbench cve-workbench--bounded">
 
       <!-- Queue rail -->
       <aside class="cve-workbench__rail cve-p30e1-rail" aria-label="Pending change queue">

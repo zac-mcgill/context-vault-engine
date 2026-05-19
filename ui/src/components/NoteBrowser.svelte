@@ -656,7 +656,7 @@
     />
   {/if}
 
-  <div class="cve-workbench">
+  <div class="cve-workbench cve-workbench--bounded">
 
     <!-- ────────────────────────── Rail ────────────────────────── -->
     <aside class="cve-workbench__rail cve-p30d2-rail" aria-label="Note list">

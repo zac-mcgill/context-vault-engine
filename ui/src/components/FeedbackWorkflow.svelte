@@ -501,7 +501,7 @@
     </div>
 
     <!-- Workbench: triage table + tasks panel -->
-    <div class="cve-workbench">
+    <div class="cve-workbench cve-workbench--bounded">
 
       <section class="cve-workbench__rail cve-p30e1-rail" aria-label="Feedback triage queue">
 

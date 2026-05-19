@@ -1635,11 +1635,11 @@
   .cve-p30d2-edit-grid {
     display: flex;
     flex-direction: column;
-    gap: var(--cve-space-2);
+    gap: var(--cve-space-1);
   }
   .cve-p30d2-edit-row {
     display: grid;
-    grid-template-columns: 12rem 1fr;
+    grid-template-columns: 9rem 1fr;
     gap: var(--cve-space-2);
     align-items: center;
   }
@@ -1695,6 +1695,64 @@
   }
   .cve-p30d2-link-btn:hover {
     text-decoration: underline;
+  }
+
+  /* ------------------------------------------------------------------
+     Batch D2 - Notes inspector layout polish
+     ------------------------------------------------------------------
+     Low-risk layout improvements for the Notes edit-view:
+       - Cancel the cve-section top-margin inside the scroll body so
+         the body gap token alone controls inter-section rhythm.
+       - Collapsible section panels (frontmatter edit, section outline)
+         so the Markdown body editor is reachable without scrolling.
+       - Checkbox wrapper for boolean edit rows.
+     No behaviour changes; no new tokens introduced.
+     ------------------------------------------------------------------ */
+  /* Cancel cve-section's own margin-top when nested in the inspector
+     body; the body flex gap handles the inter-section rhythm. */
+  .cve-p30d2-inspector__body > .cve-section {
+    margin-top: 0;
+  }
+  /* Lightweight collapsible panel used for Frontmatter (edit mode) and
+     Section Outline. Unlike cve-details, this variant has no box border
+     or background so it reads as an inline section header, not a card. */
+  .cve-p30d2-section-details {
+    width: 100%;
+  }
+  .cve-p30d2-section-details > summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: var(--cve-space-2);
+    padding: var(--cve-space-1) 0;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--cve-text-muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  .cve-p30d2-section-details > summary::-webkit-details-marker {
+    display: none;
+  }
+  .cve-p30d2-section-details > summary::before {
+    content: "\25B8";
+    display: inline-block;
+    width: 0.75rem;
+    flex-shrink: 0;
+    color: var(--cve-text-faint);
+  }
+  .cve-p30d2-section-details[open] > summary::before {
+    content: "\25BE";
+  }
+  .cve-p30d2-section-details[open] > summary {
+    color: var(--cve-text);
+  }
+  /* Boolean-field rows in the edit grid: flex wrapper gives the
+     checkbox a consistent touch target and vertical centering. */
+  .cve-p30d2-edit-checkbox-wrap {
+    display: flex;
+    align-items: center;
+    min-height: 1.75rem;
   }
 
   /* ------------------------------------------------------------------
@@ -3238,7 +3296,7 @@
   .cve-p30d2-inspector__body {
     padding-top: var(--cve-space-3);
     padding-bottom: var(--cve-space-4);
-    gap: var(--cve-space-4);
+    gap: var(--cve-space-3);
   }
   /* Graph ranked missing concepts table: explicit cell padding so
      the ranked overview reads cleanly inside the inspector. */

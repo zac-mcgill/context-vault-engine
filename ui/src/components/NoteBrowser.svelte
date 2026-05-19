@@ -991,63 +991,72 @@
                 </div>
               {/if}
             {:else}
-              {#if Object.keys(editedFields).length === 0}
-                <p class="cve-empty">No frontmatter fields to edit.</p>
-              {:else}
-                <div class="cve-p30d2-edit-grid">
-                  {#each Object.entries(editedFields) as [key, value]}
-                    <div class="cve-p30d2-edit-row">
-                      <label class="cve-label cve-mono" for={`notes-field-${key}`} title={key}>{key}</label>
-                      {#if typeof value === 'boolean'}
-                        <input
-                          id={`notes-field-${key}`}
-                          type="checkbox"
-                          checked={value}
-                          on:change={(e) => { editedFields = { ...editedFields, [key]: (e.target as HTMLInputElement).checked }; }}
-                        />
-                      {:else if typeof value === 'object' && value !== null}
-                        <pre class="cve-raw cve-p30d2-edit-complex">{JSON.stringify(value, null, 2)}</pre>
-                      {:else}
-                        <input
-                          id={`notes-field-${key}`}
-                          class="cve-input"
-                          type="text"
-                          aria-label="Edit frontmatter field"
-                          value={String(value ?? '')}
-                          on:input={(e) => { editedFields = { ...editedFields, [key]: (e.target as HTMLInputElement).value }; }}
-                        />
-                      {/if}
-                    </div>
-                  {/each}
-                </div>
-              {/if}
+              <details class="cve-p30d2-section-details" open>
+                <summary>
+                  {Object.keys(editedFields).length} field{Object.keys(editedFields).length !== 1 ? 's' : ''}
+                </summary>
+                {#if Object.keys(editedFields).length === 0}
+                  <p class="cve-empty">No frontmatter fields to edit.</p>
+                {:else}
+                  <div class="cve-p30d2-edit-grid">
+                    {#each Object.entries(editedFields) as [key, value]}
+                      <div class="cve-p30d2-edit-row">
+                        <label class="cve-label cve-mono" for={`notes-field-${key}`} title={key}>{key}</label>
+                        {#if typeof value === 'boolean'}
+                          <span class="cve-p30d2-edit-checkbox-wrap">
+                            <input
+                              id={`notes-field-${key}`}
+                              type="checkbox"
+                              checked={value}
+                              on:change={(e) => { editedFields = { ...editedFields, [key]: (e.target as HTMLInputElement).checked }; }}
+                            />
+                          </span>
+                        {:else if typeof value === 'object' && value !== null}
+                          <pre class="cve-raw cve-p30d2-edit-complex">{JSON.stringify(value, null, 2)}</pre>
+                        {:else}
+                          <input
+                            id={`notes-field-${key}`}
+                            class="cve-input"
+                            type="text"
+                            aria-label="Edit frontmatter field"
+                            value={String(value ?? '')}
+                            on:input={(e) => { editedFields = { ...editedFields, [key]: (e.target as HTMLInputElement).value }; }}
+                          />
+                        {/if}
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              </details>
             {/if}
           </section>
 
           <!-- Section outline -->
           {#if (editMode ? editSectionOutline : sectionOutline).length > 0 || (editMode && missingSectionsAdvisory.length > 0)}
             <section class="cve-section" aria-labelledby="notes-outline-title">
-              <h3 id="notes-outline-title" class="cve-section-title">
-                Section Outline
-                <span class="cve-meta cve-mono">({(editMode ? editSectionOutline : sectionOutline).length} headings)</span>
-              </h3>
-              <ul class="cve-p30d2-outline">
-                {#each (editMode ? editSectionOutline : sectionOutline) as heading}
-                  <li style={`padding-left: ${(heading.level - 1) * 14}px`}>
-                    <span class="cve-mono cve-meta">{'#'.repeat(heading.level)}</span>
-                    <span>{heading.text}</span>
-                    <span class="cve-mono cve-meta">L{heading.lineNumber}</span>
-                  </li>
-                {/each}
-              </ul>
-              {#if editMode && missingSectionsAdvisory.length > 0}
-                <p class="cve-helper">Advisory: expected sections not found:</p>
-                <div class="cve-p30d2-badge-list">
-                  {#each missingSectionsAdvisory as s}
-                    <span class="cve-badge cve-badge-warning">{s}</span>
+              <details class="cve-p30d2-section-details" open>
+                <summary id="notes-outline-title">
+                  Section Outline
+                  <span class="cve-meta cve-mono">({(editMode ? editSectionOutline : sectionOutline).length} headings)</span>
+                </summary>
+                <ul class="cve-p30d2-outline">
+                  {#each (editMode ? editSectionOutline : sectionOutline) as heading}
+                    <li style={`padding-left: ${(heading.level - 1) * 14}px`}>
+                      <span class="cve-mono cve-meta">{'#'.repeat(heading.level)}</span>
+                      <span>{heading.text}</span>
+                      <span class="cve-mono cve-meta">L{heading.lineNumber}</span>
+                    </li>
                   {/each}
-                </div>
-              {/if}
+                </ul>
+                {#if editMode && missingSectionsAdvisory.length > 0}
+                  <p class="cve-helper">Advisory: expected sections not found:</p>
+                  <div class="cve-p30d2-badge-list">
+                    {#each missingSectionsAdvisory as s}
+                      <span class="cve-badge cve-badge-warning">{s}</span>
+                    {/each}
+                  </div>
+                {/if}
+              </details>
             </section>
           {/if}
 

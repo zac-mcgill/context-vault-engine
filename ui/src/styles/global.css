@@ -3433,3 +3433,65 @@
   }
 }
 
+/* ------------------------------------------------------------------
+   Batch C - Bounded workspace polish
+   ------------------------------------------------------------------
+   Targets the four bounded workspace routes (Notes, Pending, Graph,
+   Feedback) introduced in Batches B1/B2/B3. Pure CSS pass that
+   refines visual rhythm now that the bounded shell is in place:
+
+     1. cve-empty-pane sitting directly inside a workbench inspector
+        already has a framed parent; drop its dashed border and inner
+        background so the empty state reads as part of the inspector
+        rather than a nested card. The standalone primitive is left
+        untouched for other contexts.
+     2. The Phase 30E1 page gap of space-4 stacks status strips,
+        banners, and the workbench tightly inside the dvh-bounded
+        shell. Tighten the gap one step on desktop so the bounded
+        workbench claims more of the viewport without the page
+        feeling cramped on narrow widths (mobile keeps the looser
+        rhythm for natural scrolling).
+     3. Inspector and rail heads on the p30e1 surfaces (Pending and
+        Feedback) already carry their own padding and a surface
+        background. The Phase 30F outer pane padding produces a
+        double inset along the head edges; cap the inner head
+        padding at desktop widths so the head reads flush with the
+        pane border without disturbing narrow-viewport rhythm.
+
+   No new tokens, no markup changes, no protected prefix renames.
+   ------------------------------------------------------------------ */
+@layer components {
+  /* (1) Flush empty-pane inside an already-framed inspector. */
+  .cve-workbench__inspector > .cve-empty-pane,
+  .cve-workbench__inspector > .cve-p30e1-inspector__empty {
+    border: none;
+    background-color: transparent;
+    min-height: 16rem;
+  }
+  /* (2) Tighter page rhythm on bounded p30e1 workspaces at desktop. */
+  @media (min-width: 1024px) {
+    .cve-p30e1-page.cve-page--fill {
+      gap: var(--cve-space-3);
+    }
+  }
+  /* (3) Flush rail/inspector head padding on the p30e1 surfaces when
+         the outer pane already supplies padding via Phase 30F. */
+  @media (min-width: 1024px) {
+    .cve-workbench__rail > .cve-p30e1-rail__head,
+    .cve-workbench__inspector > .cve-p30e1-inspector__head {
+      padding-left: 0;
+      padding-right: 0;
+      background-color: transparent;
+    }
+    .cve-workbench__inspector > .cve-p30e1-inspector__body {
+      padding-left: 0;
+      padding-right: 0;
+      padding-top: var(--cve-space-3);
+    }
+    .cve-workbench__rail > .cve-p30e1-rail__body {
+      padding-left: 0;
+      padding-right: 0;
+    }
+  }
+}
+

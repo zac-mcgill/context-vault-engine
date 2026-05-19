@@ -647,9 +647,6 @@
             <details class="cve-details cve-details--inspector">
               <summary>Raw export response</summary>
               <div class="cve-details__body">
-                <a class="cve-details__developer-link" href={rawDeepLink}
-                  >Open in Developer</a
-                >
                 <pre class="cve-p30d3-mono" style="white-space:pre-wrap;">{JSON.stringify(
                     exportResult,
                     null,

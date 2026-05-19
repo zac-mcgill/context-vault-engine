@@ -769,10 +769,8 @@
               <div class="cve-details__body">
                 <p class="cve-helper">
                   The raw pending JSON is intentionally not shown inline here.
-                  Open the full payload in the Developer route:
+                  Use the Developer link in the toolbar to open the full payload at /app/raw.
                 </p>
-                <a class="cve-details__developer-link" href={rawDeepLink}
-                  >Open this vault in /app/raw</a>
               </div>
             </details>
 

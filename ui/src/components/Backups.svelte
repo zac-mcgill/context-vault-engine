@@ -188,7 +188,7 @@
               <td>
                 <button
                   type="button"
-                  class="cve-button"
+                  class="cve-btn cve-btn-secondary"
                   on:click={() => {
                     selectedBackup = b.backup_id;
                     runPreview();
@@ -202,7 +202,7 @@
         </tbody>
       </table>
     {/if}
-    <button type="button" class="cve-button" on:click={loadList}>Refresh</button>
+    <button type="button" class="cve-btn cve-btn-secondary" on:click={loadList}>Refresh</button>
   </section>
 
   <section class="cve-card">
@@ -213,12 +213,12 @@
       VCS metadata are always excluded.
     </p>
     <div class="cve-actions">
-      <button type="button" class="cve-button" on:click={loadPlan}>
+      <button type="button" class="cve-btn cve-btn-secondary" on:click={loadPlan}>
         Plan backup
       </button>
       <button
         type="button"
-        class="cve-button cve-button--primary"
+        class="cve-btn cve-btn-primary"
         on:click={runCreate}
         disabled={createPhase === 'loading'}
       >
@@ -290,7 +290,7 @@
     <div class="cve-actions">
       <button
         type="button"
-        class="cve-button"
+        class="cve-btn cve-btn-secondary"
         on:click={runPreview}
         disabled={!selectedBackup || previewPhase === 'loading'}
       >
@@ -380,7 +380,7 @@
           <div class="cve-actions">
             <button
               type="button"
-              class="cve-button cve-button--danger"
+              class="cve-btn cve-btn-danger"
               on:click={runApply}
               disabled={confirmInput.trim() !== preview.confirmation_phrase
                 || applyPhase === 'loading'}

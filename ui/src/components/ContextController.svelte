@@ -223,7 +223,6 @@
   }
 
   $: rawStateDeepLink = buildRawDeepLink('context-state', selectedVault, 'controller');
-  $: rawPlanDeepLink = buildRawDeepLink('context-plan', selectedVault, 'controller');
 </script>
 
 <!-- ============================================================
@@ -510,9 +509,10 @@
     <summary class="cve-details__summary">Developer details</summary>
     <div class="cve-details__body">
       <p class="cve-p30e2-helper-text">
-        Raw controller responses are exposed via the deterministic Developer route.
-        Use these deep-links to inspect the underlying JSON without leaving the
-        Controller workflow.
+        Raw controller responses are exposed via the deterministic Developer route
+        at /app/raw. Use this link to inspect the underlying JSON. Both the
+        context state and context plan endpoints are available via the endpoint
+        selector there.
       </p>
       <div class="cve-p30e2-developer-row">
         <a
@@ -520,14 +520,7 @@
           class="cve-details__developer-link"
           data-testid="controller-developer-state-link"
         >
-          Open context state in Developer
-        </a>
-        <a
-          href={rawPlanDeepLink}
-          class="cve-details__developer-link"
-          data-testid="controller-developer-plan-link"
-        >
-          Open context plan in Developer
+          Open in Developer
         </a>
       </div>
     </div>

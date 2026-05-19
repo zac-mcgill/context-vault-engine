@@ -568,97 +568,88 @@
           {:else if filteredEntries.length === 0}
             <div class="cve-empty">No feedback matches the current filters.</div>
           {:else}
-            <div class="cve-table-wrap">
-              <table class="cve-table" data-testid="feedback-triage-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Severity</th>
-                    <th scope="col">Signal</th>
-                    <th scope="col">Source</th>
-                    <th scope="col">Path</th>
-                    <th scope="col">Comment</th>
-                    <th scope="col">Created</th>
-                    <th scope="col">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each filteredEntries as entry (entry.id ?? entry.path + entry.created_at)}
+            <div class="cve-table-wrap cve-p30e1-fb-list-wrap">
+              <ul class="cve-p30e1-fb-list" data-testid="feedback-triage-table" role="list" aria-label="Feedback entries">
+                {#each filteredEntries as entry (entry.id ?? entry.path + entry.created_at)}
+                  <li class="cve-p30e1-fb-card">
                     {#if editingId && entry.id === editingId}
-                      <tr>
-                        <td colspan="7">
-                          <div class="cve-p30e1-edit-form" role="form" aria-label="Edit feedback entry">
-                            <div class="cve-p30e1-filter-row">
-                              <div class="cve-field">
-                                <label class="cve-label" for="edit-path">Path</label>
-                                <input id="edit-path" class="cve-input" bind:value={editPath} />
-                              </div>
-                              <div class="cve-field">
-                                <label class="cve-label" for="edit-source">Source</label>
-                                <select id="edit-source" class="cve-select" bind:value={editSource}>
-                                  <option value="human">human</option>
-                                  <option value="agent">agent</option>
-                                  <option value="system">system</option>
-                                </select>
-                              </div>
-                              <div class="cve-field">
-                                <label class="cve-label" for="edit-signal">Signal</label>
-                                <select id="edit-signal" class="cve-select" bind:value={editSignal}>
-                                  <option value="unclear">unclear</option>
-                                  <option value="incomplete">incomplete</option>
-                                  <option value="outdated">outdated</option>
-                                  <option value="incorrect">incorrect</option>
-                                  <option value="agent_failed">agent_failed</option>
-                                  <option value="needs_example">needs_example</option>
-                                  <option value="needs_constraints">needs_constraints</option>
-                                  <option value="useful">useful</option>
-                                  <option value="agent_succeeded">agent_succeeded</option>
-                                </select>
-                              </div>
-                              <div class="cve-field">
-                                <label class="cve-label" for="edit-severity">Severity</label>
-                                <select id="edit-severity" class="cve-select" bind:value={editSeverity}>
-                                  <option value="critical">critical</option>
-                                  <option value="high">high</option>
-                                  <option value="medium">medium</option>
-                                  <option value="low">low</option>
-                                </select>
-                              </div>
-                            </div>
-                            <div class="cve-field">
-                              <label class="cve-label" for="edit-comment">Comment</label>
-                              <textarea id="edit-comment" class="cve-textarea" bind:value={editComment} rows="3"></textarea>
-                            </div>
-                            {#if editState === 'error'}
-                              <div class="cve-error">{editError}</div>
-                            {/if}
-                            <div class="cve-p30e1-action-row">
-                              <button type="button" class="cve-btn cve-btn-primary" on:click={submitEdit} disabled={editState === 'loading'}>
-                                {editState === 'loading' ? 'Saving' : 'Save'}
-                              </button>
-                              <button type="button" class="cve-btn cve-btn-ghost" on:click={cancelEdit}>Cancel</button>
-                            </div>
+                      <div class="cve-p30e1-edit-form" role="form" aria-label="Edit feedback entry">
+                        <div class="cve-p30e1-filter-row">
+                          <div class="cve-field">
+                            <label class="cve-label" for="edit-path">Path</label>
+                            <input id="edit-path" class="cve-input" bind:value={editPath} />
                           </div>
-                        </td>
-                      </tr>
+                          <div class="cve-field">
+                            <label class="cve-label" for="edit-source">Source</label>
+                            <select id="edit-source" class="cve-select" bind:value={editSource}>
+                              <option value="human">human</option>
+                              <option value="agent">agent</option>
+                              <option value="system">system</option>
+                            </select>
+                          </div>
+                          <div class="cve-field">
+                            <label class="cve-label" for="edit-signal">Signal</label>
+                            <select id="edit-signal" class="cve-select" bind:value={editSignal}>
+                              <option value="unclear">unclear</option>
+                              <option value="incomplete">incomplete</option>
+                              <option value="outdated">outdated</option>
+                              <option value="incorrect">incorrect</option>
+                              <option value="agent_failed">agent_failed</option>
+                              <option value="needs_example">needs_example</option>
+                              <option value="needs_constraints">needs_constraints</option>
+                              <option value="useful">useful</option>
+                              <option value="agent_succeeded">agent_succeeded</option>
+                            </select>
+                          </div>
+                          <div class="cve-field">
+                            <label class="cve-label" for="edit-severity">Severity</label>
+                            <select id="edit-severity" class="cve-select" bind:value={editSeverity}>
+                              <option value="critical">critical</option>
+                              <option value="high">high</option>
+                              <option value="medium">medium</option>
+                              <option value="low">low</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div class="cve-field">
+                          <label class="cve-label" for="edit-comment">Comment</label>
+                          <textarea id="edit-comment" class="cve-textarea" bind:value={editComment} rows="3"></textarea>
+                        </div>
+                        {#if editState === 'error'}
+                          <div class="cve-error">{editError}</div>
+                        {/if}
+                        <div class="cve-p30e1-action-row">
+                          <button type="button" class="cve-btn cve-btn-primary" on:click={submitEdit} disabled={editState === 'loading'}>
+                            {editState === 'loading' ? 'Saving' : 'Save'}
+                          </button>
+                          <button type="button" class="cve-btn cve-btn-ghost" on:click={cancelEdit}>Cancel</button>
+                        </div>
+                      </div>
                     {:else}
-                      <tr>
-                        <td><span class={severityTag(String(entry.severity))}>{entry.severity}</span></td>
-                        <td><span class={signalTag(String(entry.signal))}>{entry.signal}</span></td>
-                        <td>{entry.source}</td>
-                        <td><a class="cve-link" href={notesLink(entry.path)}><code class="cve-p30e1-mono">{entry.path}</code></a></td>
-                        <td>{entry.comment}</td>
-                        <td>{fmtDate(entry.created_at)}</td>
-                        <td>
-                          <button type="button" class="cve-btn cve-btn-ghost cve-p30e1-row-btn" on:click={() => startEdit(entry)} disabled={!entry.id}>Edit</button>
-                          <button type="button" class="cve-btn cve-btn-ghost cve-p30e1-row-btn" on:click={() => submitDelete(entry)} disabled={!entry.id}>Delete</button>
-                          <a class="cve-link cve-p30e1-row-link" href={tasksLink()}>Tasks</a>
-                          <a class="cve-link cve-p30e1-row-link" href={validationLink()}>Validation</a>
-                        </td>
-                      </tr>
+                      <div class="cve-p30e1-fb-card__head">
+                        <span class={severityTag(String(entry.severity))}>{entry.severity}</span>
+                        <span class={signalTag(String(entry.signal))}>{entry.signal}</span>
+                        <span class="cve-p30e1-fb-card__source">{entry.source}</span>
+                        <span class="cve-p30e1-fb-card__date">{fmtDate(entry.created_at)}</span>
+                      </div>
+                      <div class="cve-p30e1-fb-card__path">
+                        <a class="cve-link" href={notesLink(entry.path)}><code class="cve-p30e1-mono">{entry.path}</code></a>
+                      </div>
+                      <div class="cve-p30e1-fb-card__comment">{entry.comment}</div>
+                      <div class="cve-p30e1-fb-card__actions">
+                        <div class="cve-p30e1-fb-card__actions-primary">
+                          <button type="button" class="cve-btn cve-btn-ghost" on:click={() => startEdit(entry)} disabled={!entry.id} aria-label="Edit feedback for {entry.path}">Edit</button>
+                          <button type="button" class="cve-btn cve-btn-ghost cve-p30e1-fb-card__delete-btn" on:click={() => submitDelete(entry)} disabled={!entry.id} aria-label="Delete feedback for {entry.path}">Delete</button>
+                        </div>
+                        <div class="cve-p30e1-fb-card__actions-nav">
+                          <a class="cve-link" href={tasksLink()}>Tasks</a>
+                          <a class="cve-link" href={validationLink()}>Validation</a>
+                        </div>
+                      </div>
                     {/if}
-                  {/each}
-                </tbody>
-              </table>
+                  </li>
+                {/each}
+              </ul>
             </div>
           {/if}
         </div>

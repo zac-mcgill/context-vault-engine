@@ -2606,6 +2606,91 @@
   }
 
   /* ------------------------------------------------------------------
+   * Batch D1 - cve-p30e1-fb-*: responsive feedback card list
+   * Replaces the wide 7-column table so feedback entries remain
+   * readable inside the narrow rail column without horizontal scroll.
+   * All data fields are preserved; actions are grouped for clarity.
+   * ------------------------------------------------------------------ */
+  .cve-p30e1-fb-list-wrap {
+    /* inherits border, radius, overflow-x:auto from cve-table-wrap */
+  }
+  .cve-p30e1-fb-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .cve-p30e1-fb-card {
+    padding: var(--cve-space-3);
+    border-bottom: 1px solid var(--cve-border-soft);
+    display: flex;
+    flex-direction: column;
+    gap: var(--cve-space-2);
+    min-width: 0;
+  }
+  .cve-p30e1-fb-card:last-child {
+    border-bottom: none;
+  }
+  .cve-p30e1-fb-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cve-space-1);
+    align-items: center;
+    min-width: 0;
+  }
+  .cve-p30e1-fb-card__source {
+    font-size: 0.75rem;
+    color: var(--cve-text-muted);
+  }
+  .cve-p30e1-fb-card__date {
+    font-size: 0.75rem;
+    color: var(--cve-text-faint);
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  .cve-p30e1-fb-card__path {
+    min-width: 0;
+    word-break: break-all;
+    overflow-wrap: break-word;
+  }
+  .cve-p30e1-fb-card__comment {
+    font-size: 0.875rem;
+    color: var(--cve-text);
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.5;
+  }
+  .cve-p30e1-fb-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--cve-space-2);
+    padding-top: var(--cve-space-2);
+    border-top: 1px solid var(--cve-border-soft);
+    min-width: 0;
+  }
+  .cve-p30e1-fb-card__actions-primary {
+    display: flex;
+    gap: var(--cve-space-1);
+    align-items: center;
+  }
+  .cve-p30e1-fb-card__delete-btn {
+    color: var(--cve-danger);
+    border-color: var(--cve-danger);
+  }
+  .cve-p30e1-fb-card__delete-btn:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--cve-danger) 8%, transparent);
+  }
+  .cve-p30e1-fb-card__actions-nav {
+    display: flex;
+    gap: var(--cve-space-3);
+    align-items: center;
+    margin-left: auto;
+    font-size: 0.8125rem;
+  }
+
+  /* ------------------------------------------------------------------
    * Phase 30E2 - Controller command-centre and Vault Setup polish
    * ------------------------------------------------------------------
    * Tokenised primitives shared by ContextController.svelte and
